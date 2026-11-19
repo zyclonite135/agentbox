@@ -249,7 +249,7 @@ export default {
     "回退上次镜像": "Restore previous image",
     "图片上传中…": "Uploading image…",
     "图片预览": "Image preview",
-    "在你的服务器上，使用独立的 Agent 工作空间": "Independent Agent workspaces on your server",
+    "你的 AI 智能体。你的空间": "Your AI agents. Your space",
     "在你的电脑上运行 abox-link，让云端工作空间中的 Agent 按需访问你授权的内网服务。": "Run abox-link on your computer to let cloud agents access the private network services you allow.",
     "在当前工作空间中新建对话，原对话保留在历史中": "Start a new conversation; keep the current one in history",
     "在新标签页打开预览": "Open preview in a new tab",

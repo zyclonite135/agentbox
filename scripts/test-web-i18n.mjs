@@ -232,6 +232,35 @@ export async function webI18nSmoke(browser) {
   await mkdir(resolve('output/playwright'),{recursive:true});
   await page.waitForFunction(()=>document.querySelector('#sidebar').getBoundingClientRect().right<=1);
   await page.screenshot({path:resolve('output/playwright/web-i18n-english-mobile.png'),animations:'disabled'});
+  await page.goto(base+'/#/settings/security');
+  await page.locator('#sec-security').waitFor();
+  const securityHeading=page.locator('#sec-security h2');
+  await language('ru');
+  const settingsLabels={proxies:'IP-прокси',container:'Контейнеры',decision:'Решения',interface:'Интерфейс',
+   security:'Безопасность',logins:'Активность',about:'Обновления'};
+  for (const [section,label] of Object.entries(settingsLabels)) {
+   const button=page.locator(`#set-nav [data-sec="${section}"]`);
+   assert.equal(await button.locator('.action-label').textContent(),label);
+   assert.equal(await button.getAttribute('aria-label'),label);
+  }
+  assert.equal(await securityHeading.textContent(),'Безопасность и доступ');
+  assert.equal(await page.locator('#set-nav [data-sec="security"]').getAttribute('data-tip'),'Безопасность и доступ');
+  for (const width of [761,1024,1280]) {
+   await page.setViewportSize({width,height:900});
+   const wrapped=await page.locator('#set-nav button:not(.hidden) .action-label').evaluateAll(labels=>labels.flatMap(label=>{
+    const range=document.createRange();
+    range.selectNodeContents(label);
+    return range.getClientRects().length===1 ? [] : [label.textContent];
+   }));
+   assert.deepEqual(wrapped,[],`Russian settings labels must fit on one line at ${width}px`);
+  }
+  await page.setViewportSize({width:390,height:900});
+  await page.locator('#mobile-section-btn').click();
+  await page.getByRole('menuitemradio',{name:'Интерфейс',exact:true}).click();
+  await page.locator('#sec-interface').waitFor();
+  assert.equal(await page.locator('#mobile-section-label').textContent(),'Интерфейс');
+  await language('en');
+  assert.equal(await page.locator('#mobile-section-label').textContent(),'Appearance and tips');
   await page.evaluate(async()=>{const {emit}=await import('/_v/{{BUILD}}/js/state.js');emit('unauthorized');});
   await page.locator('#login').waitFor({state:'visible'});
   await language('zh-TW'); await language('en');

@@ -1,7 +1,8 @@
 import { SettingsRequests } from "./requests.js";
 import {fillDecisionSettings,decisionSettingsGroup,initDecisionSettings,refreshDecisionSettings} from "./decision.js";
 import { initSettingsMaintenance } from "./maintenance.js";
-import { setAttrRender, setText, setTextRender, t as i18nText } from "../../i18n.js";
+import { i18n, setAttr, setAttrRender, setText, setTextRender, t as i18nText } from "../../i18n.js";
+import { ruSettingsNav } from "../../locales/ru-static.js";
 import { initImageUpdates, fillImageUpdateSettings, startImageUpdates, stopImageUpdates } from "./image-updates.js";
 import { loadSystem, stopSystem, startMonitor, stopMonitor } from "./operations.js";
 import { settingsState } from "./state.js";
@@ -48,6 +49,15 @@ decorateAgentOpts($("acct-form"));
 for (const h of document.querySelectorAll<HTMLElement>("h3[data-agent]")) {
   h.classList.add("agent-h3", "agent-" + agentKey(h.dataset.agent!));
   h.prepend(agentIcon(h.dataset.agent!, 15));
+}
+
+for (const caption of document.querySelectorAll<HTMLElement>("#set-nav [data-settings-nav-label]")) {
+  const source = caption.textContent!.trim();
+  const button = caption.closest("button")!;
+  const label = () => (i18n.locale === "ru" ? ruSettingsNav[source] : undefined) ?? i18nText(source);
+  setTextRender(caption, label);
+  setAttrRender(button, "aria-label", label);
+  setAttr(button, "data-tip", source);
 }
 
 export const SET_SECS = ["accounts", "proxies", "container", "models", "decision", "interface", "icons", "security", "logins", "announce", "monitor", "about"];

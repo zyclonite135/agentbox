@@ -197,6 +197,8 @@
 }
 @media (min-width: 761px) and (max-width: 1100px) {
   .sidebar { width: 200px; }
+  :root:lang(ru):not([data-sidebar-collapsed="true"]) .side-create { padding-inline: 6px; }
+  :root:lang(ru):not([data-sidebar-collapsed="true"]) .side-new { padding-inline: 4px; gap: 6px; }
   .set-head { padding-inline: 20px; }
   .set-body { padding: 16px 20px 0; gap: 16px; }
   .set-nav { width: 144px; }

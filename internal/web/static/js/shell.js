@@ -1,4 +1,5 @@
 import { htmlText as trHTML, i18n, languages, setAttrRender, setTextRender, t as i18nText } from "./i18n.js";
+import { ruCreateWorkspaceLabel } from "./locales/ru-static.js";
 /* shell：应用外壳 —— 抽屉、主区视图切换（工作台/设置）、顶栏标题、侧栏渲染。
  * 点击会话卡片 / 系统设置入口通过 bus 广播，由 sessions.js / settings.js 接管，
  * 保持 shell 不反向依赖任何功能模块。 */
@@ -21,6 +22,11 @@ const topbar = document.querySelector(".topbar");
 const toggle = $("btn-sidebar-toggle");
 // index.html 在首屏恢复同一个键，避免刷新时宽度跳动。
 const SIDEBAR_KEY = "agentbox_sidebar_collapsed";
+const createWorkspaceButton = $("btn-new");
+const createWorkspaceLabel = () => i18n.locale === "ru" ? ruCreateWorkspaceLabel : i18nText("新建工作空间");
+setTextRender($("side-new-label"), createWorkspaceLabel);
+setAttrRender(createWorkspaceButton, "aria-label", createWorkspaceLabel);
+setAttrRender(createWorkspaceButton, "data-tip", () => i18nText(i18n.locale === "ru" ? "创建工作空间" : "新建工作空间"));
 /* 用户弹层：展开时向上贴齐头像，图标栏时在侧栏右侧展开。 */
 const userButton = $("btn-user-menu");
 const userMenu = $("sidebar-user-menu");

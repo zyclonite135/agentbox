@@ -1,4 +1,6 @@
 // Authored interface text only; never translate user content.
+export const ruCreateWorkspaceLabel = "Создать пространство";
+
 export const ruSettingsNav: Readonly<Record<string, string>> = {
   "IP 代理": "IP-прокси",
   "容器与资源": "Контейнеры",

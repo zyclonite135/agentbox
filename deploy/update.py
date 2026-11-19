@@ -26,7 +26,7 @@ spec = importlib.util.spec_from_file_location('release', Path(__file__).with_nam
 release = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release)
 
-REPO = 'devilcoolyue/agentbox'
+REPO = 'zyclonite135/agentbox'
 STABLE = re.compile(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)')
 VERSION = re.compile(r'v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?')
 TERMINAL = ('succeeded', 'failed')

@@ -2,20 +2,20 @@
 
 Agentbox 提供浏览器中的 AI 编码工作空间，支持 Claude Code / Codex CLI、对话、终端、文件、Git、账号池及内网反向隧道。
 
-本页提供预编译包的安装与维护说明，完整源码与贡献入口见 [agentbox](https://github.com/devilcoolyue/agentbox)。下载页面：<https://github.com/devilcoolyue/agentbox/releases>。
+本页提供预编译包的安装与维护说明，完整源码与贡献入口见 [agentbox](https://github.com/devilcoolyue/agentbox)。本分支下载页面：<https://github.com/zyclonite135/agentbox/releases>。
 
 ## Linux 一键安装
 
 在目标服务器执行（root 用户可以去掉 `sudo`）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/devilcoolyue/agentbox/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/zyclonite135/agentbox/refs/heads/feature/my-change/install.sh | sudo bash
 ```
 
 默认安装最新正式版本。固定版本或只监听本机：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/devilcoolyue/agentbox/main/install.sh | sudo bash -s -- --version v0.1.20 --listen 127.0.0.1:8180
+curl -fsSL https://raw.githubusercontent.com/zyclonite135/agentbox/refs/heads/feature/my-change/install.sh | sudo bash -s -- --version v0.1.21 --listen 127.0.0.1:8180
 ```
 
 要求 Linux x86_64 / arm64、systemd 和本机 Docker Engine。Ubuntu 22.04+、Debian 12+ 自动安装缺失依赖和 Docker；其他发行版需预装 Python 3.9+、Git、curl、CA 证书、tzdata 和 Docker。服务端使用预编译包，宿主机无需 Go 或 Node。
@@ -31,8 +31,8 @@ curl -fsSL https://raw.githubusercontent.com/devilcoolyue/agentbox/main/install.
 适用于默认目录的一键安装，兼容 v0.1.0。默认停止并禁用服务、移除本安装的工作空间容器，把程序、配置、凭证和数据移到 `/var/backups/agentbox-uninstall/<时间>/`（仅 root 可读），让原目录可用于全新安装。保留 Docker、镜像、其他容器和防火墙规则。备份目录与安装目录需在同一文件系统；自定义目录/服务覆盖配置会拒绝自动卸载。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/devilcoolyue/agentbox/main/uninstall.sh | sudo bash -s -- --yes
-curl -fsSL https://raw.githubusercontent.com/devilcoolyue/agentbox/main/install.sh | sudo bash -s -- --version v0.1.20
+curl -fsSL https://raw.githubusercontent.com/zyclonite135/agentbox/refs/heads/feature/my-change/uninstall.sh | sudo bash -s -- --yes
+curl -fsSL https://raw.githubusercontent.com/zyclonite135/agentbox/refs/heads/feature/my-change/install.sh | sudo bash -s -- --version v0.1.21
 ```
 
 新安装会生成新密码，旧数据保留在备份中，不自动导入。只预览卸载计划用 `--dry-run`；确定不需要数据时加 `--purge --yes` 永久删除本次安装的配置、凭证及工作区（不删除以前的卸载备份）。没有 `--yes` 时从终端询问确认。
@@ -65,13 +65,13 @@ sudo systemctl restart agentbox
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
-tar -xzf agentbox_v0.1.20_linux_arm64.tar.gz
+tar -xzf agentbox_v0.1.21_linux_arm64.tar.gz
 ```
 
 必须确认所选安装包校验为 `OK`。SHA-256 检查完整性，不是独立数字签名。新安装可以运行解压包中的安装器，仍会下载并验证所选版本：
 
 ```bash
-sudo bash agentbox_v0.1.20_linux_arm64/install.sh --version v0.1.20
+sudo bash agentbox_v0.1.21_linux_arm64/install.sh --version v0.1.21
 ```
 
 后续升级时，将新包解压到新的目录，使用包内工具（把路径和版本替换为实际值）：

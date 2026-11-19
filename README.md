@@ -8,7 +8,7 @@
 
 Run Claude Code and Codex CLI on a Linux server you control.<br /> Go from a task to reviewed code with chat, terminal, files, and Git in one place.
 
-[![Release](https://img.shields.io/github/v/release/devilcoolyue/agentbox?color=D99A2B)](https://github.com/devilcoolyue/agentbox/releases/latest) [![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?logo=go&logoColor=white)](go.mod) [![Docker](https://img.shields.io/badge/Docker-Workspaces-2496ED?logo=docker&logoColor=white)](images/agent/Dockerfile) [![License](https://img.shields.io/badge/License-Apache--2.0-D99A2B)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/zyclonite135/agentbox?color=D99A2B)](https://github.com/zyclonite135/agentbox/releases/latest) [![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?logo=go&logoColor=white)](go.mod) [![Docker](https://img.shields.io/badge/Docker-Workspaces-2496ED?logo=docker&logoColor=white)](images/agent/Dockerfile) [![License](https://img.shields.io/badge/License-Apache--2.0-D99A2B)](LICENSE)
 
 **English** | [简体中文](README_CN.md)
 
@@ -114,17 +114,25 @@ All screenshots are 2× PNGs; click one to open it at full resolution.
 ### Install on your Linux server
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/devilcoolyue/agentbox/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/zyclonite135/agentbox/refs/heads/feature/my-change/install.sh | sudo bash
 ```
 
 The installer downloads and verifies the server package, builds the workspace image, and starts `agentbox.service`. **No Go or Node.js installation is needed on the server.** The first image build takes a few minutes and needs access to container registries, Debian repositories, and npm.
 
 - **Host:** Linux x86_64 / arm64, systemd, and local Docker Engine. Ubuntu 22.04+ / Debian 12+ install missing dependencies automatically. For other distributions, see the [prerequisites](deploy/README.md#一键安装).
 - **Sign in:** open `http://YOUR_SERVER_IP:8180` and use `boxadmin` with the generated password printed by the installer. Allow TCP 8180 through your firewall if connecting directly; configure [HTTPS](deploy/README.md#https-与-websocket-反向代理) for ongoing public access.
-- **Stable server:** [v0.1.20](https://github.com/devilcoolyue/agentbox/releases/tag/v0.1.20). The command selects the latest stable release; append `-s -- --version v0.1.20` to pin it, or `-s -- --listen 127.0.0.1:8180` to bind only to localhost.
+- **Stable server:** the command selects the latest stable release of this fork. Use `-s -- --listen 127.0.0.1:8180` to bind only to localhost. [Releases of this fork](https://github.com/zyclonite135/agentbox/releases)
 - **Existing installation:** use About and updates in the console or the [upgrade guide](docs/releases.md#升级与回退). The installer preserves existing deployments and will not overwrite them.
 
 Configuration lives in `/etc/agentbox`, data in `/var/lib/agentbox`. Each workspace defaults to a 2 GiB memory limit and 2 CPUs; size your server for the number of concurrent workspaces. See [installation and recovery](deploy/README.md#一键安装) for all options.
+
+### Server updates in this fork
+
+The installer and the server's **About and updates** page use stable GitHub Releases from `zyclonite135/agentbox`. The **Update and restart** button becomes available on a standard versioned Linux/systemd installation when the fork has a newer stable release.
+
+Build packages from a clean, reviewed checkout with `python3 scripts/build-release.py --version vX.Y.Z --output output/fork-release`. Verify them with `python3 scripts/test-release.py output/fork-release`. Publish the matching Linux archives, `SHA256SUMS` and `release.json` as assets of a stable GitHub Release for that commit. Each installed version includes the fork's updater.
+
+For the local Docker preview, rebuild the server image from the fork and recreate the container with its existing data volume. For a manual Linux upgrade, use the package and checksum from the fork's Releases page with the [manual upgrade procedure](deploy/downloads/README.md#手工安装与升级).
 
 ### Your first task
 

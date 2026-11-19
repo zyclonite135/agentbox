@@ -10,7 +10,7 @@ import { markdownPreview } from "./markdown-preview.js";
 import { ProgressBar, RateMeter } from "./progress.js";
 
 const interval = 4 * 60 * 60 * 1000;
-const releasesURL = "https://github.com/devilcoolyue/agentbox/releases";
+const releasesURL = "https://github.com/zyclonite135/agentbox/releases";
 const versionLabel = (version: string) => /^\d/.test(version) ? "v" + version : version;
 
 /* 升级任务的步骤（update.py 的 phase）与各步在整条进度里的权重：下载与备份最耗时。
@@ -110,7 +110,7 @@ export function initUpdates() {
     buttonLabel(install, () => info?.comparable === false ? i18nText("切换到正式版并重启") : i18nText("升级并重启"), "download");
     install.classList.toggle("hidden", !upgrade?.supported || !info?.available);
     install.disabled = busy || readingUpgrade || checking || !!error;
-    setTextRender($("upgrade-support"), () => upgrade ? upgrade.reason : i18nText("正在读取在线升级支持状态…"));
+    setTextRender($("upgrade-support"), () => i18nText(upgrade?.reason ?? "正在读取在线升级支持状态…"));
     $("upgrade-progress").classList.toggle("hidden", !job && !upgradeError && !submissionError && !submitting && !awaitingSubmission);
     const verified = job?.phase === "succeeded" && upgrade?.current_version === job.version;
     setTextRender($("upgrade-message"), () => submitting ? i18nText("正在提交升级任务…") : awaitingSubmission ? i18nText("正在确认升级任务是否已提交…")

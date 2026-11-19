@@ -22,6 +22,7 @@ EOF
 fail() { echo "agentbox: $*" >&2; exit 1; }
 
 main() {
+  local repository='zyclonite135/agentbox'
   local version='' listen='0.0.0.0:8180' arch task_tmp distro missing path dependency asset cleanup_cmd
   while (($#)); do
     case "$1" in
@@ -81,13 +82,13 @@ main() {
   if [[ -z "$version" ]]; then
     echo 'Finding the latest stable agentbox release...'
     curl --proto '=https' --proto-redir '=https' -fsSL --retry 3 --connect-timeout 15 --max-time 60 \
-      https://api.github.com/repos/devilcoolyue/agentbox/releases/latest -o "$task_tmp/latest.json" || \
+      "https://api.github.com/repos/$repository/releases/latest" -o "$task_tmp/latest.json" || \
       fail 'No stable release could be downloaded. Check GitHub connectivity, or select a published prerelease with --version.'
     version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tag_name"])' "$task_tmp/latest.json")
   fi
   [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || fail 'Release has an invalid version'
   local archive="agentbox_${version}_linux_${arch}.tar.gz"
-  local base="https://github.com/devilcoolyue/agentbox/releases/download/$version"
+  local base="https://github.com/$repository/releases/download/$version"
   echo "Downloading $version (linux/$arch)..."
   for asset in SHA256SUMS "$archive"; do
     curl --proto '=https' --proto-redir '=https' -fsSL --retry 3 --connect-timeout 15 --max-time 600 \

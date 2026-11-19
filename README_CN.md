@@ -8,7 +8,7 @@
 
 在 Linux 服务器运行 Claude Code 与 Codex CLI，打开浏览器即可使用。<br /> 从一句任务到审查代码，对话、终端、文件与 Git 都在同一个工作空间。
 
-[![Release](https://img.shields.io/github/v/release/devilcoolyue/agentbox?color=D99A2B)](https://github.com/devilcoolyue/agentbox/releases/latest) [![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?logo=go&logoColor=white)](go.mod) [![Docker](https://img.shields.io/badge/Docker-Workspaces-2496ED?logo=docker&logoColor=white)](images/agent/Dockerfile) [![License](https://img.shields.io/badge/License-Apache--2.0-D99A2B)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/zyclonite135/agentbox?color=D99A2B)](https://github.com/zyclonite135/agentbox/releases/latest) [![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?logo=go&logoColor=white)](go.mod) [![Docker](https://img.shields.io/badge/Docker-Workspaces-2496ED?logo=docker&logoColor=white)](images/agent/Dockerfile) [![License](https://img.shields.io/badge/License-Apache--2.0-D99A2B)](LICENSE)
 
 [English](README.md) | **简体中文**
 
@@ -114,14 +114,14 @@
 ### 在 Linux 服务器安装
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/devilcoolyue/agentbox/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/zyclonite135/agentbox/refs/heads/feature/my-change/install.sh | sudo bash
 ```
 
 安装器会下载并校验服务端发布包、构建工作空间镜像，再启动 `agentbox.service`。**服务器无需安装 Go 或 Node.js。** 首次构建镜像需要几分钟，以及访问容器镜像源、Debian 软件源和 npm 的网络。
 
 - **运行环境：** Linux x86_64 / arm64、systemd 与本机 Docker Engine。Ubuntu 22.04+ / Debian 12+ 会自动安装缺失依赖；其他发行版见[安装前提](deploy/README.md#一键安装)。
 - **打开登录：** 访问 `http://服务器IP:8180`，使用安装完成时显示的 `boxadmin` 和随机密码。直接远程访问需放行 TCP 8180；公网长期使用请配置 [HTTPS](deploy/README.md#https-与-websocket-反向代理)。
-- **服务端正式版：** [v0.1.20](https://github.com/devilcoolyue/agentbox/releases/tag/v0.1.20)。命令默认安装最新正式版；末尾加 `-s -- --version v0.1.20` 可固定版本，加 `-s -- --listen 127.0.0.1:8180` 可限制为仅本机监听。
+- **服务端正式版：** 命令默认安装本分支的最新正式版。加 `-s -- --listen 127.0.0.1:8180` 可限制为仅本机监听。[本分支的发布](https://github.com/zyclonite135/agentbox/releases)
 - **已有部署：** 使用控制台「关于与更新」或[升级指南](docs/releases.md#升级与回退)。安装器会保留已有部署，不覆盖安装。
 
 配置位于 `/etc/agentbox`，数据位于 `/var/lib/agentbox`。每个空间默认限制 2 GiB 内存、2 CPU，请按并发空间数准备资源。完整选项与失败恢复见[安装说明](deploy/README.md#一键安装)。

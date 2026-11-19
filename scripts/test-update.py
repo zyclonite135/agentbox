@@ -301,7 +301,7 @@ class Upgrades(unittest.TestCase):
                 tar.add(package, arcname=name)
             archive_data = archive.read_bytes()
             digest = hashlib.sha256(archive_data).hexdigest()
-            base = f'https://github.com/{m.REPO}/releases/download/v1.1.0/'
+            base = 'https://github.com/zyclonite135/agentbox/releases/download/v1.1.0/'
             assets = [{'name': n, 'browser_download_url': base + n, 'size': len(archive_data)}
                       for n in (name + '.tar.gz', 'SHA256SUMS')]
             if fault == 'asset':
@@ -309,10 +309,13 @@ class Upgrades(unittest.TestCase):
             seen = []
             def download(url, dest, limit, progress=None):
                 if '/releases/tags/' in url:
+                    self.assertEqual(url, 'https://api.github.com/repos/zyclonite135/agentbox/releases/tags/v1.1.0')
                     dest.write_text(json.dumps({'tag_name': 'v1.1.0', 'assets': assets}))
                 elif url.endswith('SHA256SUMS'):
+                    self.assertEqual(url, base + 'SHA256SUMS')
                     dest.write_text(('wrong' if fault == 'checksum' else digest) + '  ' + name + '.tar.gz')
                 else:
+                    self.assertEqual(url, base + name + '.tar.gz')
                     # The console reads download progress from the job state.
                     state = m.read_job(app)
                     seen.append((state['phase'], state.get('downloaded'), state.get('total')))

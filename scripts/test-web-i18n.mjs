@@ -55,9 +55,12 @@ export async function webI18nSmoke(browser) {
   else if(path==='/api/me/git/default')body={connection_id:''};
   else if(path==='/api/proxies')body={proxies:[],bridge_up:false,bridge_host:'127.0.0.1'};
   else if(path==='/api/usage/events')body={rows:usageRows,total:{rows:20,turns:20,input_tokens:2000,output_tokens:20000,cache_read_tokens:1600,cache_write_tokens:200,cost_micro_usd:42560},facets:{users:[],agents:[],models:[]},scope:'all',timezone:'Asia/Tokyo',order:'desc',limit:20,offset:0,sync:{last_scan_at:Date.now(),last_success_at:Date.now(),scanning:false,errors:0}};
-  else if(path==='/api/updates'||path==='/api/updates/check')body={current_version:'v0.1.9',revision:'0123456789abcdef',built_at:'2026-10-04T08:00:00Z',latest_version:'',available:false,comparable:true,checked_at:0,attempted_at:0,error:''};
+  else if(path==='/api/updates'||path==='/api/updates/check'){
+   const checked=path.endsWith('/check') ? Date.now() : 0;
+   body={current_version:'v0.1.9',revision:'0123456789abcdef',built_at:'2026-10-04T08:00:00Z',latest_version:'',available:false,comparable:true,checked_at:checked,attempted_at:checked,error:''};
+  }
   else if(path==='/api/updates/components')body={version:1,observed_at:Date.now(),server:{version:'v0.1.9',schema:11,candidate_compatibility:'preflight_required'},image:{reference:'fixture',id:'',claude:'',codex:'',state:'unavailable',observed_at:0},desktop:{installed_version_state:'browser_unknown',server_protocol:1,sync_enabled:false}};
-  else if(path==='/api/updates/upgrade')body={supported:false,reason:'fixture',current_version:'v0.1.9',job:null};
+  else if(path==='/api/updates/upgrade')body={supported:false,reason:'当前部署不是支持在线升级的版本目录安装，请使用手工升级。',current_version:'v0.1.9',job:null};
   await route.fulfill({json:body});
  });
  const language=async value=>{await page.evaluate(async value=>{const {i18n}=await import('/_v/{{BUILD}}/js/i18n.js');i18n.setLanguage(value);},value);};
@@ -261,6 +264,15 @@ export async function webI18nSmoke(browser) {
   assert.equal(await page.locator('#mobile-section-label').textContent(),'Интерфейс');
   await language('en');
   assert.equal(await page.locator('#mobile-section-label').textContent(),'Appearance and tips');
+  await page.goto(base+'/#/settings/about');
+  await page.locator('#sec-about').waitFor();
+  await language('ru');
+  const updatePanel=page.locator('#sec-about .update-panel');
+  assert.equal(await updatePanel.locator('[data-update-release]').getAttribute('href'),'https://github.com/zyclonite135/agentbox/releases');
+  await updatePanel.locator('[data-update-check]').click();
+  await updatePanel.getByText('Стабильных релизов пока нет',{exact:true}).waitFor();
+  await updatePanel.getByText('Для обновления из интерфейса нужна стандартная установка на Linux с systemd. Обновите этот экземпляр вручную.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#update-install').isVisible(),false);
   await page.evaluate(async()=>{const {emit}=await import('/_v/{{BUILD}}/js/state.js');emit('unauthorized');});
   await page.locator('#login').waitFor({state:'visible'});
   await language('zh-TW'); await language('en');

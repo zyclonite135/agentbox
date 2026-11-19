@@ -5,20 +5,22 @@ import {formatProblem, problemMessages, responseError} from '../internal/web/sta
 import {createI18n, interpolate} from '../internal/web/static/js/i18n/core.js';
 import en from '../internal/web/static/js/locales/en-dynamic.js';
 import tw from '../internal/web/static/js/locales/zh-TW-dynamic.js';
+import ru from '../internal/web/static/js/locales/ru-dynamic.js';
 import {ChatConnection} from '../internal/web/static/js/features/chat/connection.js';
 
 const contract = JSON.parse(await readFile(new URL('../internal/server/testdata/problems-v1.json', import.meta.url), 'utf8'));
 const id = '0123456789abcdef0123456789abcdef';
 
-test('v1 error contract matches Go fixtures and all three languages', () => {
+test('v1 error contract matches Go fixtures in all supported languages', () => {
   assert.equal(contract.version, 1);
   assert.deepEqual(Object.keys(problemMessages).sort(), contract.errors.map(row => row.code).sort());
-  for (const locale of ['zh-CN','zh-TW','en']) {
-    const i18n = createI18n({catalogs:{en,'zh-TW':tw}, storage:null, systemLanguages:()=>[locale]});
+  const catalogs = {en,'zh-TW':tw,ru};
+  for (const locale of ['zh-CN',...Object.keys(catalogs)]) {
+    const i18n = createI18n({catalogs, storage:null, systemLanguages:()=>[locale]});
     for (const row of contract.errors) {
       assert.deepEqual(problemMessages[row.code], [row.error,row.hint]);
-      if (locale !== 'zh-CN') {
-        const catalog = locale === 'en' ? en : tw;
+      const catalog = catalogs[locale];
+      if (catalog) {
         assert.ok(Object.hasOwn(catalog,row.error), `${locale}: missing ${row.code} message`);
         assert.ok(Object.hasOwn(catalog,row.hint), `${locale}: missing ${row.code} hint`);
       }

@@ -4,9 +4,10 @@ import type { APIProblem } from '../../web/src/contracts/v1';
 import { createI18n, languages, type LanguagePreference, type Params } from '../../web/src/i18n/core';
 import en from './locales/en';
 import traditional from './locales/zh-TW';
+import ru from './locales/ru';
 
 // The preference contains no account data and is shared by all server profiles.
-const runtime = createI18n({ catalogs: { en, 'zh-TW': traditional } });
+const runtime = createI18n({ catalogs: { en, 'zh-TW': traditional, ru } });
 const revision = ref(0);
 function updateDocument() {
   if (typeof document !== 'undefined') document.documentElement.lang = runtime.locale;

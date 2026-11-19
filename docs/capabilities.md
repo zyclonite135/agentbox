@@ -41,7 +41,7 @@
 | 候选 Agent 行为验证 | **v0.1.11 发布**（M4-04）；11 项真实 CLI＋合成上游检查，验证后才切换不可变 ID | docker.cli-candidate、ui.image-update-gate；Go/策略/race；[M4 证据](milestones/m4.md) | 无真实 provider 调用；候选不自动成为固定基线；托管 Release candidate 已对固定镜像运行门槛 |
 | 三类更新说明 | **v0.1.11 发布**（M2-04）；服务端/镜像/桌面分别展示版本观察、兼容边界和重启范围；沿用原更新器 | Go update-components 权限/白名单/配置变化；browser.browser；桌面 renderer build/Vitest | 镜像标签不是协议通过；网页不能读取本机安装版本；不替代真实升级、签名或设备验收 |
 | 桌面项目/终端/同步与恢复 | 同步默认关闭、显式绑定和计划；原生文件/凭证边界 | 当前 desktop-unit；历史三架构原生、旧服务端与跨 OS 报告 | 正式签名更新、最低系统、真实 IME/拖放/休眠、安全软件、物理断电 |
-| 多语言 | 网页、abox-link 与桌面源码三语；用户内容/协议不翻译 | web 词典、browser 三语、desktop-unit | 旧桌面包不会因服务端更新获得新 UI |
+| 多语言 | 网页、abox-link 与桌面源码支持简中、繁中、英语和俄语；用户内容/协议不翻译 | web 词典、浏览器回归、desktop-unit | 旧桌面包不会因服务端更新获得新 UI |
 
 ## 尚未交付或仍需外部验收
 

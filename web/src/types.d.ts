@@ -31,7 +31,7 @@ export interface Session {
   extensions?: SessionExtension[];
 }
 
-/** Localized manifest text keyed by locale (zh-CN / zh-TW / en). */
+/** Localized manifest text keyed by locale (zh-CN / zh-TW / en / ru). */
 export type LocalText = Record<string, string>;
 
 export interface SessionExtension {

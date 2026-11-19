@@ -66,7 +66,7 @@ You bring the server and your own Claude / Codex subscription, API key, or compa
 
 - **Extensions** an administrator turns on one by one: *Loop guard* interrupts a reply that keeps repeating itself (API key and relay accounts), and *Webhook notifications* post workspace and turn events to Feishu, DingTalk, WeCom or any JSON endpoint. [Design →](docs/architecture/extensions-spi.md)
 - **Supervisor delegation (preview):** a strong main agent hands well-specified subtasks to cheaper worker models in the same workspace. [Design →](docs/architecture/delegation-supervisor.md)
-- **Styles and languages:** six built-in styles × light / dark, custom themes with a live preview editor, 简体中文 · 繁體中文 · English, and a phone layout. [Themes →](docs/themes.md)
+- **Styles and languages:** six built-in styles × light / dark, custom themes with a live preview editor, 简体中文 · 繁體中文 · English · Русский, and a phone layout. [Themes →](docs/themes.md)
 
 The [workspace guide](docs/user-guide.md#对话) (Chinese) explains each chat feature in detail, including what needs a newer Claude Code in the Agent image.
 

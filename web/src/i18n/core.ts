@@ -1,4 +1,4 @@
-export type Locale = 'zh-CN' | 'zh-TW' | 'en';
+export type Locale = 'zh-CN' | 'zh-TW' | 'en' | 'ru';
 export type LanguagePreference = Locale | 'system';
 export type Params = Readonly<Record<string, string | number>>;
 export type Catalog = Readonly<Record<string, string>>;
@@ -7,12 +7,14 @@ export const languages: ReadonlyArray<{ value: LanguagePreference; label: string
   { value: 'zh-CN', label: '简体中文' },
   { value: 'zh-TW', label: '繁體中文' },
   { value: 'en', label: 'English' },
+  { value: 'ru', label: 'Русский' },
 ];
 
 export function normalizeLanguage(value: unknown): Locale | undefined {
   if (typeof value !== 'string') return;
   const parts = value.trim().toLowerCase().replaceAll('_', '-').split('-');
   if (parts[0] === 'en') return 'en';
+  if (parts[0] === 'ru') return 'ru';
   if (parts[0] !== 'zh') return;
   // An explicit script wins over a region (for example zh-Hans-HK).
   if (parts.includes('hant')) return 'zh-TW';

@@ -4,18 +4,23 @@ import { readFile } from 'node:fs/promises';
 import { createI18n, normalizeLanguage, detectLanguage, interpolate } from '../internal/web/static/js/i18n/core.js';
 import enStatic from '../internal/web/static/js/locales/en-static.js';
 import twStatic from '../internal/web/static/js/locales/zh-TW-static.js';
+import ruStatic from '../internal/web/static/js/locales/ru-static.js';
 import enDynamic from '../internal/web/static/js/locales/en-dynamic.js';
 import twDynamic from '../internal/web/static/js/locales/zh-TW-dynamic.js';
+import ruDynamic from '../internal/web/static/js/locales/ru-dynamic.js';
 import panelEn from '../internal/linkapp/static/locales/en.js';
 import panelTw from '../internal/linkapp/static/locales/zh-TW.js';
+import panelRu from '../internal/linkapp/static/locales/ru.js';
 
 test('language normalization respects script, regions and ordered browser preferences', () => {
   for (const [source, expected] of Object.entries({ zh:'zh-CN', 'zh-SG':'zh-CN', 'zh-Hans-HK':'zh-CN',
-    'zh-TW':'zh-TW', 'zh_HK':'zh-TW', 'zh-MO':'zh-TW', 'zh-Hant-CN':'zh-TW', 'en-US':'en', 'en-GB':'en' })) {
+    'zh-TW':'zh-TW', 'zh_HK':'zh-TW', 'zh-MO':'zh-TW', 'zh-Hant-CN':'zh-TW', 'en-US':'en', 'en-GB':'en',
+    ru:'ru', 'ru-RU':'ru', 'RU_by':'ru' })) {
     assert.equal(normalizeLanguage(source), expected, source);
   }
   assert.equal(normalizeLanguage('english'), undefined);
   assert.equal(detectLanguage(['fr-FR', 'zh-HK', 'en']), 'zh-TW');
+  assert.equal(detectLanguage(['fr-FR', 'ru-RU', 'en']), 'ru');
   assert.equal(detectLanguage(['fr-FR']), 'en');
 });
 
@@ -51,13 +56,17 @@ test('fallback and interpolation preserve arbitrary user values exactly', () => 
 });
 
 const placeholders = value => [...value.matchAll(/\{([a-zA-Z][\w]*)\}/g)].map(m=>m[1]).sort();
-for (const [name, en, tw] of [['web static',enStatic,twStatic], ['web dynamic',enDynamic,twDynamic], ['panel',panelEn,panelTw]]) {
-  test(`${name}: complete English/Traditional catalogs with matching placeholders`, () => {
-    assert.deepEqual(Object.keys(en).sort(), Object.keys(tw).sort());
-    for (const key of Object.keys(en)) for (const [language,catalog] of [['en',en],['zh-TW',tw]]) {
-      assert.equal(typeof catalog[key], 'string', `${language}: ${key}`);
-      assert.ok(catalog[key].trim(), `${language}: empty ${key}`);
-      assert.deepEqual(placeholders(catalog[key]), placeholders(key), `${language}: ${key}`);
+for (const [name, en, tw, ru] of [['web static',enStatic,twStatic,ruStatic],
+  ['web dynamic',enDynamic,twDynamic,ruDynamic], ['panel',panelEn,panelTw,panelRu]]) {
+  test(`${name}: complete catalogs with matching placeholders`, () => {
+    const keys = Object.keys(en).sort();
+    for (const [language,catalog] of [['en',en],['zh-TW',tw],['ru',ru]]) {
+      assert.deepEqual(Object.keys(catalog).sort(), keys, language);
+      for (const key of keys) {
+        assert.equal(typeof catalog[key], 'string', `${language}: ${key}`);
+        assert.ok(catalog[key].trim(), `${language}: empty ${key}`);
+        assert.deepEqual(placeholders(catalog[key]), placeholders(key), `${language}: ${key}`);
+      }
     }
   });
 }
@@ -69,12 +78,14 @@ test('all marked static web text and attributes have translations', async () => 
     const key=decode(match[1]);
     assert.ok(Object.hasOwn(enStatic,key)||Object.hasOwn(enDynamic,key), `Missing English: ${key}`);
     assert.ok(Object.hasOwn(twStatic,key)||Object.hasOwn(twDynamic,key), `Missing Traditional: ${key}`);
+    assert.ok(Object.hasOwn(ruStatic,key)||Object.hasOwn(ruDynamic,key), `Missing Russian: ${key}`);
   }
   for (const match of html.matchAll(/data-i18n-(text|attrs)="([^"]*)"/g)) {
     const data = JSON.parse(decode(match[2]));
     for (const key of (Array.isArray(data) ? data : Object.values(data))) {
       assert.ok(Object.hasOwn(enStatic,key.trim()), `Missing English: ${key}`);
       assert.ok(Object.hasOwn(twStatic,key.trim()), `Missing Traditional: ${key}`);
+      assert.ok(Object.hasOwn(ruStatic,key.trim()), `Missing Russian: ${key}`);
     }
   }
 });

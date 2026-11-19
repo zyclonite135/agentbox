@@ -70,6 +70,10 @@ export async function webI18nSmoke(browser) {
   await page.locator('#login-pass').fill('fixture-password');
   // Exercise the visible shared dropdown, not only the runtime API.
   await page.locator('#login-language + .select-trigger').click();
+  await page.getByRole('option',{name:'Русский',exact:true}).click();
+  assert.equal(await page.locator('html').getAttribute('lang'),'ru');
+  assert.equal((await page.locator('#login-btn').textContent()).trim(),'Войти');
+  await page.locator('#login-language + .select-trigger').click();
   await page.getByRole('option',{name:'繁體中文',exact:true}).click();
   assert.equal(await page.locator('html').getAttribute('lang'),'zh-TW');
   assert.equal(await page.locator('#login-user').inputValue(),'保存');
@@ -100,6 +104,8 @@ export async function webI18nSmoke(browser) {
   await page.locator('#term-state[data-state="connected"]').waitFor();
   const connected=sockets;
   await page.evaluate(()=>{window.localeTerminal=document.querySelector('.xterm');});
+  await language('ru');
+  assert.equal(await page.locator('#term-state').textContent(),'Оболочка подключена');
   await language('zh-TW'); await language('en');
   assert.equal(sockets,connected,'language change must not reconnect terminal');
   assert.equal(await page.evaluate(()=>document.querySelector('.xterm')===window.localeTerminal),true);
@@ -210,10 +216,17 @@ export async function webI18nSmoke(browser) {
   assert.equal(await page.locator('[data-dr="until-day"]').inputValue(),until);
   assert.equal(await page.locator('[data-dr="zone"]').textContent(),'Asia/Tokyo');
   assert.equal(await page.locator('.dr-weekdays span').first().textContent(),'Sun');
+  await language('ru');
+  assert.match(await page.locator('.dr-weekdays span').first().textContent(),/^вс\.?$/i);
+  assert.equal(await start.inputValue(),'2026/09/22');
+  assert.equal(await page.locator('[data-dr="zone"]').textContent(),'Asia/Tokyo');
   await page.locator('[data-dr="cancel"]').click();
-  for(const width of [1280,390,320]) {
-   await page.setViewportSize({width,height:900});
-   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`English overflow at ${width}px`);
+  for(const preference of ['ru','en']) {
+   await language(preference);
+   for(const width of [1280,390,320]) {
+    await page.setViewportSize({width,height:900});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`${preference} overflow at ${width}px`);
+   }
   }
   if (await page.locator('#scrim').evaluate(el=>el.classList.contains('show'))) await page.locator('#btn-sidebar-close').click();
   await mkdir(resolve('output/playwright'),{recursive:true});
@@ -225,11 +238,11 @@ export async function webI18nSmoke(browser) {
   assert.equal(await page.locator('#usage-rows tr').count(),0,'logout clears previous user records');
   // A second same-origin window can change the stored preference without reloading this one.
   const other=await context.newPage(); await other.goto(base+'/language-peer');
-  await other.evaluate(()=>localStorage.setItem('agentbox.language','zh-TW'));
-  await page.waitForFunction(()=>document.documentElement.lang==='zh-TW');
+  await other.evaluate(()=>localStorage.setItem('agentbox.language','ru'));
+  await page.waitForFunction(()=>document.documentElement.lang==='ru');
   await other.close();
   assert.deepEqual(errors,[]);
-  console.log('Web locale: detection/persistence, live labels, icons, drafts/focus, timezone, raw content, terminal continuity/refusal diagnostics and English responsive layout passed');
+  console.log('Web locale: detection/persistence, live labels, icons, drafts/focus, timezone, raw content, terminal continuity/refusal diagnostics and responsive layouts passed');
  } finally {await context.close();server.closeAllConnections();await new Promise(r=>server.close(r));}
 }
 if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

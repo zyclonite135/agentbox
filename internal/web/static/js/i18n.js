@@ -3,8 +3,11 @@ import enStatic from './locales/en-static.js';
 import twStatic from './locales/zh-TW-static.js';
 import enDynamic from './locales/en-dynamic.js';
 import twDynamic from './locales/zh-TW-dynamic.js';
+import ruStatic from './locales/ru-static.js';
+import ruDynamic from './locales/ru-dynamic.js';
 export const i18n = createI18n({ catalogs: {
         en: { ...enDynamic, ...enStatic }, 'zh-TW': { ...twDynamic, ...twStatic },
+        ru: { ...ruDynamic, ...ruStatic },
     } });
 export const t = i18n.t;
 export { languages };

@@ -5,8 +5,9 @@
 import { createI18n, languages } from "./i18n-core.js";
 import en from "./locales/en.js";
 import zhTW from "./locales/zh-TW.js";
+import ru from "./locales/ru.js";
 
-const i18n = createI18n({ storageKey: "abox_link_language", catalogs: { en, "zh-TW": zhTW } });
+const i18n = createI18n({ storageKey: "abox_link_language", catalogs: { en, "zh-TW": zhTW, ru } });
 const tr = (source, params) => i18n.t(source, params);
 // Only explicitly marked interface text is translated. User targets, logs,
 // pairing codes and server diagnostics never enter this catalog.

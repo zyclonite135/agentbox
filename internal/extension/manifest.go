@@ -19,7 +19,7 @@ import (
 )
 
 // Locales every user-facing manifest string may carry.
-var Locales = []string{"zh-CN", "zh-TW", "en"}
+var Locales = []string{"zh-CN", "zh-TW", "en", "ru"}
 
 var (
 	idRe      = regexp.MustCompile(`^[a-z0-9]+(\.[a-z0-9-]+)+$`)

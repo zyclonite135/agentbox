@@ -199,7 +199,7 @@ export class DateRangePicker {
         }, true);
         const updateLanguage = () => {
             const weekdays = this.panel.querySelectorAll(".dr-weekdays span");
-            const fmt = new Intl.DateTimeFormat(i18n.locale, { weekday: i18n.locale === 'en' ? 'short' : 'narrow', timeZone: 'UTC' });
+            const fmt = new Intl.DateTimeFormat(i18n.locale, { weekday: i18n.locale.startsWith('zh') ? 'narrow' : 'short', timeZone: 'UTC' });
             weekdays.forEach((day, index) => { day.textContent = fmt.format(new Date(Date.UTC(2024, 0, 7 + index))); });
             this.syncTrigger();
             if (this.month)

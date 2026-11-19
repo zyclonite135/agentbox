@@ -106,14 +106,15 @@ export function renderHead() {
   const acting = sess.extensions || [];
   if (acting.length) {
     // 用户应当知道哪些扩展在检查自己的模型输出，或会收到本空间的事件。
-    const en = () => i18n.locale === "en";
-    const names = () => acting.map(e => pickLocal(e.name) || e.id).join(en() ? ", " : "、");
+    const chinese = () => i18n.locale.startsWith("zh");
+    const names = () => acting.map(e => pickLocal(e.name) || e.id).join(chinese() ? "、" : ", ");
     const describe = () => acting.map(e => {
       const name = pickLocal(e.name) || e.id, groups = e.groups || ["model"];
       if (groups.includes("model")) return i18nText("{name} 正在检查本空间的模型输出", { name });
-      const what = groups.map(g => g === "workspace" ? i18nText("空间启停") : g === "chat" ? i18nText("对话结果") : g).join(en() ? " and " : "与");
+      const what = groups.map(g => g === "workspace" ? i18nText("空间启停") : g === "chat" ? i18nText("对话结果") : g)
+        .join(chinese() ? "与" : i18n.locale === "ru" ? " и " : " and ");
       return i18nText("{name} 会收到本空间的{what}通知", { name, what });
-    }).join(en() ? "; " : "；");
+    }).join(chinese() ? "；" : "; ");
     const ext = document.createElement("span");
     ext.id = "wb-ext";
     ext.className = "wb-ext";

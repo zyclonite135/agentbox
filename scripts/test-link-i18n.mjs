@@ -7,6 +7,7 @@ import { resolve, extname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import en from '../internal/linkapp/static/locales/en.js';
 import zhTW from '../internal/linkapp/static/locales/zh-TW.js';
+import ru from '../internal/linkapp/static/locales/ru.js';
 
 export async function linkI18nSmoke(page) {
   page.setDefaultTimeout(10000);
@@ -71,6 +72,10 @@ export async function linkI18nSmoke(page) {
     assert.equal(await page.locator('#pair-err').textContent(), 'Paste a pairing code first');
     assert.equal(await page.title(), 'abox-link Private network tunnel');
     assert.equal(await language.getAttribute('aria-label'), 'Interface language');
+    await language.selectOption('ru');
+    assert.equal(await page.locator('html').getAttribute('lang'), 'ru');
+    assert.equal(await page.locator('#pair-err').textContent(), 'Сначала вставьте код сопряжения');
+    assert.equal(await language.getAttribute('aria-label'), 'Язык интерфейса');
     await page.locator('#pair-code').fill('ABOX1-fixture-保存');
     await page.locator('#pair-insecure').check();
     await language.selectOption('zh-TW');
@@ -101,7 +106,7 @@ export async function linkI18nSmoke(page) {
       window.ruleBeforeLanguage.focus();
       window.ruleBeforeLanguage.setSelectionRange(1, 4);
       const select = document.querySelector('#interface-language');
-      select.value = 'zh-TW';
+      select.value = 'ru';
       select.dispatchEvent(new Event('change'));
     });
     assert.deepEqual(await page.evaluate(() => {
@@ -110,6 +115,7 @@ export async function linkI18nSmoke(page) {
     }), { same: true, focused: true, start: 1, end: 4, value: '保存.example:5432' });
     assert.equal(await page.locator('#savebar').isVisible(), true);
     assert.equal(await page.locator('#opt-auto').isChecked(), false);
+    assert.equal(await page.locator('#st-title').textContent(), 'Туннель подключён');
     assert.equal(mutations, 1, 'language changes must not write configuration or restart the tunnel');
     await page.waitForTimeout(2200); // One real panel polling interval must preserve unsaved input.
     assert.equal(await page.locator('#allow-list input').inputValue(), '保存.example:5432');
@@ -136,14 +142,18 @@ export async function linkI18nSmoke(page) {
     await page.locator('#btn-unpair').click();
     assert.equal(await dialogText, en['解除绑定后需要重新配对才能连接，放行规则会保留。继续？']);
     assert.equal(mutations, 3, 'canceling an unpair confirmation must not send a request');
+    await language.selectOption('ru');
     await page.reload();
     await page.locator('#card-status').waitFor({ state: 'visible' });
-    assert.equal(await language.inputValue(), 'en');
-    assert.equal(await page.locator('html').getAttribute('lang'), 'en');
-    assert.equal(await page.locator('#st-title').textContent(), 'Tunnel connected');
-    for (const width of [1280, 390, 320]) {
-      await page.setViewportSize({ width, height: 900 });
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `English layout overflow at ${width}px`);
+    assert.equal(await language.inputValue(), 'ru');
+    assert.equal(await page.locator('html').getAttribute('lang'), 'ru');
+    assert.equal(await page.locator('#st-title').textContent(), 'Туннель подключён');
+    for (const locale of ['ru', 'en']) {
+      await language.selectOption(locale);
+      for (const width of [1280, 390, 320]) {
+        await page.setViewportSize({ width, height: 900 });
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${locale} layout overflow at ${width}px`);
+      }
     }
     await page.setViewportSize({ width: 390, height: 900 });
     await mkdir(resolve('output/playwright'), { recursive: true });
@@ -164,6 +174,7 @@ export async function linkI18nSmoke(page) {
     for (const source of sources) {
       assert.ok(Object.hasOwn(en, source), `missing English marker: ${source}`);
       assert.ok(Object.hasOwn(zhTW, source), `missing Traditional Chinese marker: ${source}`);
+      assert.ok(Object.hasOwn(ru, source), `missing Russian marker: ${source}`);
     }
     for (const [source, translation] of Object.entries(en)) {
       assert.ok(Object.hasOwn(zhTW, source));
@@ -173,7 +184,7 @@ export async function linkI18nSmoke(page) {
     }
     assert.deepEqual(failures, []);
     assert.deepEqual(errors, []);
-    console.log('abox-link i18n: pairing, 3 languages, persistence, live status, draft DOM/cursor preservation, unchanged targets/logs/errors, safe text interpolation and narrow English layouts passed');
+    console.log('abox-link i18n: pairing, four languages, persistence, live status, draft DOM/cursor preservation, unchanged targets/logs/errors, safe text interpolation and narrow layouts passed');
   } finally {
     await page.unroute('**/api/**');
     server.closeAllConnections();

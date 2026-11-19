@@ -1,5 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { language } from './i18n';
 import { SyncTask, type SyncProgress } from './sync-task';
+const previousLanguage = language.value;
+beforeEach(() => { language.value = 'en'; });
+afterEach(() => { language.value = previousLanguage; });
+
 function harness(){
  const callbacks:((p:SyncProgress)=>void)[]=[];
  let resolve!:(value:unknown)=>void;

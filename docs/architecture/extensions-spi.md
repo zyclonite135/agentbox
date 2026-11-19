@@ -120,15 +120,15 @@
 | `id` | `^[a-z0-9]+(\.[a-z0-9-]+)+$`，最长 64。`agentbox.` 前缀保留给官方 |
 | `version` | semver。同一扩展可装多个版本，同一时刻只启用一个 |
 | `spi` | 声明需要的 SPI `major.minor`，宿主必须支持同 major 且 minor 不低于它 |
-| `name` / `description` / `title` / `message` | 三语对象，缺的语言回退 `en`，再回退任意一种。纯文本，宿主按文本节点渲染 |
+| `name` / `description` / `title` / `message` | 本地化对象，支持 `zh-CN`、`zh-TW`、`en` 和 `ru`。缺的语言回退 `en`，再回退任意一种。纯文本，宿主按文本节点渲染 |
 | `runtime` | `{"type":"builtin"}` 仅官方；`{"type":"container","image":"<仓库>@sha256:<digest>","resources":{...}}`，必须用 digest，不接受可变标签。`process` 保留不开放（见 §5.3） |
 | `hooks` | 只能是 §6.4 里的名字；宿主不会调用未声明的钩子。扩展必须实现对应接口（检查型 `ModelHandler`，事件型 `EventHandler`），否则启动失败 |
 | `permissions` | 见 §7。钩子所需权限没声明时，清单校验失败 |
 | `bindings` | `account`、`user` 的子集，每一项必须被所有声明的钩子支持（模型钩子只支持 `account`） |
 | `failure_policy` | 默认值；管理员可以覆盖。只对检查型钩子有意义 |
 | `config_schema` | JSON Schema 子集：顶层 `object`；属性类型 `boolean` / `integer` / `number` / `string` / `enum`；支持 `minimum`、`maximum`、`maxLength`（≤ 1024）、`default`、`title`、`description`。属性最多 64 个。v1 不支持嵌套和密钥字段 |
-| `errors` | 扩展能用来拒绝或中断的错误码及三语文案。`code` 为 `^[a-z][a-z0-9_]{2,47}$`，0～32 个，只做事件的扩展可以不声明 |
-| `status.metrics` | 扩展能上报的数值指标及三语名称，最多 32 个。只能报这里声明过的指标 |
+| `errors` | 扩展能用来拒绝或中断的错误码及本地化文案。`code` 为 `^[a-z][a-z0-9_]{2,47}$`，0～32 个，只做事件的扩展可以不声明 |
+| `status.metrics` | 扩展能上报的数值指标及本地化名称，最多 32 个。只能报这里声明过的指标 |
 
 清单本身是不可信输入：宿主校验全部字段与长度，拒绝未知的顶层字段（以后通过 `spi` 次版本扩展）。
 

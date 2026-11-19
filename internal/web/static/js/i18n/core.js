@@ -3,6 +3,7 @@ export const languages = [
     { value: 'zh-CN', label: '简体中文' },
     { value: 'zh-TW', label: '繁體中文' },
     { value: 'en', label: 'English' },
+    { value: 'ru', label: 'Русский' },
 ];
 export function normalizeLanguage(value) {
     if (typeof value !== 'string')
@@ -10,6 +11,8 @@ export function normalizeLanguage(value) {
     const parts = value.trim().toLowerCase().replaceAll('_', '-').split('-');
     if (parts[0] === 'en')
         return 'en';
+    if (parts[0] === 'ru')
+        return 'ru';
     if (parts[0] !== 'zh')
         return;
     // An explicit script wins over a region (for example zh-Hans-HK).

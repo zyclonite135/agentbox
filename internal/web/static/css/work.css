@@ -444,10 +444,12 @@
 .home-intro .empty-ready { margin-top: 12px; }
 .home-setup { width: 100%; max-width: 760px; text-align: left; margin: 20px auto; border-top: 1px solid var(--line); padding-top: 14px; }
 .home-setup summary { cursor: pointer; color: var(--text); font-weight: 600; }
-.home-setup ol { list-style: decimal; padding: 0 0 0 24px; margin: 14px 0; }
+.home-setup ol { --setup-action-width: min(40%, 260px); list-style: decimal; padding: 0 0 0 24px; margin: 14px 0; }
 .home-setup li { padding: 10px 0 12px 8px; border-bottom: 1px solid var(--line); }
-.home-setup li > div { display: inline-block; vertical-align: middle; width: calc(100% - 190px); padding-right: 16px; }
-.home-setup li > .btn { vertical-align: middle; max-width: 186px; }
+.home-setup li > div { display: inline-block; vertical-align: middle; width: calc(100% - var(--setup-action-width)); padding-right: 16px; }
+.home-setup .btn { max-width: 100%; white-space: normal; text-align: start; }
+.home-setup .btn > .action-label { min-width: 0; overflow-wrap: anywhere; }
+.home-setup li > .btn { vertical-align: middle; max-width: var(--setup-action-width); }
 /* 读取中的骨架步骤：说明两根条，右侧占住按钮的位置 */
 .home-setup li > div > .skeleton + .skeleton { margin-top: 6px; }
 .home-setup li > .skeleton.btn-like { display: inline-block; vertical-align: middle; }

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile,mkdir} from 'node:fs/promises';
-import {resolve,extname} from 'node:path';
+import {resolve,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {diagnosticMessages} from '../internal/web/static/js/diagnostic-messages.js';
 import {launchBrowser} from './playwright-launch.mjs';
@@ -13,7 +13,7 @@ const server=createServer(async(req,res)=>{
   try{
     const rel=decodeURIComponent(req.url.split('?')[0]).replace(/^\/_v\/[^/]+/,'');
     const path=resolve(root,'.'+(rel==='/'?'/index.html':rel));
-    if(!path.startsWith(root+'/')){res.writeHead(403).end();return;}
+    if(!path.startsWith(root+sep)){res.writeHead(403).end();return;}
     res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml'})[extname(path)]||'application/octet-stream');
     res.end(await readFile(path));
   }catch{res.writeHead(404).end();}
@@ -149,6 +149,23 @@ try{
     assert.equal(await page.locator('#home-setup').getAttribute('open')!==null,true,'first user guide should open');
     assert.equal(await page.locator('#empty-new').isDisabled(),true);
     assert.equal(await page.locator('#setup-steps > li').count(),role==='admin'?4:3);
+    if(locale==='en'&&role==='admin'){
+      const setLanguage=value=>page.evaluate(async value=>(await import('/_v/{{BUILD}}/js/i18n.js')).i18n.setLanguage(value),value);
+      await setLanguage('ru');
+      for(const width of [1280,1024,390]){
+        await page.setViewportSize({width,height:900});
+        const overflowing=await page.locator('#setup-steps button').evaluateAll(buttons=>buttons.filter(button=>{
+          const bounds=button.getBoundingClientRect();
+          const range=document.createRange();
+          range.selectNodeContents(button.querySelector('.action-label'));
+          const parts=[button.querySelector('svg').getBoundingClientRect(),...range.getClientRects()];
+          return parts.some(part=>part.left<bounds.left-1||part.right>bounds.right+1||part.top<bounds.top-1||part.bottom>bounds.bottom+1);
+        }).map(button=>button.textContent));
+        assert.deepEqual(overflowing,[],`Russian onboarding buttons overflow at ${width}px`);
+      }
+      await page.setViewportSize({width:1280,height:900});
+      await setLanguage('en');
+    }
     await page.locator('#btn-new').click();
     await page.waitForFunction(()=>!document.querySelector('#new-refresh').disabled);
     assert.equal(await page.locator('#new-fields').isVisible(),false);

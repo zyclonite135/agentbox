@@ -320,11 +320,17 @@
 
     <main class="main">
       <!-- 系统通告横幅：管理员发布的发版预告等，逻辑在 announcement.ts -->
-      <div id="announce-bar" class="announce-bar" role="status" aria-live="polite" hidden>
-        <svg class="announce-ico" width="16" height="16" data-icon="status.announce" aria-hidden="true"></svg>
-        <div class="announce-text">
+      <div id="announce-bar" class="announce-bar" hidden>
+        <span class="announce-ico"><svg width="16" height="16" data-icon="status.announce" aria-hidden="true"></svg></span>
+        <div class="announce-text" role="status">
           <span id="announce-title" class="announce-title"></span>
+          <time id="announce-date" class="announce-date" hidden></time>
+          <span id="announce-details" class="announce-details" hidden></span>
           <span id="announce-msg" class="announce-msg" hidden></span>
+        </div>
+        <div id="announce-countdown" class="announce-countdown" role="timer" hidden>
+          <span data-i18n="距离开始">距离开始</span>
+          <strong id="announce-remaining"></strong>
         </div>
         <button id="announce-close" type="button" class="icon-btn announce-close" aria-label="收起通告" data-tip="收起通告" data-i18n-attrs="{&quot;aria-label&quot;:&quot;收起通告&quot;,&quot;data-tip&quot;:&quot;收起通告&quot;}"><svg width="16" height="16" data-icon="close" aria-hidden="true"></svg></button>
       </div>

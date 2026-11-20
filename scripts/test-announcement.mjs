@@ -78,8 +78,33 @@ export async function announcementSmoke(page, liveSocket) {
     await push();
     await bar.waitFor({ state: 'visible' });
     assert.equal(await bar.getAttribute('data-phase'), 'scheduled');
-    assert.match(await page.locator('#announce-title').innerText(), /发版升级（还有 1[01] 分钟），预计中断约 3 分钟/);
+    assert.equal(await page.locator('#announce-title').innerText(), '已计划发版升级');
+    assert.equal(await page.locator('#announce-date').getAttribute('datetime'), new Date(puts[0].starts_at).toISOString());
+    assert.match(await page.locator('#announce-details').innerText(), /预计中断约 3 分钟/);
+    assert.match(await page.locator('#announce-remaining').innerText(), /^1[01] 分钟$/);
     assert.equal(await page.locator('#announce-msg').innerText(), '本次更新登录限速');
+
+    const viewport = page.viewportSize();
+    const setLanguage = value => page.evaluate(async value => (await import('/_v/{{BUILD}}/js/i18n.js')).i18n.setLanguage(value), value);
+    await setLanguage('ru');
+    assert.equal(await page.locator('#announce-title').innerText(), 'Запланировано обновление');
+    assert.match(await page.locator('#announce-date').innerText(), /\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}/);
+    assert.match(await page.locator('#announce-remaining').innerText(), /^1[01] мин$/);
+    for (const width of [1280, 390, 320]) {
+      await page.setViewportSize({ width, height: 840 });
+      const fits = await bar.evaluate((element, mobile) => {
+        const card = element.getBoundingClientRect();
+        const copy = element.querySelector('.announce-text').getBoundingClientRect();
+        const countdown = element.querySelector('.announce-countdown').getBoundingClientRect();
+        const close = element.querySelector('.announce-close').getBoundingClientRect();
+        return element.scrollWidth <= element.clientWidth + 1
+          && [copy, countdown, close].every(part => part.left >= card.left && part.right <= card.right)
+          && (mobile ? countdown.top >= copy.bottom && close.width >= 44 && close.height >= 44 : countdown.left >= copy.right);
+      }, width < 760);
+      assert.ok(fits, `announcement layout overflows or puts the countdown in the wrong place at ${width}px`);
+    }
+    await page.setViewportSize(viewport);
+    await setLanguage('zh-CN');
 
     // Dismissed stays dismissed for the same announcement…
     await page.locator('#announce-close').click();
@@ -94,6 +119,8 @@ export async function announcementSmoke(page, liveSocket) {
     assert.equal(await bar.getAttribute('data-phase'), 'done');
     assert.match(await page.locator('#announce-title').innerText(), /已升级到 v2/);
     assert.equal(await page.locator('#announce-msg').isHidden(), true);
+    assert.equal(await page.locator('#announce-date').isHidden(), true);
+    assert.equal(await page.locator('#announce-countdown').isHidden(), true);
 
     await page.locator('#ann-clear').click();
     await page.locator('#dlg-ask').waitFor({ state: 'visible' });

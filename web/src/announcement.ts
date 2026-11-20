@@ -26,14 +26,14 @@ export function announcementPhase(a: Announcement, now: number): AnnouncementPha
   return a.starts_at && now < a.starts_at ? "scheduled" : "live";
 }
 
-function remaining(ms: number) {
+function remaining(ms: number, relative = false) {
   const minutes = Math.ceil(ms / 60_000);
   if (minutes <= 1) return t("不到 1 分钟");
-  if (minutes < 60) return t("还有 {p0} 分钟", { p0: minutes });
-  return t("还有 {p0} 小时 {p1} 分钟", { p0: Math.floor(minutes / 60), p1: minutes % 60 });
+  if (minutes < 60) return t(relative ? "还有 {p0} 分钟" : "{p0} 分钟", { p0: minutes });
+  return t(relative ? "还有 {p0} 小时 {p1} 分钟" : "{p0} 小时 {p1} 分钟", { p0: Math.floor(minutes / 60), p1: minutes % 60 });
 }
 
-/** 横幅的标题行；管理员页的预览也用它。message 另起一段，原样显示。 */
+/** 管理员页的完整预告，也用作非计划状态的横幅标题。 */
 export function announcementTitle(a: Announcement, now: number): string {
   const downtime = a.duration_min || 0;
   switch (announcementPhase(a, now)) {
@@ -46,7 +46,7 @@ export function announcementTitle(a: Announcement, now: number): string {
         ? t("正在发版升级，预计中断约 {p0} 分钟，页面和终端可能短暂断开。", { p0: downtime })
         : t("正在发版升级，页面和终端可能短暂断开。");
     case "scheduled": {
-      const at = fmtTime(a.starts_at!, i18n.locale), left = remaining(a.starts_at! - now);
+      const at = fmtTime(a.starts_at!, i18n.locale), left = remaining(a.starts_at! - now, true);
       return downtime
         ? t("计划于 {p0} 发版升级（{p1}），预计中断约 {p2} 分钟。请先保存进度，避免在此期间开始长任务。", { p0: at, p1: left, p2: downtime })
         : t("计划于 {p0} 发版升级（{p1}）。请先保存进度，避免在此期间开始长任务。", { p0: at, p1: left });
@@ -55,6 +55,7 @@ export function announcementTitle(a: Announcement, now: number): string {
 }
 
 let current: Announcement | null = null;
+let rendered: Announcement | null = null;
 let skew = 0; // 服务端时钟 - 本机时钟
 let lastFetch = 0;
 let seq = 0;
@@ -75,12 +76,35 @@ function render() {
   if (!a || dismissed(a)) { bar.hidden = true; return; }
   const now = serverNow();
   const phase = announcementPhase(a, now);
-  bar.dataset.phase = phase;
-  bar.classList.toggle("soon", phase === "scheduled" && a.starts_at! - now <= SOON);
-  setTextRender($("announce-title"), () => announcementTitle(a, serverNow()));
-  const msg = $("announce-msg");
-  msg.textContent = phase === "done" ? "" : a.message;
-  msg.hidden = !msg.textContent;
+  const scheduled = phase === "scheduled";
+  const startsAt = a.starts_at ?? 0;
+  const changed = rendered !== a || bar.dataset.phase !== phase;
+  bar.classList.toggle("soon", scheduled && startsAt - now <= SOON);
+  const date = $<HTMLTimeElement>("announce-date");
+  // Countdown ticks should not announce the same title and message again.
+  if (changed) {
+    rendered = a;
+    bar.dataset.phase = phase;
+    setTextRender($("announce-title"), () => scheduled ? t("已计划发版升级") : announcementTitle(a, now));
+    const details = $("announce-details");
+    date.hidden = details.hidden = $("announce-countdown").hidden = !scheduled;
+    if (scheduled) {
+      date.dateTime = new Date(startsAt).toISOString();
+      setTextRender(details, () => a.duration_min
+        ? t("预计中断约 {p0} 分钟。请先保存进度，避免在此期间开始长任务。", { p0: a.duration_min })
+        : t("请先保存进度，避免在此期间开始长任务。"));
+    }
+    const msg = $("announce-msg");
+    msg.textContent = phase === "done" ? "" : a.message;
+    msg.hidden = !msg.textContent;
+  }
+  if (scheduled) {
+    const dateLabel = () => fmtTime(startsAt, i18n.locale);
+    if (changed || date.textContent !== dateLabel()) setTextRender(date, dateLabel);
+    const countdown = $("announce-remaining");
+    const countdownLabel = () => remaining(startsAt - serverNow());
+    if (changed || countdown.textContent !== countdownLabel()) setTextRender(countdown, countdownLabel);
+  }
   bar.hidden = false;
 }
 
@@ -125,6 +149,7 @@ export function initAnnouncement() {
     document.removeEventListener("visibilitychange", onVisible);
     watchUsageLive("announcement", false);
     current = null;
+    rendered = null;
     bar.hidden = true;
   };
 }

@@ -36,7 +36,7 @@ def inside():
     with tarfile.open(archive, 'w:gz') as tar: tar.add(package, arcname=name)
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     (fixture / 'SHA256SUMS').write_text('0' * 64 + '  ' + archive.name + '\n')
-    (fixture / 'latest.json').write_text('{"tag_name":"v0.0.1"}')
+    latest = fixture / 'latest.json'
     mocks = root / 'bin'; mocks.mkdir()
     commands = {
         'curl': '''import shutil,sys
@@ -87,6 +87,11 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
     bad_language = subprocess.run(command + ['--lang', 'invalid'], env=env, capture_output=True, text=True)
     assert bad_language.returncode != 0 and 'Unsupported language' in bad_language.stderr
     original_staging = set(Path('/tmp').glob('tmp.*'))
+    latest.write_text('{', encoding='utf-8')
+    bad_release = subprocess.run(russian, env=env, capture_output=True, encoding='utf-8')
+    assert bad_release.returncode != 0 and 'Не удалось прочитать версию релиза из ответа GitHub' in bad_release.stderr
+    assert 'Traceback' not in bad_release.stderr
+    latest.write_text('{"tag_name":"v0.0.1","name":"Тестовый релиз"}', encoding='utf-8')
     result = subprocess.run(russian, env=env, capture_output=True, text=True)
     assert result.returncode != 0 and 'Контрольная сумма архива релиза не совпадает' in result.stderr, result.stderr
     assert not Path('/etc/agentbox').exists()
@@ -123,7 +128,10 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
     assert not config_path.exists() and not Path('/opt/agentbox').exists()
     retained = list(Path('/var/backups/agentbox-uninstall').glob('*/config/config.json'))
     assert len(retained) == 1 and retained[0].read_bytes() == original
-    result = subprocess.run(russian, env=env, capture_output=True, text=True)
+    ascii_env = dict(env, LC_ALL='C', PYTHONCOERCECLOCALE='0', PYTHONUTF8='0')
+    with (root / 'install.sh').open('rb') as script:
+        result = subprocess.run(['bash', '-s', '--', *russian[2:]], stdin=script, env=ascii_env,
+                                capture_output=True, encoding='utf-8')
     assert result.returncode == 0, result.stderr
     assert 'Загрузка ' in result.stdout and 'установлен и запущен' in result.stdout
     assert 'Веб-панель: http://127.0.0.1:18189' in result.stdout

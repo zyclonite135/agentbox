@@ -128,7 +128,8 @@ main() {
       "https://api.github.com/repos/$repository/releases/latest" -o "$task_tmp/latest.json" || \
       fail 'No stable release could be downloaded. Check GitHub connectivity, or select a published prerelease with --version.' \
            'Не удалось получить стабильный релиз. Проверьте доступ к GitHub или укажите опубликованную предварительную версию через --version.'
-    version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tag_name"])' "$task_tmp/latest.json") || \
+    version=$(PYTHONIOENCODING=utf-8 python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["tag_name"])' \
+      "$task_tmp/latest.json" 2>/dev/null) || \
       fail 'Could not read the release version from GitHub' 'Не удалось прочитать версию релиза из ответа GitHub'
   fi
   [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || \
@@ -150,7 +151,7 @@ def fail(en, ru):
 
 stage = pathlib.Path(sys.argv[1]); name = sys.argv[2]; root = name[:-7]
 matches = []
-for line in (stage / 'SHA256SUMS').read_text().splitlines():
+for line in (stage / 'SHA256SUMS').read_text(encoding='utf-8').splitlines():
     parts = line.split()
     if len(parts) == 2 and parts[1] == name:
         matches.append(parts[0])
@@ -200,8 +201,8 @@ PY
     systemctl enable --now docker.service
   fi
   docker info >/dev/null || fail 'Local Docker Engine is unavailable' 'Локальный Docker Engine недоступен'
-  # Older release packages ignore the locale environment variable.
-  AGENTBOX_INSTALL_LANG="$language" PYTHONIOENCODING=utf-8 \
+  # Older packages ignore the language selector but still need UTF-8.
+  AGENTBOX_INSTALL_LANG="$language" PYTHONUTF8=1 PYTHONIOENCODING=utf-8 \
     python3 "$package/deploy/bootstrap.py" --package "$package" --listen "$listen"
   # Run cleanup while task_tmp is still in scope, then disarm EXIT.
   rm -rf -- "$task_tmp"

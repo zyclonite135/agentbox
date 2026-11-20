@@ -119,6 +119,8 @@ curl -fsSL https://raw.githubusercontent.com/zyclonite135/agentbox/refs/heads/fe
 
 The installer downloads and verifies the server package, builds the workspace image, and starts `agentbox.service`. **No Go or Node.js installation is needed on the server.** The first image build takes a few minutes and needs access to container registries, Debian repositories, and npm.
 
+The installer uses English by default. For Russian output, replace `sudo bash` with `sudo bash -s -- --lang ru`. Older packages, including `v0.1.21`, still print their installation summary in Chinese.
+
 - **Host:** Linux x86_64 / arm64, systemd, and local Docker Engine. Ubuntu 22.04+ / Debian 12+ install missing dependencies automatically. For other distributions, see the [prerequisites](deploy/README.md#一键安装).
 - **Sign in:** open `http://YOUR_SERVER_IP:8180` and use `boxadmin` with the generated password printed by the installer. Allow TCP 8180 through your firewall if connecting directly; configure [HTTPS](deploy/README.md#https-与-websocket-反向代理) for ongoing public access.
 - **Stable server:** the command selects the latest stable release of this fork. Use `-s -- --listen 127.0.0.1:8180` to bind only to localhost. [Releases of this fork](https://github.com/zyclonite135/agentbox/releases)

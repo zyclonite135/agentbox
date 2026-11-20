@@ -16,6 +16,10 @@ import tempfile
 import release
 
 
+def text(en, ru):
+    return ru if os.environ.get('AGENTBOX_INSTALL_LANG') == 'ru' else en
+
+
 @dataclass
 class Layout:
     app: Path = Path('/opt/agentbox')
@@ -29,20 +33,29 @@ def fresh(layout):
     for path in (layout.app, layout.config.parent, layout.data, layout.cache,
                  layout.units / 'agentbox.service'):
         if path.exists() or path.is_symlink():
-            raise ValueError(f'Existing installation path: {path}; use release.py to upgrade/resume. No files overwritten.')
+            raise ValueError(text(
+                'Existing installation path: {path}; use release.py to upgrade/resume. No files overwritten.',
+                'Обнаружена существующая установка в {path}. Для обновления или возобновления используйте release.py. Данные сохранены.',
+            ).format(path=path))
     if release.run('systemctl', 'show', 'agentbox.service', '--property=FragmentPath', '--value', capture=True).strip():
-        raise ValueError('agentbox.service already exists; migrate the existing installation explicitly')
+        raise ValueError(text('agentbox.service already exists; migrate the existing installation explicitly',
+                              'Служба agentbox.service уже существует. Выполните миграцию существующей установки.'))
 
 
 def listen_address(value):
-    host, port = value.rsplit(':', 1)
-    address = ipaddress.ip_address(host.strip('[]'))
+    host, _, port = value.rpartition(':')
+    invalid_address = text('listen must use an IP address and port', 'В --listen нужно указать IP-адрес и порт')
+    try:
+        address = ipaddress.ip_address(host.strip('[]'))
+    except ValueError as error:
+        raise ValueError(invalid_address) from error
     if str(address) != host and f'[{address}]' != host:
-        raise ValueError('listen must use an IP address and port')
+        raise ValueError(invalid_address)
     if not port.isascii() or not port.isdigit() or not 1 <= int(port) <= 65535:
-        raise ValueError('listen port must be between 1 and 65535')
+        raise ValueError(text('listen port must be between 1 and 65535', 'Порт в --listen должен быть от 1 до 65535'))
     if address.version == 6 and not host.startswith('['):
-        raise ValueError('IPv6 listen addresses require brackets, e.g. [::]:8180')
+        raise ValueError(text('IPv6 listen addresses require brackets, e.g. [::]:8180',
+                              'Укажите IPv6-адрес в квадратных скобках, например [::]:8180'))
     return address, int(port)
 
 
@@ -65,18 +78,19 @@ def install(package, listen, layout):
     if (meta.get('program') != 'agentbox' or meta.get('os') != 'linux' or meta.get('arch') != arch
             or not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?', version)
             or '+dirty' in meta.get('revision', '')):
-        raise ValueError('Expected a clean Linux release matching this machine')
+        raise ValueError(text('Expected a clean Linux release matching this machine',
+                              'Нужен релиз для Linux этой архитектуры, собранный без локальных изменений'))
     for relative in ('agentbox', 'deploy/release.py', 'scripts/build-image.sh',
                      'images/agent/versions.env', 'images/agent/Dockerfile',
                      'images/agent/tmux.conf', 'images/agent/bashrc', 'images/agent/vimrc'):
         if not (package / relative).is_file():
-            raise ValueError('Incomplete release: ' + relative)
+            raise ValueError(text('Incomplete release: missing {file}', 'В пакете релиза отсутствует {file}').format(file=relative))
 
     records = json.loads(release.run('docker', 'network', 'inspect', 'bridge', capture=True))
     gateways = [entry.get('Gateway', '') for entry in records[0]['IPAM']['Config']]
     gateway = next((ip for ip in gateways if ip and ipaddress.ip_address(ip).version == 4), None)
     if not gateway:
-        raise ValueError('Local Docker bridge needs an IPv4 gateway')
+        raise ValueError(text('Local Docker bridge needs an IPv4 gateway', 'Для сети bridge локального Docker нужен шлюз IPv4'))
     # Use a per-release tag, leaving all existing workspace images untouched.
     image = 'agentbox-agent:' + version
     password = secrets.token_urlsafe(32)
@@ -91,7 +105,9 @@ def install(package, listen, layout):
         release.atomic_json(candidate, config)
         release.run(package / 'agentbox', 'check-config', '--config', candidate)
 
-    print('Building the pinned Claude/Codex workspace image (first install may take several minutes)...', flush=True)
+    print(text('Building the pinned Claude/Codex workspace image (first install may take several minutes)...',
+               'Собираем образ рабочего пространства с заданными версиями Claude и Codex. Первая сборка может занять несколько минут…'),
+          flush=True)
     subprocess.run(['bash', str(package / 'scripts/build-image.sh')], check=True,
                    env=dict(os.environ, AGENTBOX_IMAGE=image, AGENTBOX_VERSIONED_IMAGE=image,
                             AGENTBOX_CLAUDE_VERSION='', AGENTBOX_CODEX_VERSION='', AGENTBOX_BASE_IMAGE=''))
@@ -109,30 +125,42 @@ def install(package, listen, layout):
     try:
         release.run(*command, 'activate', '--version', version, '--backup-dir', layout.data / 'backups')
     except subprocess.CalledProcessError:
-        print('Activation failed. Configuration and installed files are retained.')
-        print('Inspect: journalctl -u agentbox --no-pager -n 50')
-        print(f'Retry: python3 {command[1]} activate --version {version}')
+        print(text('Activation failed. Configuration and installed files are retained.',
+                   'Не удалось активировать версию. Конфигурация и установленные файлы сохранены.'))
+        print(text('Inspect:', 'Посмотреть журнал:') + ' journalctl -u agentbox --no-pager -n 50')
+        print(text('Retry:', 'Повторить активацию:') + f' python3 {command[1]} activate --version {version}')
         raise
     address, port = listen_address(listen)
-    host = '<服务器IP>' if address.is_unspecified else (f'[{address}]' if address.version == 6 else str(address))
-    print(f'\nagentbox {version} 已安装并启动（开机自启）。')
-    print(f'控制台：http://{host}:{port}')
-    print('管理员：boxadmin')
-    print('初始密码：' + password)
-    print(f'配置：{layout.config}（仅 root 可读）；数据：{layout.data}')
-    print('登录后在「系统设置 → 账号池」添加 Claude/Codex 账号，再创建工作空间。')
+    host = text('<SERVER_IP>', '<IP_СЕРВЕРА>') if address.is_unspecified else (f'[{address}]' if address.version == 6 else str(address))
+    print(text('\nAgentBox {version} is installed and running. Startup on boot is enabled.',
+               '\nAgentBox {version} установлен и запущен. Автозапуск включён.').format(version=version))
+    print(text('Web console:', 'Веб-панель:') + f' http://{host}:{port}')
+    print(text('Administrator:', 'Администратор:') + ' boxadmin')
+    print(text('Initial password:', 'Начальный пароль:') + ' ' + password)
+    print(text('Configuration: {config} (readable only by root). Data: {data}',
+               'Конфигурация: {config} (чтение только для root). Данные: {data}').format(config=layout.config, data=layout.data))
+    print(text('After signing in, add a Claude or Codex account in System settings → Account pool, then create a workspace.',
+               'После входа добавьте аккаунт Claude или Codex в разделе «Настройки → Аккаунты», затем создайте рабочее пространство.'))
     if address.is_unspecified:
-        print(f'远程访问需在防火墙/安全组放行 TCP {port}；公网长期使用请配置 HTTPS 反向代理。')
-    print('状态：systemctl status agentbox    日志：journalctl -u agentbox -f')
+        print(text('For direct remote access, allow TCP port {port} in the firewall or security group. '
+                   'For ongoing public access, configure an HTTPS reverse proxy.',
+                   'Для прямого удалённого доступа откройте TCP-порт {port} в межсетевом экране или облачной группе безопасности. '
+                   'Для постоянного доступа из интернета настройте обратный прокси с HTTPS.').format(port=port))
+    print(text('Status:', 'Статус:') + ' systemctl status agentbox    ' + text('Logs:', 'Журнал:') + ' journalctl -u agentbox -f')
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--package', required=True, type=Path)
-    parser.add_argument('--listen', default='0.0.0.0:8180')
+    parser = argparse.ArgumentParser(description=text(__doc__, 'Первая установка из проверенного пакета AgentBox.'), add_help=False)
+    options = parser.add_argument_group(text('installer options', 'параметры установки'))
+    options.add_argument('-h', '--help', action='help', help=text('show this help and exit', 'показать справку и выйти'))
+    options.add_argument('--package', required=True, type=Path, metavar='PATH',
+                         help=text('path to the extracted release', 'путь к распакованному релизу'))
+    options.add_argument('--listen', default='0.0.0.0:8180', metavar='IP:PORT',
+                         help=text('IP address and port for the web console', 'IP-адрес и порт веб-панели'))
     args = parser.parse_args()
     if platform.system() != 'Linux' or os.geteuid() != 0 or not Path('/run/systemd/system').is_dir():
-        parser.error('run as root on the target systemd Linux server')
+        parser.error(text('run as root on the target systemd Linux server',
+                          'запустите установщик от root на целевом сервере Linux с systemd'))
     # A CLI context/remote DOCKER_HOST must not build images on a different daemon.
     for key in ('DOCKER_CONTEXT', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH'):
         os.environ.pop(key, None)
@@ -145,4 +173,4 @@ if __name__ == '__main__':
     try:
         main()
     except (ValueError, OSError, KeyError, IndexError, subprocess.CalledProcessError) as error:
-        raise SystemExit('agentbox installation failed: ' + str(error))
+        raise SystemExit(text('AgentBox installation failed: ', 'Не удалось установить AgentBox: ') + str(error))

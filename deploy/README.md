@@ -21,6 +21,7 @@ curl -fsSL https://raw.githubusercontent.com/zyclonite135/agentbox/refs/heads/fe
 ```
 
 - 支持 Linux x86_64/arm64、systemd 和本机 Docker Engine。Ubuntu 22.04+/Debian 12+ 缺依赖时自动通过 apt 安装；其他发行版需预装 Python 3.9+、Git、curl、CA 证书、tzdata、Docker。现有 Docker 不替换、不切换 CLI context，所有操作固定使用 `/var/run/docker.sock`。
+- 安装器默认用英文输出，可以通过 `--lang ru` 选择俄文。`v0.1.21` 等旧发布包的安装结果仍为中文。
 - 默认监听 `0.0.0.0:8180`，安装完打印访问地址、管理员 `boxadmin` 和随机初始密码；密码同时保存在仅 root 可读的 `/etc/agentbox/config.json`。登录后添加模型账号即可创建空间。防火墙/云安全组由管理员放行；HTTPS 配置见下文。
 - v0.1.1 起发布包内含五个平台的 abox-link 客户端，激活时自动安装到数据目录，无需用户构建。
 - 发布包按 SHA-256 校验，解压拒绝路径穿越、链接和特殊文件；只安装所选架构的包。校验提供完整性检查，不是独立数字签名。

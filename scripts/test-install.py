@@ -19,7 +19,7 @@ spec = importlib.util.spec_from_file_location('bootstrap', ROOT / 'deploy/bootst
 bootstrap = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = bootstrap
 spec.loader.exec_module(bootstrap)
-EXTRACTOR = (ROOT / 'install.sh').read_text().split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
+EXTRACTOR = (ROOT / 'install.sh').read_text(encoding='utf-8').split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 
 
 class Archives(unittest.TestCase):
@@ -114,7 +114,7 @@ class Installation(unittest.TestCase):
         self.assertEqual(self.layout.config.stat().st_mode & 0o777, 0o600)
         self.assertEqual(self.layout.config.parent.stat().st_mode & 0o777, 0o700)
         self.assertIn(cfg['auth_token'], output)
-        self.assertIn('http://<服务器IP>:8180', output)
+        self.assertIn('http://<SERVER_IP>:8180', output)
         self.assertEqual(build.call_args.kwargs['env']['AGENTBOX_VERSIONED_IMAGE'], cfg['agent_image'])
         self.assertTrue(any('activate' in call for call in self.calls))
         with self.assertRaises(ValueError): self.execute()

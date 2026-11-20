@@ -81,9 +81,14 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
     apt = mocks / 'apt-get'; apt.write_text('#!/bin/sh\necho "unexpected apt call" >&2\nexit 1\n'); apt.chmod(0o755)
     env = dict(os.environ, PATH=str(mocks) + ':' + os.environ['PATH'])
     command = ['bash', str(root / 'install.sh'), '--listen', '127.0.0.1:18189']
+    russian = command + ['--lang', 'ru']
+    help_result = subprocess.run(command + ['--help', '--lang', 'ru'], env=env, capture_output=True, text=True, check=True)
+    assert 'Установщик AgentBox для Linux' in help_result.stdout and '--lang en|ru' in help_result.stdout
+    bad_language = subprocess.run(command + ['--lang', 'invalid'], env=env, capture_output=True, text=True)
+    assert bad_language.returncode != 0 and 'Unsupported language' in bad_language.stderr
     original_staging = set(Path('/tmp').glob('tmp.*'))
-    result = subprocess.run(command, env=env, capture_output=True, text=True)
-    assert result.returncode != 0 and 'checksum mismatch' in result.stderr, result.stderr
+    result = subprocess.run(russian, env=env, capture_output=True, text=True)
+    assert result.returncode != 0 and 'Контрольная сумма архива релиза не совпадает' in result.stderr, result.stderr
     assert not Path('/etc/agentbox').exists()
     assert set(Path('/tmp').glob('tmp.*')) == original_staging, 'failed download staging was not cleaned: ' + result.stderr
     (fixture / 'SHA256SUMS').write_text(digest + '  ' + archive.name + '\n')
@@ -97,7 +102,8 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
     original = config_path.read_bytes(); config = json.loads(original)
     assert config_path.stat().st_mode & 0o777 == 0o600
     assert Path('/opt/agentbox/current').resolve().name == 'v0.0.1'
-    assert config['auth_token'] in result.stdout and '已安装并启动' in result.stdout
+    assert 'Downloading ' in result.stdout and 'is installed and running' in result.stdout
+    assert f'Initial password: {config["auth_token"]}' in result.stdout
     req = urllib.request.Request('http://127.0.0.1:18189/api/login',
         data=json.dumps({'username':'boxadmin','password':config['auth_token']}).encode(),
         headers={'Content-Type':'application/json'})
@@ -117,8 +123,10 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
     assert not config_path.exists() and not Path('/opt/agentbox').exists()
     retained = list(Path('/var/backups/agentbox-uninstall').glob('*/config/config.json'))
     assert len(retained) == 1 and retained[0].read_bytes() == original
-    result = subprocess.run(command, env=env, capture_output=True, text=True)
+    result = subprocess.run(russian, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+    assert 'Загрузка ' in result.stdout and 'установлен и запущен' in result.stdout
+    assert 'Веб-панель: http://127.0.0.1:18189' in result.stdout
     result = subprocess.run(['bash', str(root / 'uninstall.sh'), '--yes', '--purge'], env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert retained[0].read_bytes() == original and not Path('/var/lib/agentbox').exists()

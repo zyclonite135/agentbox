@@ -10,7 +10,7 @@ Run Claude Code and Codex CLI on a Linux server you control.<br /> Go from a tas
 
 [![Release](https://img.shields.io/github/v/release/zyclonite135/agentbox?color=D99A2B)](https://github.com/zyclonite135/agentbox/releases/latest) [![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?logo=go&logoColor=white)](go.mod) [![Docker](https://img.shields.io/badge/Docker-Workspaces-2496ED?logo=docker&logoColor=white)](images/agent/Dockerfile) [![License](https://img.shields.io/badge/License-Apache--2.0-D99A2B)](LICENSE)
 
-**English** | [简体中文](README_CN.md)
+**English** | [简体中文](README_CN.md) | [Русский](README_RU.md)
 
 [Watch the tour](#see-it-work) · [Highlights](#highlights) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [Architecture](#how-it-works) · [Documentation](#documentation)
 

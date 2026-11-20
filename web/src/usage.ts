@@ -123,10 +123,12 @@ const ZONE_NAMES: Record<string, string> = {
   get "Asia/Shanghai"() { return i18nText("中国标准时间"); },
   get "Asia/Hong_Kong"() { return i18nText("香港时间"); },
   get "Asia/Tokyo"() { return i18nText("日本时间"); },
+  get "Asia/Yekaterinburg"() { return i18nText("叶卡捷琳堡时间"); },
   get UTC() { return i18nText("协调世界时"); },
   get "America/Los_Angeles"() { return i18nText("美国太平洋时间"); },
   get "America/New_York"() { return i18nText("美国东部时间"); },
   get "Europe/London"() { return i18nText("英国时间"); },
+  get "Europe/Moscow"() { return i18nText("莫斯科时间"); },
 };
 
 function syncTimeZone() {

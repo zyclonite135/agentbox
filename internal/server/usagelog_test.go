@@ -89,28 +89,32 @@ func TestUsageEventsAdminSeesEveryone(t *testing.T) {
 
 func TestUsageFilterWallClockUsesConfiguredTimeZone(t *testing.T) {
 	s, _ := newTestServer(t)
-	s.cfg.TimeZone = "Asia/Shanghai"
-	r := asUser(httptest.NewRequest(http.MethodGet,
-		"/api/usage/events?since=2026-09-19T08:30&until=2026-09-19T09:01", nil),
-		"root", store.RoleAdmin)
-
-	f, _ := s.usageFilterFrom(r)
-	loc, err := time.LoadLocation("Asia/Shanghai")
-	if err != nil {
-		t.Fatal(err)
-	}
-	wantSince := time.Date(2026, 9, 19, 8, 30, 0, 0, loc)
-	wantUntil := time.Date(2026, 9, 19, 9, 1, 0, 0, loc)
-	if !f.Since.Equal(wantSince) || !f.Until.Equal(wantUntil) {
-		t.Fatalf("墙上时间解析错误: since=%s until=%s, want %s / %s",
-			f.Since, f.Until, wantSince, wantUntil)
+	for _, tc := range []struct {
+		zone    string
+		utcHour int
+	}{
+		{"Asia/Shanghai", 0},
+		{"Asia/Yekaterinburg", 3},
+		{"Europe/Moscow", 5},
+	} {
+		s.cfg.TimeZone = tc.zone
+		r := asUser(httptest.NewRequest(http.MethodGet,
+			"/api/usage/events?since=2026-09-19T08:30&until=2026-09-19T09:01", nil),
+			"root", store.RoleAdmin)
+		f, _ := s.usageFilterFrom(r)
+		wantSince := time.Date(2026, 9, 19, tc.utcHour, 30, 0, 0, time.UTC)
+		wantUntil := wantSince.Add(31 * time.Minute)
+		if !f.Since.Equal(wantSince) || !f.Until.Equal(wantUntil) {
+			t.Fatalf("%s 墙上时间解析错误: since=%s until=%s, want %s / %s",
+				tc.zone, f.Since, f.Until, wantSince, wantUntil)
+		}
 	}
 
 	// 带偏移的旧客户端参数仍按它自己的绝对时间解释。
-	r = asUser(httptest.NewRequest(http.MethodGet,
+	r := asUser(httptest.NewRequest(http.MethodGet,
 		"/api/usage/events?since=2026-09-19T08:30:00-07:00", nil),
 		"root", store.RoleAdmin)
-	f, _ = s.usageFilterFrom(r)
+	f, _ := s.usageFilterFrom(r)
 	wantRFC3339 := time.Date(2026, 9, 19, 15, 30, 0, 0, time.UTC)
 	if !f.Since.Equal(wantRFC3339) {
 		t.Fatalf("RFC3339 兼容解析错误: got %s want %s", f.Since, wantRFC3339)

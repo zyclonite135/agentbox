@@ -21,12 +21,13 @@ export async function webI18nSmoke(browser) {
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const base=`http://127.0.0.1:${server.address().port}`;
- const context=await browser.newContext({locale:'en-GB', viewport:{width:1280,height:900}});
+ const context=await browser.newContext({locale:'en-GB', timezoneId:'UTC', viewport:{width:1280,height:900}});
  const page=await context.newPage();
  recordNavigations(page,'web-i18n');
  const errors=[]; page.on('pageerror',e=>errors.push(e.stack||e.message));
  const space={id:'locale-space',name:'保存',agent:'codex',account_id:'fixture',account_label:'取消',status:'running',default_model:'fixture'};
  let sockets=0, writes=0, usageReads=0, terminalSocket;
+ let timezone='Asia/Tokyo';
  const usageRows=Array.from({length:20},(_,i)=>({id:i+1,ts:Date.now(),user:'保存',session_id:space.id,session_name:space.name,thread_id:'thread',turn_id:'turn-'+i,agent:'claude',account_id:'fixture',model:'保存',kind:'chat',billing:'table',input_tokens:100,output_tokens:1000,cache_read_tokens:80,cache_write_tokens:10,total_tokens:1190,cost_micro_usd:2128,ttft_ms:100,wall_ms:1000,duration_ms:900,rate:{input:1,output:2,cache_read:0.1,cache_write:2,snapshot:true,per_request:true,key:'保存'}}));
  const usageRun='a'.repeat(32);
  Object.assign(usageRows[0],{kind:'delegation',delegation_id:usageRun});
@@ -40,12 +41,15 @@ export async function webI18nSmoke(browser) {
   if(path==='/api/usage/events') usageReads++;
   let body={};
   if(path==='/api/login')body={token:'synthetic-locale-token'};
-  else if(path==='/api/me')body={user:'保存',role:'admin',timezone:'Asia/Tokyo',models:{claude:[],codex:[]},quota:{metered:false}};
+  else if(path==='/api/me')body={user:'保存',role:'admin',timezone,models:{claude:[],codex:[]},quota:{metered:false}};
   else if(path==='/api/sessions')body=[space];
   else if(path==='/api/session-creations')body={version:1,actor_key:'a'.repeat(64),creations:[]};
   else if(path==='/api/onboarding')body={version:1,can_configure:true,can_create:true,has_workspaces:true,accounts:[{id:'fixture',label:'取消',type:'codex',credentials_present:true}],default_models:{codex:'fixture'},container_resources:{cpus:1,memory_mb:512,pids_limit:128}};
   else if(path==='/api/accounts')body=[{id:'fixture',label:'取消',type:'codex',cred_status:'ok',sessions:1}];
-  else if(path==='/api/settings')body={listen:'127.0.0.1:8180',agent_image:'fixture',permission_mode:'default',max_upload_mb:20,idle_timeout_min:30,timezone:'Asia/Tokyo',container:{memory_mb:512,cpus:1,pids_limit:128,network:'none'},resources:{max_running:0,max_running_per_user:0,min_free_bytes:0},models:{claude:[],codex:[]},default_models:{claude:'fixture',codex:'fixture'},terminal_tips:{tips:['保存'],interval_sec:0,animation:'none'},tunnel:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},pricing:{}};
+  else if(path==='/api/settings'){
+   if(route.request().method()==='PUT')timezone=route.request().postDataJSON().timezone;
+   body={listen:'127.0.0.1:8180',agent_image:'fixture',permission_mode:'default',max_upload_mb:20,idle_timeout_min:30,timezone,container:{memory_mb:512,cpus:1,pids_limit:128,network:'none'},resources:{max_running:0,max_running_per_user:0,min_free_bytes:0},models:{claude:[],codex:[]},default_models:{claude:'fixture',codex:'fixture'},terminal_tips:{tips:['保存'],interval_sec:0,animation:'none'},tunnel:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},pricing:{}};
+  }
   else if(path.endsWith('/models'))body={models:[],discovery:'available'};
   else if(path.endsWith('/files'))body=[];
   else if(path.endsWith('/chat/threads'))body={threads:[],active:null};
@@ -54,7 +58,7 @@ export async function webI18nSmoke(browser) {
   else if(path==='/api/me/git')body={user:'保存',name:'取消',email:'fixture@example.invalid'};
   else if(path==='/api/me/git/default')body={connection_id:''};
   else if(path==='/api/proxies')body={proxies:[],bridge_up:false,bridge_host:'127.0.0.1'};
-  else if(path==='/api/usage/events')body={rows:usageRows,total:{rows:20,turns:20,input_tokens:2000,output_tokens:20000,cache_read_tokens:1600,cache_write_tokens:200,cost_micro_usd:42560},facets:{users:[],agents:[],models:[]},scope:'all',timezone:'Asia/Tokyo',order:'desc',limit:20,offset:0,sync:{last_scan_at:Date.now(),last_success_at:Date.now(),scanning:false,errors:0}};
+  else if(path==='/api/usage/events')body={rows:usageRows,total:{rows:20,turns:20,input_tokens:2000,output_tokens:20000,cache_read_tokens:1600,cache_write_tokens:200,cost_micro_usd:42560},facets:{users:[],agents:[],models:[]},scope:'all',timezone,order:'desc',limit:20,offset:0,sync:{last_scan_at:Date.now(),last_success_at:Date.now(),scanning:false,errors:0}};
   else if(path==='/api/updates'||path==='/api/updates/check'){
    const checked=path.endsWith('/check') ? Date.now() : 0;
    body={current_version:'v0.1.9',revision:'0123456789abcdef',built_at:'2026-10-04T08:00:00Z',latest_version:'',available:false,comparable:true,checked_at:checked,attempted_at:checked,error:''};
@@ -279,6 +283,40 @@ export async function webI18nSmoke(browser) {
   await updatePanel.getByText('Стабильных релизов пока нет',{exact:true}).waitFor();
   await updatePanel.getByText('Для обновления из интерфейса нужна стандартная установка на Linux с systemd. Обновите этот экземпляр вручную.',{exact:true}).waitFor();
   assert.equal(await page.locator('#update-install').isVisible(),false);
+
+  await page.setViewportSize({width:1280,height:900});
+  usageRows[0].ts=Date.UTC(2026,10,19,20,30);
+  for (const [zone, label, usageLabel, day, hour] of [
+   ['Asia/Yekaterinburg','Екатеринбург','Время Екатеринбурга','2026-11-20','01:30'],
+   ['Europe/Moscow','Москва','Московское время','2026-11-19','23:30'],
+  ]) {
+   await page.goto(base+'/#/settings/interface');
+   const trigger=page.locator('#set-timezone + .select-trigger');
+   await trigger.click();
+   await page.getByRole('option',{name:`${label} (${zone})`,exact:true}).click();
+   const saved=page.waitForResponse(res=>new URL(res.url()).pathname==='/api/settings' && res.request().method()==='PUT');
+   await page.locator('#set-save').click();
+   assert.deepEqual((await saved).request().postDataJSON(),{timezone:zone});
+   await page.locator('#set-savebar').waitFor({state:'hidden'});
+   await page.reload();
+   await trigger.filter({hasText:`${label} (${zone})`}).waitFor();
+
+   await page.locator('#btn-usagelog').click();
+   await page.locator('#usage-zone-name').filter({hasText:usageLabel}).waitFor();
+   assert.equal(await page.locator('#usage-zone-id').textContent(),zone);
+   const time=page.locator('#usage-rows .u-time').first();
+   await time.waitFor();
+   assert.match(await time.textContent(),new RegExp(`${hour}:00`));
+   assert.equal(await time.locator('.u-sub').textContent(),day.replaceAll('-','/'));
+   await page.locator('#uf-date-range').click();
+   assert.equal(await page.locator('[data-dr="zone"]').textContent(),zone);
+   await page.locator('[data-dr="cancel"]').click();
+   const downloaded=page.waitForEvent('download');
+   await page.locator('#uf-export').click();
+   const csv=await readFile(await (await downloaded).path(),'utf8');
+   assert.ok(csv.split('\r\n')[0].includes(zone));
+   assert.ok(csv.split('\r\n')[1].startsWith(`${day} ${hour},`));
+  }
   await page.evaluate(async()=>{const {emit}=await import('/_v/{{BUILD}}/js/state.js');emit('unauthorized');});
   await page.locator('#login').waitFor({state:'visible'});
   await language('zh-TW'); await language('en');

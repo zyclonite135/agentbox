@@ -35,7 +35,7 @@ export async function smoke(page) {
    if (route.request().method() === 'PUT') { saved = route.request().postData(); await route.fulfill({json:{ok:true}}); }
    else {
     const file = url.searchParams.get('path'); requestedFiles.push({file,scope:url.searchParams.get('scope')});
-    const images = ['internal/web/static/img/logo.svg','docs/images/chat-light.png','docs/images/chat-dark.png'];
+    const images = ['internal/web/static/img/logo.svg','docs/images/en/chat-light.png','docs/images/en/chat-dark.png'];
     if(images.includes(file)) await route.fulfill({body:await readFile(resolve(root,'../../..',file)),contentType:file.endsWith('.svg')?'image/svg+xml':'image/png'});
     else if(file?.endsWith('.svg')) {
      if(file==='docs/assets/logo small.svg')await localImageGate;
@@ -216,17 +216,17 @@ export async function smoke(page) {
   await page.setViewportSize({width:1280,height:900});
   await page.evaluate(()=>document.documentElement.dataset.theme='light');
   await open('README.md',readme);
-  assert.equal(await page.locator('#fv-md h1').first().innerText(),'agentbox');
+  assert.equal(await page.locator('#fv-md h1').first().innerText(),'AgentBox');
   assert.match(await page.locator('#fv-md > div[align="center"]').first().evaluate(e=>getComputedStyle(e).textAlign),/center/);
   assert.equal(await page.locator('#fv-md a > img').count()>=4,true,'nested badge links');
   assert.ok(await page.locator('#fv-md table').count());
   assert.ok(await page.locator('#fv-md br').count());
   assert.ok(!(await page.locator('#fv-md').innerText()).includes('<div align='));
-  assert.ok(!(await page.locator('#fv-md').innerText()).includes('![Release]'));
-  assert.equal(await page.locator('#fv-md img[alt="agentbox logo"]').evaluate(e=>e.getBoundingClientRect().width),96);
-  await decodeImage('#fv-md img[alt="agentbox logo"]');
+  assert.ok(!(await page.locator('#fv-md').innerText()).includes('![Релиз]'));
+  assert.equal(await page.locator('#fv-md img[alt="Логотип AgentBox"]').evaluate(e=>e.getBoundingClientRect().width),96);
+  await decodeImage('#fv-md img[alt="Логотип AgentBox"]');
   const hash=await page.evaluate(()=>location.hash);
-  await page.locator('#fv-md a').filter({hasText:'Quick start'}).first().click();
+  await page.locator('#fv-md a').filter({hasText:'Быстрый старт'}).first().click();
   assert.ok(await page.locator('#fv-mdwrap').evaluate(e=>e.scrollTop>100));assert.equal(await page.evaluate(()=>location.hash),hash);
   await page.locator('#fv-mdwrap').evaluate(e=>e.scrollTop=0);
   await page.screenshot({path:'output/playwright/markdown-readme-light.png'});
@@ -235,6 +235,9 @@ export async function smoke(page) {
   await page.setViewportSize({width:390,height:844});
   assert.ok(await page.locator('#fv-mdwrap').evaluate(e=>e.scrollWidth<=e.clientWidth));
   await page.screenshot({path:'output/playwright/markdown-readme-mobile.png'});
+  documents.set('README_EN.md',await readFile(resolve(root,'../../../README_EN.md'),'utf8'));
+  await page.locator('#fv-md a').filter({hasText:/^English$/}).click();
+  await page.waitForFunction(()=>document.querySelector('#fv-md h1')?.textContent==='agentbox');
   documents.set('README_CN.md','# 中文文档\n\n跳转成功');
   await page.locator('#fv-md a').filter({hasText:'简体中文'}).first().click();
   await page.waitForFunction(()=>document.querySelector('#fv-md h1')?.textContent==='中文文档');

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-给代码助手/维护者的项目说明。用户向的部署与功能文档见 `README.md`（英文）和 `README_CN.md`（中文）；这里记录实际代码结构、开发命令和容易踩坑的约定。
+给代码助手/维护者的项目说明。用户向的部署与功能文档见 `README.md`（俄文）、`README_EN.md`（英文）和 `README_CN.md`（中文）；这里记录实际代码结构、开发命令和容易踩坑的约定。
 
 ## 项目是什么
 
@@ -983,7 +983,7 @@ data/
 - `GET /api/updates/components` 仅管理员，只观察当前构建/schema、配置镜像标签与服务端桌面能力，最多 3 秒 Docker inspect；不访问发行/npm 源或运行 CLI。labels_only 不证明协议兼容，更不代表运行中空间版本；网页不能读取本机桌面安装版本。前端离开页面/退出必须作废请求，三个升级动作仍归原更新器。
 - `image_updates` / `previous_agent_image` 必须进入 Config 的 mutate/persist；存量镜像先同版本压平（不启动/不挂载用户数据的临时容器），后续按 image-update-state.json 登记的不可变固定底座 ID 构建并保留浏览器环境，验证 CLI 版本及隔离合成行为、同步报告后通过 `SwitchAgentImage` 比较原镜像与策略再原子切换，不能覆盖构建期间的新设置。回退暂停自动更新。任务单飞、可取消、30 分钟超时，失败不切换、不全局 prune。状态落在 data_dir/image-update-state.json，含不可变 ID 关系、维护排程与回退暂停；不能清作缓存。每日维护可在关闭自动追新时同版本迁移，七天后仅定向回收登记的旧更新镜像，保护当前/回滚/底座及所有容器引用。完整流程和空间闸门见 docs/agent-image-validation.md。
 - `config.json`、`accounts/`、`data/` 含密钥和运行时状态，已在 `.gitignore`；不要提交。
-- 若改动影响用户可见行为、部署步骤、API 或配置字段，同步更新 `README.md` 与 `README_CN.md`，保持中英文内容一致（必要时也更新 `deploy/README.md`）。
+- 若改动影响用户可见行为、部署步骤、API 或配置字段，同步更新 `README_EN.md` 与 `README_CN.md`，保持中英文内容一致（必要时也更新 `deploy/README.md`）。
 
 ## 开源重构
 

@@ -10,7 +10,7 @@
 
 [![Release](https://img.shields.io/github/v/release/zyclonite135/agentbox?color=D99A2B)](https://github.com/zyclonite135/agentbox/releases/latest) [![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?logo=go&logoColor=white)](go.mod) [![Docker](https://img.shields.io/badge/Docker-Workspaces-2496ED?logo=docker&logoColor=white)](images/agent/Dockerfile) [![License](https://img.shields.io/badge/License-Apache--2.0-D99A2B)](LICENSE)
 
-[English](README.md) | **简体中文** | [Русский](README_RU.md)
+[English](README_EN.md) | **简体中文** | [Русский](README.md)
 
 [操作演示](#操作演示) · [功能亮点](#功能亮点) · [界面预览](#界面预览) · [快速开始](#快速开始) · [整体架构](#整体架构) · [使用文档](#使用文档)
 

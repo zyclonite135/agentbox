@@ -1,162 +1,170 @@
 <div align="center">
 
-<img src="internal/web/static/img/logo.svg" alt="agentbox logo" width="96" height="96" />
+<img src="internal/web/static/img/logo.svg" alt="Логотип AgentBox" width="96" height="96" />
 
-# agentbox
+# AgentBox
 
-**Your AI coding workspace. On your server. In your browser.**
+**Рабочая среда для разработки с AI-агентами на вашем сервере.**
 
-Run Claude Code and Codex CLI on a Linux server you control.<br /> Go from a task to reviewed code with chat, terminal, files, and Git in one place.
+Запускайте Claude Code и Codex CLI на своём Linux-сервере.<br /> От постановки задачи до проверки кода — чат, терминал, файлы и Git в одном окне браузера.
 
-[![Release](https://img.shields.io/github/v/release/zyclonite135/agentbox?color=D99A2B)](https://github.com/zyclonite135/agentbox/releases/latest) [![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?logo=go&logoColor=white)](go.mod) [![Docker](https://img.shields.io/badge/Docker-Workspaces-2496ED?logo=docker&logoColor=white)](images/agent/Dockerfile) [![License](https://img.shields.io/badge/License-Apache--2.0-D99A2B)](LICENSE)
+[![Релиз](https://img.shields.io/github/v/release/zyclonite135/agentbox?color=D99A2B)](https://github.com/zyclonite135/agentbox/releases/latest) [![Go](https://img.shields.io/badge/Go-1.26.11-00ADD8?logo=go&logoColor=white)](go.mod) [![Docker](https://img.shields.io/badge/Docker-Workspaces-2496ED?logo=docker&logoColor=white)](images/agent/Dockerfile) [![Лицензия](https://img.shields.io/badge/License-Apache--2.0-D99A2B)](LICENSE)
 
-**English** | [简体中文](README_CN.md) | [Русский](README_RU.md)
+[English](README_EN.md) | [简体中文](README_CN.md) | **Русский**
 
-[Watch the tour](#see-it-work) · [Highlights](#highlights) · [Screenshots](#screenshots) · [Quick start](#quick-start) · [Architecture](#how-it-works) · [Documentation](#documentation)
+[Демонстрация](#демонстрация) · [Возможности](#возможности) · [Скриншоты](#скриншоты) · [Быстрый старт](#быстрый-старт) · [Архитектура](#архитектура) · [Документация](#документация)
 
 </div>
 
-## See it work
+## Демонстрация
 
-<a href="docs/media/agentbox-tour-en.mp4?raw=1"><img src="docs/images/en/tour.gif" alt="Animated tour: a task with an @ file mention streams thinking, tool calls and a task list; /context draws the context grid; tests run in the terminal; the diff is reviewed" width="100%" /></a>
+<a href="docs/media/agentbox-tour-en.mp4?raw=1"><img src="docs/images/en/tour.gif" alt="Демонстрация задачи со ссылкой на файл через @, вызовами инструментов, списком задач, схемой контекста, запуском тестов и просмотром изменений" width="100%" /></a>
 
-<p align="center"><a href="docs/media/agentbox-tour-en.mp4?raw=1"><strong>▶ Full tour in 1920 px (MP4, 70 s)</strong></a> — adds file previews, usage records and switching between the six interface styles · <a href="#screenshots">Screenshots</a></p>
+<p align="center"><a href="docs/media/agentbox-tour-en.mp4?raw=1"><strong>▶ Полная демонстрация в разрешении 1920 пикселей (MP4, 70 с)</strong></a> с предпросмотром файлов, статистикой использования и переключением между шестью стилями интерфейса · <a href="#скриншоты">Скриншоты</a></p>
 
-<sub>Recorded from the real web console with synthetic projects, conversations, command output and usage — no model was called. It demonstrates the interface, not model quality or speed.</sub>
+<sub>Запись сделана в рабочем веб-интерфейсе на демонстрационных проектах. Диалоги, вывод команд и статистика подготовлены для записи. Ролик показывает работу интерфейса без запросов к моделям.</sub>
 
-## Why agentbox?
+## Зачем нужен AgentBox
 
-Set up your coding environment once on your server, then pick up your project from a laptop, desktop, or phone. Your local machine only needs a browser; the agents and project tools run in Docker on the server.
+Настройте среду разработки на сервере один раз и возвращайтесь к проектам с ноутбука, настольного компьютера или телефона. На устройстве нужен только браузер. Агенты и инструменты проекта работают в Docker на сервере.
 
-| What you need | What agentbox provides |
+| Задача | Как помогает AgentBox |
 | --- | --- |
-| **Pick up where you left off** | Persistent project files, home configuration, and chat history across browser sessions |
-| **Work with familiar agents** | Claude Code and Codex CLI, with a streaming Web chat and their original interactive terminal interfaces |
-| **Finish the task in one place** | Upload or clone → chat → run and preview → review diffs → commit, push, or download |
-| **Reuse your setup** | User-level shared files, layered home templates, Claude skills, and MCP configuration with workspace overrides |
-| **Give a trusted team access** | Central account pools, per-user account scopes, per-request usage records, price snapshots, and optional credits |
-| **Connect to your own services** | Optional abox-link tunnel to allowlisted repositories, databases, and other private-network services |
+| **Продолжить с того же места** | Файлы проекта, настройки домашнего каталога и история чата сохраняются между сеансами браузера |
+| **Работать с привычными агентами** | Claude Code и Codex CLI доступны в веб-чате с потоковыми ответами и в собственных интерактивных терминалах |
+| **Выполнить задачу в одном интерфейсе** | Загрузите файлы или клонируйте репозиторий, опишите задачу в чате, запустите проект, проверьте результат и изменения, затем создайте коммит, отправьте его или скачайте файлы |
+| **Повторно использовать настройки** | Общие файлы пользователя, многоуровневые шаблоны домашнего каталога, навыки Claude и настройки MCP с переопределением для отдельных рабочих пространств |
+| **Предоставить доступ доверенной команде** | Единый пул аккаунтов, права доступа по пользователям, статистика по каждому запросу, сохранённые тарифы и опциональная система кредитов |
+| **Подключиться к своим сервисам** | Опциональный туннель abox-link к разрешённым репозиториям, базам данных и другим сервисам в частной сети |
 
-You bring the server and your own Claude / Codex subscription, API key, or compatible relay account. Agentbox provides the workspace and management layer; model usage follows your provider's terms and pricing.
+Для работы нужен собственный сервер и подписка Claude или Codex, API-ключ либо аккаунт совместимого посредника. AgentBox предоставляет рабочую среду и инструменты управления. Запросы к моделям оплачиваются по условиям и тарифам вашего провайдера.
 
-## Highlights
+## Возможности
 
-### A chat that keeps up with the CLI
+### Чат с возможностями CLI
 
-- **Watch the work, not a spinner.** Replies stream with thinking summaries and every tool call; Claude Code tool calls read like its terminal (`● Update(src/app.ts)` with a numbered diff, reads and commands folded into "Read 3 files, ran 2 shell commands", sub-agents with their own calls), Codex commands are named the way its CLI shows them (Read, Search, Shell, Edit) with exit status and duration, and full output and diffs are a click away. The agent's task list sits above the message box ("Tasks 2/3 · Running the tests"), a timer counts the turn, and a ring shows how full the context window is, like the CLI status line.
-- **`@` files and `/` commands.** Type `@` to search workspace files by name and insert the path. Type `/` to list the workspace's real Claude Code commands. `/context` is drawn as the CLI's colored grid and, on subscription accounts, `/usage` as limit bars; both are answered locally without a model call.
-- **Stay in the loop.** When Claude asks a question mid-task, answer it in a card and the same turn continues. Keep typing while it works: messages queue for the next turn, or steer the running one. After a turn, the predicted next prompt waits in grey for Tab. (Questions, steering and suggestions are for Claude workspaces.)
-- **Nothing gets lost.** Unsent drafts, frozen outgoing copies and per-message receipts survive reloads, disconnects and server restarts; an uncertain result is shown for review instead of being re-run.
+- **Ход работы агента.** В потоке ответа видны краткие сводки рассуждений и вызовы инструментов. Вызовы Claude Code оформлены как в терминале. Например, `● Update(src/app.ts)` показывает изменения с номерами строк, операции чтения и запуска команд могут сворачиваться в «Прочитано 3 файла, выполнено 2 команды», а у субагентов отображаются собственные вызовы. Для команд Codex сохраняются названия из CLI (Read, Search, Shell, Edit), код завершения и длительность. Полный вывод и изменения можно открыть по нажатию. Над полем сообщения видны список задач агента (например, «Задачи 2/3 · Запуск тестов»), таймер текущего хода и круговой индикатор заполнения контекстного окна, как в строке состояния CLI.
+- **Файлы через `@` и команды через `/`.** Введите `@`, чтобы найти файл по имени и вставить путь к нему. Символ `/` открывает список команд Claude Code, доступных в рабочем пространстве. Результат `/context` отображается цветной сеткой, как в CLI. Для аккаунтов с подпиской `/usage` показывает шкалы лимитов. Обе команды выполняются локально, без обращения к модели.
+- **Уточнения и дополнительные сообщения.** Когда Claude задаёт вопрос во время работы, ответьте в карточке, и текущий ход продолжится. Можно писать сообщения, пока агент работает, чтобы поставить их в очередь на следующий ход или уточнить текущий. После ответа предлагаемое следующее сообщение отображается серым и подставляется клавишей Tab. Вопросы, уточнения на ходу и подсказки доступны в рабочих пространствах Claude.
+- **Сохранение сообщений.** Черновики, копии текста на момент отправки и подтверждения для каждого сообщения сохраняются при обновлении страницы, обрыве связи и перезапуске сервера. Если результат неизвестен, интерфейс предложит проверить его перед повторной отправкой.
 
-### The original CLI, files and Git
+### Терминал CLI, файлы и Git
 
-- **Terminal:** Shell, Claude Code or Codex in a tmux session that survives reconnects; open several terminal tabs to run agents side by side on the same project files; touch scrolling, long-press paste and copy-to-clipboard.
-- **Files:** browse, edit, upload archives and download from the project and `/shared`; preview Markdown and HTML as rendered pages.
-- **Git:** review per-file diffs and commit; fetch, pull, preview a push and open a PR / MR over HTTPS tokens, SSH or GitHub / GitLab OAuth. Long network operations run in the background.
+- **Терминал.** Запускайте оболочку, Claude Code или Codex в сеансе tmux, который сохраняется при переподключении. Несколько вкладок терминала позволяют одновременно запускать агентов над одними и теми же файлами. Поддерживаются сенсорная прокрутка, вставка долгим нажатием и копирование в буфер обмена.
+- **Файлы.** Просматривайте, редактируйте, загружайте архивы и скачивайте файлы из проекта и каталога `/shared`. Для Markdown и HTML доступен предпросмотр.
+- **Git.** Проверяйте изменения по файлам, создавайте коммиты, выполняйте `fetch` и `pull`, проверяйте список изменений перед отправкой и открывайте PR или MR. Поддерживаются токены HTTPS, SSH и OAuth GitHub или GitLab. Длительные сетевые операции выполняются в фоне.
 
-### Built for a trusted team
+### Работа в доверенной команде
 
-- **Accounts:** subscription, API key and relay accounts in one pool, scoped per user, with the models and reasoning effort each account offers. A workspace can switch to another account of the same agent.
-- **Usage and cost:** one record per model request with tokens, cache, latency, reasoning effort and the price snapshot it was billed at; terminal usage is recorded too. Claude Code and Codex report each request's first-token time and duration over telemetry, which gives a measured latency and output speed (tok/s) per request; requests without that report fall back to estimates from the CLI logs. A workspace can turn on cache keepalive: while you are away, the server keeps the prompt cache of a large Claude conversation (in chat, and optionally in the terminal) from expiring for up to three hours by default, so coming back does not pay to write it all into the cache again. Optional credit balances and CSV export.
-- **Reuse:** Claude skills (including the official marketplace), layered home templates, and MCP servers as user defaults with per-workspace overrides.
-- **Private networks:** pair abox-link to reach allowlisted services on your own network; route each account through its own egress proxy.
-- **Announcements:** administrators show every page a banner, such as a release countdown that turns into "upgraded" once the new version starts, and can see who a restart would affect first. [Announcements →](docs/announcements.md)
+- **Аккаунты.** Подписки, API-ключи и аккаунты посредников собраны в одном пуле. Для каждого пользователя задаётся доступ, а для каждого аккаунта — доступные модели и глубина рассуждений. Рабочее пространство можно переключить на другой аккаунт того же агента.
+- **Расход и стоимость.** Для каждого запроса сохраняются токены, использование кеша, задержка, глубина рассуждений и тариф на момент расчёта. Вызовы из терминала тоже учитываются. Claude Code и Codex передают время до первого токена и длительность запроса в телеметрии. По этим данным можно получить задержку и скорость генерации в токенах в секунду. Для запросов без телеметрии показатели оцениваются по журналам CLI. Поддержание кеша помогает сохранить кеш длинного диалога Claude, пока вас нет, по умолчанию до трёх часов. Оно работает в чате и опционально в терминале, чтобы при возвращении не оплачивать повторную запись всего диалога в кеш. Доступны кредиты и экспорт в CSV.
+- **Общие настройки.** Используйте навыки Claude, в том числе из официального каталога, многоуровневые шаблоны домашнего каталога и настройки серверов MCP по умолчанию с переопределением для отдельных рабочих пространств.
+- **Частные сети.** Подключите abox-link для доступа к разрешённым сервисам в своей сети. Для каждого аккаунта можно задать отдельный исходящий прокси.
+- **Объявления.** Администратор может показать уведомление на всех страницах и заранее посмотреть, чью работу затронет перезапуск. Объявление об обновлении показывает отсчёт до запуска и подтверждает завершение после старта новой версии. [Подробнее об объявлениях](docs/announcements.md)
 
-### Extend, delegate, make it yours
+### Расширения, делегирование и оформление
 
-- **Extensions** an administrator turns on one by one: *Loop guard* interrupts a reply that keeps repeating itself (API key and relay accounts), and *Webhook notifications* post workspace and turn events to Feishu, DingTalk, WeCom or any JSON endpoint. [Design →](docs/architecture/extensions-spi.md)
-- **Supervisor delegation (preview):** a strong main agent hands well-specified subtasks to cheaper worker models in the same workspace. [Design →](docs/architecture/delegation-supervisor.md)
-- **Styles and languages:** six built-in styles × light / dark, custom themes with a live preview editor, 简体中文 · 繁體中文 · English · Русский, and a phone layout. [Themes →](docs/themes.md)
+- **Расширения.** Администратор включает их по отдельности. Loop guard прерывает повторяющийся ответ при работе через API-ключи и аккаунты посредников. Webhook-уведомления отправляют события рабочего пространства и хода агента в Feishu, DingTalk, WeCom или на любой адрес, принимающий JSON. [Архитектура расширений](docs/architecture/extensions-spi.md)
+- **Делегирование задач (предварительная версия).** Основной агент на более мощной модели передаёт чётко сформулированные подзадачи более дешёвым моделям в том же рабочем пространстве. [Архитектура делегирования](docs/architecture/delegation-supervisor.md)
+- **Стили и языки.** Шесть встроенных стилей в светлом и тёмном вариантах, редактор пользовательских тем с предпросмотром, упрощённый и традиционный китайский, английский и русский языки, а также адаптация для телефонов. [Темы оформления](docs/themes.md)
 
-The [workspace guide](docs/user-guide.md#对话) (Chinese) explains each chat feature in detail, including what needs a newer Claude Code in the Agent image.
+Все возможности чата и требования к версии Claude Code в образе агента описаны в руководстве на китайском языке. [Руководство по рабочим пространствам](docs/user-guide.md#对话)
 
-## Screenshots
+## Скриншоты
 
-All screenshots are 2× PNGs; click one to open it at full resolution.
+Скриншоты сохранены в PNG с удвоенным разрешением. Нажмите на изображение, чтобы открыть его в полном размере.
 
-<a href="docs/images/en/chat-dark.png"><picture><source media="(prefers-color-scheme: light)" srcset="docs/images/en/chat-light.png" /><img src="docs/images/en/chat-dark.png" alt="A finished task: tool calls, a Markdown answer with code, turn duration and cost, and the next-prompt suggestion in the message box" width="100%" /></picture></a>
+<a href="docs/images/en/chat-dark.png"><picture><source media="(prefers-color-scheme: light)" srcset="docs/images/en/chat-light.png" /><img src="docs/images/en/chat-dark.png" alt="Завершённая задача с вызовами инструментов, ответом в Markdown, кодом, длительностью и стоимостью хода, а также подсказкой для следующего сообщения" width="100%" /></picture></a>
 
 <table>
 <tr>
-<td width="50%" valign="top"><a href="docs/images/en/chat-live.png"><img src="docs/images/en/chat-live.png" alt="A running turn with tool calls, the expanded task list and the turn timer" /></a><br /><strong>A turn in progress</strong><br /><sub>Tool calls as they happen, the agent's task list, the turn timer and the context meter.</sub></td>
-<td width="50%" valign="top"><a href="docs/images/en/chat-context.png"><img src="docs/images/en/chat-context.png" alt="The /context answer drawn as a colored grid with categories" /></a><br /><strong><code>/context</code> without a model call</strong><br /><sub>Slash commands come from the workspace's Claude Code; context usage is drawn as in the terminal.</sub></td>
+<td width="50%" valign="top"><a href="docs/images/en/chat-live.png"><img src="docs/images/en/chat-live.png" alt="Текущий ход с вызовами инструментов, развёрнутым списком задач и таймером" /></a><br /><strong>Ход в процессе</strong><br /><sub>Вызовы инструментов в реальном времени, задачи агента, таймер и индикатор контекста.</sub></td>
+<td width="50%" valign="top"><a href="docs/images/en/chat-context.png"><img src="docs/images/en/chat-context.png" alt="Ответ на команду /context в виде цветной сетки с категориями" /></a><br /><strong><code>/context</code> без запроса к модели</strong><br /><sub>Команды берутся из Claude Code в рабочем пространстве. Использование контекста показано как в терминале.</sub></td>
 </tr>
 <tr>
-<td valign="top"><a href="docs/images/en/terminal.png"><img src="docs/images/en/terminal.png" alt="Browser terminal running the type check and tests" /></a><br /><strong>The original terminal</strong><br /><sub>A persistent tmux session for the shell or the agent's own CLI.</sub></td>
-<td valign="top"><a href="docs/images/en/changes.png"><img src="docs/images/en/changes.png" alt="Git changes with a file list and line-by-line diff" /></a><br /><strong>Review every change</strong><br /><sub>Per-file diffs before you commit, push or open a PR / MR.</sub></td>
+<td valign="top"><a href="docs/images/en/terminal.png"><img src="docs/images/en/terminal.png" alt="В терминале браузера выполняются проверка типов и тесты" /></a><br /><strong>Терминал</strong><br /><sub>Сохраняемый сеанс tmux для оболочки или CLI агента.</sub></td>
+<td valign="top"><a href="docs/images/en/changes.png"><img src="docs/images/en/changes.png" alt="Список изменённых файлов Git и построчное сравнение" /></a><br /><strong>Проверка изменений</strong><br /><sub>Сравнение по файлам перед коммитом, отправкой или открытием PR или MR.</sub></td>
 </tr>
 <tr>
-<td valign="top"><a href="docs/images/en/files.png"><img src="docs/images/en/files.png" alt="File browser with project folders" /></a><br /><strong>Files</strong><br /><sub>Project and shared folders: edit, upload, download.</sub></td>
-<td valign="top"><a href="docs/images/en/preview.png"><img src="docs/images/en/preview.png" alt="Rendered Markdown preview of the project README" /></a><br /><strong>Rendered previews</strong><br /><sub>Switch between source and rendered Markdown or HTML.</sub></td>
+<td valign="top"><a href="docs/images/en/files.png"><img src="docs/images/en/files.png" alt="Файловый менеджер с каталогами проекта" /></a><br /><strong>Файлы</strong><br /><sub>Редактирование, загрузка и скачивание файлов проекта и общих каталогов.</sub></td>
+<td valign="top"><a href="docs/images/en/preview.png"><img src="docs/images/en/preview.png" alt="Предпросмотр README проекта в Markdown" /></a><br /><strong>Предпросмотр документов</strong><br /><sub>Переключение между исходным текстом и отображением Markdown или HTML.</sub></td>
 </tr>
 <tr>
-<td valign="top"><a href="docs/images/en/usage.png"><img src="docs/images/en/usage.png" alt="Usage records, one row per model request, with tokens, cache hit rate, cost and latency" /></a><br /><strong>Usage, request by request</strong><br /><sub>Filters, totals, cache hit rate, effort, latency and CSV export.</sub></td>
-<td valign="top"><a href="docs/images/en/accounts.png"><img src="docs/images/en/accounts.png" alt="Account pool with Claude and Codex accounts and their access scopes" /></a><br /><strong>Account pool</strong><br /><sub>Subscriptions, API keys and relays with access scopes and models.</sub></td>
+<td valign="top"><a href="docs/images/en/usage.png"><img src="docs/images/en/usage.png" alt="Таблица запросов к моделям с токенами, попаданиями в кеш, стоимостью и задержкой" /></a><br /><strong>Расход по каждому запросу</strong><br /><sub>Фильтры, итоги, доля попаданий в кеш, глубина рассуждений, задержка и экспорт в CSV.</sub></td>
+<td valign="top"><a href="docs/images/en/accounts.png"><img src="docs/images/en/accounts.png" alt="Аккаунты Claude и Codex и права доступа к ним" /></a><br /><strong>Аккаунты</strong><br /><sub>Подписки, API-ключи и посредники с настройками доступа и моделей.</sub></td>
 </tr>
 <tr>
-<td valign="top"><a href="docs/images/en/skills.png"><img src="docs/images/en/skills.png" alt="Claude skills in a workspace and the user template" /></a><br /><strong>Skills</strong><br /><sub>Install into a workspace or your template; browse every file.</sub></td>
-<td valign="top"><a href="docs/images/en/mcp.png"><img src="docs/images/en/mcp.png" alt="MCP servers with user defaults and workspace overrides" /></a><br /><strong>MCP servers</strong><br /><sub>User defaults, workspace overrides, JSON import and connection checks.</sub></td>
+<td valign="top"><a href="docs/images/en/skills.png"><img src="docs/images/en/skills.png" alt="Навыки Claude в рабочем пространстве и шаблоне пользователя" /></a><br /><strong>Навыки</strong><br /><sub>Установка в рабочее пространство или шаблон пользователя и просмотр файлов навыка.</sub></td>
+<td valign="top"><a href="docs/images/en/mcp.png"><img src="docs/images/en/mcp.png" alt="Серверы MCP с настройками пользователя и рабочего пространства" /></a><br /><strong>Серверы MCP</strong><br /><sub>Настройки по умолчанию, переопределение в рабочих пространствах, импорт JSON и проверка подключения.</sub></td>
 </tr>
 <tr>
-<td valign="top"><a href="docs/images/en/extensions.png"><img src="docs/images/en/extensions.png" alt="Extensions page with Loop guard and Webhook notifications running" /></a><br /><strong>Extensions</strong><br /><sub>Approve permissions and choose the accounts or users each one applies to.</sub></td>
-<td valign="top"><a href="docs/images/en/tunnel.png"><img src="docs/images/en/tunnel.png" alt="Private-network tunnel status with allowlisted targets" /></a><br /><strong>Private-network tunnel</strong><br /><sub>abox-link status, allowlist and client downloads.</sub></td>
+<td valign="top"><a href="docs/images/en/extensions.png"><img src="docs/images/en/extensions.png" alt="Раздел расширений с включёнными Loop guard и Webhook-уведомлениями" /></a><br /><strong>Расширения</strong><br /><sub>Подтверждение разрешений и выбор аккаунтов или пользователей, для которых действует расширение.</sub></td>
+<td valign="top"><a href="docs/images/en/tunnel.png"><img src="docs/images/en/tunnel.png" alt="Состояние туннеля и список разрешённых адресов" /></a><br /><strong>Туннель в частную сеть</strong><br /><sub>Состояние abox-link, список разрешённых адресов и загрузка клиентов.</sub></td>
 </tr>
 </table>
 
-<a href="docs/images/en/styles.png"><img src="docs/images/en/styles.png" alt="The same chat in six interface styles: Amber, Liquid Glass, Cyberpunk, Graphite, Verdant and Blueprint" width="100%" /></a>
+<a href="docs/images/en/styles.png"><img src="docs/images/en/styles.png" alt="Один чат в шести стилях интерфейса (Amber, Liquid Glass, Cyberpunk, Graphite, Verdant и Blueprint)" width="100%" /></a>
 
-<p align="center"><sub>Six built-in styles, each in light and dark. Custom themes start from one of them.</sub></p>
+<p align="center"><sub>Шесть встроенных стилей со светлыми и тёмными вариантами. На их основе можно создавать собственные темы.</sub></p>
 
-<p align="center"><a href="docs/images/en/chat-mobile.png"><img src="docs/images/en/chat-mobile.png" alt="agentbox chat on a phone" width="300" /></a><br /><sub>The same workspace on a phone.</sub></p>
+<p align="center"><a href="docs/images/en/chat-mobile.png"><img src="docs/images/en/chat-mobile.png" alt="Чат AgentBox на телефоне" width="300" /></a><br /><sub>То же рабочее пространство на телефоне.</sub></p>
 
-## Quick start
+## Быстрый старт
 
-### Install on your Linux server
+### Установка на Linux-сервере
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/zyclonite135/agentbox/refs/heads/feature/my-change/install.sh | sudo bash
 ```
 
-The installer downloads and verifies the server package, builds the workspace image, and starts `agentbox.service`. **No Go or Node.js installation is needed on the server.** The first image build takes a few minutes and needs access to container registries, Debian repositories, and npm.
+Установщик скачивает и проверяет серверный пакет, собирает образ рабочего пространства и запускает `agentbox.service`. **Устанавливать Go и Node.js на сервер не требуется.** Первая сборка образа занимает несколько минут. Для неё нужен доступ к реестрам контейнеров, репозиториям Debian и npm.
 
-- **Host:** Linux x86_64 / arm64, systemd, and local Docker Engine. Ubuntu 22.04+ / Debian 12+ install missing dependencies automatically. For other distributions, see the [prerequisites](deploy/README.md#一键安装).
-- **Sign in:** open `http://YOUR_SERVER_IP:8180` and use `boxadmin` with the generated password printed by the installer. Allow TCP 8180 through your firewall if connecting directly; configure [HTTPS](deploy/README.md#https-与-websocket-反向代理) for ongoing public access.
-- **Stable server:** the command selects the latest stable release of this fork. Use `-s -- --listen 127.0.0.1:8180` to bind only to localhost. [Releases of this fork](https://github.com/zyclonite135/agentbox/releases)
-- **Existing installation:** use About and updates in the console or the [upgrade guide](docs/releases.md#升级与回退). The installer preserves existing deployments and will not overwrite them.
+- **Требования к серверу.** Linux x86_64 или arm64, systemd и локальный Docker Engine. На Ubuntu 22.04+ и Debian 12+ установщик сам добавит недостающие зависимости. [Требования для других дистрибутивов](deploy/README.md#一键安装)
+- **Первый вход.** Откройте `http://IP_СЕРВЕРА:8180`, выберите **Русский** и войдите как `boxadmin` с паролем, который установщик сгенерировал и вывел в терминале. Если подключаетесь напрямую, откройте TCP-порт 8180 в межсетевом экране. Для постоянного публичного доступа настройте HTTPS. [Настройка HTTPS](deploy/README.md#https-与-websocket-反向代理)
+- **Стабильная версия сервера.** Установщик выбирает последний стабильный релиз форка. Чтобы принимать соединения только с самого сервера, замените `sudo bash` в команде установки на `sudo bash -s -- --listen 127.0.0.1:8180`. [Релизы форка](https://github.com/zyclonite135/agentbox/releases)
+- **Уже установленный сервер.** Обновите его в разделе **О программе и обновления** или по инструкции для текущей установки. Установщик сохраняет существующее развёртывание. [Руководство по обновлению](docs/releases.md#升级与回退)
 
-Configuration lives in `/etc/agentbox`, data in `/var/lib/agentbox`. Each workspace defaults to a 2 GiB memory limit and 2 CPUs; size your server for the number of concurrent workspaces. See [installation and recovery](deploy/README.md#一键安装) for all options.
+Конфигурация хранится в `/etc/agentbox`, данные — в `/var/lib/agentbox`. По умолчанию каждому рабочему пространству выделяется до 2 ГиБ памяти и 2 процессорных ядер. Учитывайте количество одновременно работающих пространств при выборе сервера. [Установка и восстановление](deploy/README.md#一键安装)
 
-### Server updates in this fork
-
-The installer and the server's **About and updates** page use stable GitHub Releases from `zyclonite135/agentbox`. The **Update and restart** button becomes available on a standard versioned Linux/systemd installation when the fork has a newer stable release.
-
-Build packages from a clean, reviewed checkout with `python3 scripts/build-release.py --version vX.Y.Z --output output/fork-release`. Verify them with `python3 scripts/test-release.py output/fork-release`. Publish the matching Linux archives, `SHA256SUMS` and `release.json` as assets of a stable GitHub Release for that commit. Each installed version includes the fork's updater.
-
-For the local Docker preview, rebuild the server image from the fork and recreate the container with its existing data volume. For a manual Linux upgrade, use the package and checksum from the fork's Releases page with the [manual upgrade procedure](deploy/downloads/README.md#手工安装与升级).
-
-### Your first task
-
-On first sign-in a role-based guide walks administrators through the environment check, accounts and default models; users see the accounts they may use.
-
-1. **Add an account** in System settings → Account pool. Choose Claude or Codex and connect a subscription or an API / relay account. Fetch the provider's models, keep the ones this account offers, and set reasoning effort per model; when a relay cannot list models, start from the official catalog that ships with the CLIs in the Agent image. [Account setup →](docs/accounts-and-models.md)
-2. **Create a workspace** from an empty project, an uploaded archive or a Git repository, and pick its agent and account. You can later switch to another account of the same agent from the workspace ⋯ menu. [Project import →](docs/project-creation.md)
-3. **Describe the task in Chat.** Mention files with `@`, run commands in Terminal, and open Files to check the result; all of them work on the same project files.
-4. **Review Changes** before committing. Download the result, or configure a Git connection to push and open a PR / MR. [Workspace guide →](docs/user-guide.md)
-
-<details>
-<summary><strong>Prefer to build from source?</strong></summary>
-
-On Linux with Docker, Git, and the Go toolchain in [go.mod](go.mod):
+Если вы пропустили начальный пароль, прочитайте его из поля `auth_token` на сервере со стандартной установкой.
 
 ```bash
-git clone https://github.com/devilcoolyue/agentbox.git
+sudo python3 -c 'import json; print(json.load(open("/etc/agentbox/config.json"))["auth_token"])'
+```
+
+Если вы сменили начальный пароль и забыли новый, его можно сбросить. [Восстановление доступа администратора](docs/troubleshooting.md#忘记密码或改了-auth_token-仍不能登录)
+
+### Обновления сервера в этом форке
+
+Установщик и раздел **О программе и обновления** проверяют стабильные релизы GitHub из репозитория `zyclonite135/agentbox`. На штатной установке Linux/systemd кнопка **Обновить и перезапустить** становится доступна, когда в форке появляется более новый стабильный релиз.
+
+Чтобы подготовить релиз, соберите пакеты из проверенной копии репозитория без локальных изменений командой `python3 scripts/build-release.py --version vX.Y.Z --output output/fork-release`. Проверьте их командой `python3 scripts/test-release.py output/fork-release`. Прикрепите соответствующие архивы Linux, `SHA256SUMS` и `release.json` к стабильному релизу GitHub для этого коммита. Каждая установленная версия включает обновлятор форка.
+
+Для локальной проверки в Docker пересоберите серверный образ из исходников форка и пересоздайте контейнер с прежним томом данных. Для ручного обновления Linux используйте пакет и контрольную сумму из релизов форка. [Ручное обновление](deploy/downloads/README.md#手工安装与升级)
+
+### Первая задача
+
+При первом входе администратор увидит подсказки по проверке окружения, подключению аккаунтов и выбору моделей по умолчанию. Остальные пользователи увидят аккаунты, к которым у них есть доступ.
+
+1. **Добавьте аккаунт** в разделе **Настройки → Аккаунты**. Выберите Claude или Codex и подключите подписку, API-ключ или аккаунт посредника. Запросите список моделей у провайдера, оставьте те, к которым у аккаунта есть доступ, и настройте глубину рассуждений для каждой. Если посредник не возвращает список, воспользуйтесь официальным каталогом, который поставляется вместе с CLI в образе агента. [Настройка аккаунтов](docs/accounts-and-models.md)
+2. **Создайте рабочее пространство** с пустым проектом, из загруженного архива или из Git-репозитория. Выберите агента и аккаунт. Позже можно переключиться на другой аккаунт того же агента через меню `⋯` рабочего пространства. [Импорт проекта](docs/project-creation.md)
+3. **Опишите задачу в чате.** Ссылайтесь на файлы через `@`, выполняйте команды в терминале и открывайте файлы для проверки результата. Все три раздела работают с одними и теми же файлами проекта.
+4. **Проверьте изменения** перед коммитом. Скачайте результат или настройте подключение к Git, чтобы отправить изменения и открыть PR или MR. [Руководство по рабочим пространствам](docs/user-guide.md)
+
+<details>
+<summary><strong>Сборка из исходников</strong></summary>
+
+Для сборки нужен Linux с Docker, Git и инструментами Go той версии, которая указана в [go.mod](go.mod).
+
+```bash
+git clone --branch feature/my-change https://github.com/zyclonite135/agentbox.git
 cd agentbox
 go build -o agentbox ./cmd/agentbox
 ./scripts/build-image.sh
 openssl rand -hex 24
 ```
 
-Save the following as `config.json`, replacing the password placeholder with the generated random value:
+Сохраните конфигурацию в `config.json`, подставив сгенерированное значение вместо `CHANGE_ME_TO_A_LONG_RANDOM_TOKEN`.
 
 ```json
 {
@@ -173,109 +181,117 @@ Save the following as `config.json`, replacing the password placeholder with the
 sudo ./agentbox -config config.json
 ```
 
-Open `http://127.0.0.1:8180` on the server, or run `ssh -N -L 8180:127.0.0.1:8180 user@your-server` on your computer and open that address locally. Sign in as `boxadmin` with the configured `auth_token`. After first startup the password is stored in the database; editing `auth_token` does not reset it. If you forget it, stop the service and run `agentbox admin-reset-password --config /path/to/config.json --user boxadmin` (see the [recovery procedure](docs/troubleshooting.md#忘记密码或改了-auth_token-仍不能登录)).
+Откройте `http://127.0.0.1:8180` на сервере. Для доступа со своего компьютера выполните `ssh -N -L 8180:127.0.0.1:8180 user@your-server` и откройте тот же адрес в локальном браузере. Войдите как `boxadmin` со значением `auth_token` из конфигурации. При первом запуске пароль сохраняется в базе данных. В дальнейшем пароль меняется через настройки или процедуру сброса. Если вы забыли пароль, остановите службу и выполните `agentbox admin-reset-password --config /path/to/config.json --user boxadmin`. [Порядок восстановления](docs/troubleshooting.md#忘记密码或改了-auth_token-仍不能登录)
 
-The server needs Docker access and permission to set mounted directory ownership to `1000:1000`. After stopping this foreground instance, run `sudo ./deploy/install.sh` and `sudo ./deploy/deploy.sh` for a source-based systemd installation. See [deployment](deploy/README.md), [configuration](docs/configuration.md), and [development](docs/development.md) for details.
+Серверу нужен доступ к Docker и право устанавливать владельца и группу подключаемых каталогов в `1000:1000`. Чтобы установить сборку как службу systemd, остановите запущенный вручную экземпляр, затем выполните `sudo ./deploy/install.sh` и `sudo ./deploy/deploy.sh`. [Развёртывание](deploy/README.md) · [Конфигурация](docs/configuration.md) · [Разработка](docs/development.md)
 
 </details>
 
-## How it works
+## Архитектура
 
-**One Go server, SQLite, and Docker.** The frontend is embedded in the server binary. Each workspace gets its own container; files and history persist on the host.
+**Один сервер на Go, SQLite и Docker.** Веб-интерфейс встроен в серверный бинарный файл. Каждому рабочему пространству соответствует отдельный контейнер, а файлы и история сохраняются на сервере.
 
-[![Agentbox architecture: browser and optional desktop connect to the Go server; Docker workspaces run Claude and Codex, with persistent storage and an optional private-network tunnel](docs/images/architecture.svg)](docs/images/architecture.svg)
+[![Браузер и опциональный клиент AgentBox подключаются к Go-серверу, где Claude и Codex работают в контейнерах Docker с постоянным хранилищем и опциональным туннелем в частную сеть](docs/images/architecture.svg)](docs/images/architecture.svg)
 
-| Layer | Responsibility |
+| Компонент | Назначение |
 | --- | --- |
-| **Browser / optional desktop** | Connect to the server and interact with your workspaces |
-| **Agentbox server** | Authentication, account access, workspace lifecycle, HTTP / WebSocket, Git operations, usage and credits, extensions |
-| **Workspace containers** | Run Claude Code / Codex CLI and project tools; communicate with your configured model provider |
-| **Persistent storage** | SQLite state and ledger, project files, home directories, shared files, and JSONL chat history |
-| **Optional abox-link** | Connect private services reachable from your computer through an explicit allowlist |
+| **Браузер или приложение для ПК** | Подключение к серверу и работа с рабочими пространствами |
+| **Сервер AgentBox** | Аутентификация, доступ к аккаунтам, жизненный цикл рабочих пространств, HTTP и WebSocket, операции Git, учёт расхода и кредитов, расширения |
+| **Контейнеры рабочих пространств** | Запуск Claude Code, Codex CLI и инструментов проекта, подключение к настроенному провайдеру моделей |
+| **Постоянное хранилище** | Состояние и расчёты в SQLite, файлы проектов, домашние и общие каталоги, история чатов в JSONL |
+| **Опциональный abox-link** | Подключение к частным сервисам, доступным с вашего компьютера и явно внесённым в список разрешённых |
 
-Chat and terminal share files, **not an automatic conversation context**. Each workspace supports multiple chat threads, and by default up to three of them (configurable by the admin) can run Web chat turns at the same time (messages sent to a running thread, or past that limit, queue); long threads open at the newest messages and load earlier ones as you scroll up. Each user's `/shared` directory is available across their workspaces. Stopping a container retains files and history but ends its processes.
+Чат и терминал работают с общими файлами. Каждый ведёт свой контекст диалога. В рабочем пространстве можно вести несколько чатов. По умолчанию до трёх чатов могут одновременно выполнять запросы. Администратор может изменить этот лимит. Если в чате уже выполняется запрос или достигнут лимит, новые сообщения встают в очередь. Длинные чаты открываются на последних сообщениях, а предыдущие подгружаются при прокрутке вверх. Каталог `/shared` доступен во всех рабочих пространствах пользователя. При остановке контейнера его процессы завершаются, а файлы и история сохраняются.
 
-## Choose your entry point
+## Способы подключения
 
-| Entry point | Use it for | Availability |
+| Способ | Для чего подходит | Доступность |
 | --- | --- | --- |
-| **Web console** | Chat, original CLI terminal, files, Git, skills, MCP, and administration | Included in the server; no local agent installation |
-| **Desktop app** | Native Windows/macOS access, project terminals, file transfer, and optional sync | [Download 0.1.2](https://github.com/devilcoolyue/agentbox/releases/tag/desktop-v0.1.2) · unsigned public test release |
-| **abox-link** | Allowlisted private-network access from cloud workspaces | Optional; local panel or headless command line on Windows, macOS, and Linux |
-| **HTTP / WebSocket API** | Script workspace operations and usage queries | [API reference](docs/api.md) |
+| **Веб-интерфейс** | Чат, терминал CLI, файлы, Git, навыки, MCP и администрирование | Встроен в сервер. Для работы достаточно браузера |
+| **Приложение для ПК** | Доступ с Windows и macOS, терминалы проектов, передача файлов и опциональная синхронизация | Публичная тестовая версия без цифровой подписи. [Скачать 0.1.2](https://github.com/devilcoolyue/agentbox/releases/tag/desktop-v0.1.2) |
+| **abox-link** | Доступ из облачных рабочих пространств к разрешённым адресам в частной сети | Опциональная локальная панель или командная строка без интерфейса для Windows, macOS и Linux |
+| **API HTTP и WebSocket** | Автоматизация операций с рабочими пространствами и запросов статистики | [Справочник API](docs/api.md) |
 
-The desktop app connects to your server; it does not replace or upgrade it. **Sync is disabled by default and requires an administrator to enable it.** Desktop 0.1.2 is a manual download (macOS not notarized, Windows unsigned, no automatic updates) and predates the multilingual UI that the desktop source now has. See the [desktop guide](desktop/README.md).
+Приложение для ПК подключается к существующему серверу, который устанавливается и обновляется отдельно. **Синхронизация по умолчанию отключена, включить её может администратор.** Версию 0.1.2 нужно скачивать и обновлять вручную. Сборка macOS распространяется без нотаризации Apple, а сборка Windows — без цифровой подписи. Поддержка нескольких языков появилась в исходном коде после выпуска 0.1.2. [Руководство по приложению для ПК](desktop/README.md)
 
-Optional server features: a [remote browser image](docs/remote-browser.md) gives a workspace a full browser desktop with persistent website logins; [shared tools](docs/shared-tools.md) provide read-only Go SDKs and browsers with per-user caches; [local storage capacity management](docs/storage-capacity.md) adds per-user project quotas and cache cleanup. Agent image updates build from a fixed base and are validated before they switch ([image maintenance](docs/agent-image-validation.md)).
+Опциональные возможности сервера включают удалённый браузер с сохранением входа на сайты, общую установку Go SDK и браузеров в режиме чтения с отдельным кешем для каждого пользователя, квоты на файлы проектов и очистку кеша. При обновлении образа агента новый образ собирается на зафиксированной базе и проверяется перед переключением. [Удалённый браузер](docs/remote-browser.md) · [Общие инструменты](docs/shared-tools.md) · [Управление хранилищем](docs/storage-capacity.md) · [Проверка образов](docs/agent-image-validation.md)
 
-## Know the boundaries
+## Условия эксплуатации
 
-- **Use trusted accounts with trusted users.** Credentials are made available to the CLI inside containers and can be read by users with terminal access. Account scopes restrict admission; revoking access does not withdraw credentials already delivered or terminate existing processes. See [account permissions](docs/accounts-and-models.md#账号使用范围).
-- **Persistent files are not persistent processes.** Keep durable files in `/workspace`, `/home/agent`, or `/shared`. Stopping, rebuilding, or idle suspension ends container processes; a browser disconnect alone does not immediately stop the container.
-- **Credits are not hard spending caps.** Web chat settles each model request as it completes, but balance is only checked before a turn starts, so the final admitted turn may overspend. Terminal usage is recorded without deducting credits. See [usage and quotas](docs/usage-and-quotas.md).
-- **Back up user files explicitly.** Default system backups cover configuration, credentials, database state, templates, and MCP management state; they exclude workspace files and chat history. Full backups require stopping the service and relevant containers. See [backup and restore](deploy/README.md#备份与恢复).
-- **Deploy within a trusted server boundary.** Agentbox uses a local Docker daemon and one server process per data directory. Agents execute code with `bypassPermissions` by default; containers use a non-root user and resource limits. Deployments briefly disconnect clients.
-- **Review and push are separate actions.** Web commits do not run hooks or signing and do not automatically push. Use the terminal when you need those commit behaviors. See [Git management](docs/architecture/git-management.md).
+- **Подключайте доверенных пользователей и аккаунты.** CLI получает учётные данные внутри контейнеров. Пользователи с доступом к терминалу могут их прочитать. Права доступа определяют, кто может начать работу с аккаунтом. После отзыва доступа уже выданные учётные данные и запущенные процессы сохраняются. [Права доступа к аккаунтам](docs/accounts-and-models.md#账号使用范围)
+- **Храните файлы в постоянных каталогах.** Для этого подходят `/workspace`, `/home/agent` и `/shared`. Остановка, пересборка или приостановка по тайм-ауту завершают процессы контейнера. После закрытия браузера контейнер продолжает работу до остановки по обычным правилам.
+- **Учитывайте расходы сверх баланса кредитов.** В веб-чате расход начисляется по завершении каждого запроса к модели, а баланс проверяется лишь перед началом хода. Последний допущенный ход может превысить доступный остаток. Расход в терминале учитывается без списания кредитов. [Расход и квоты](docs/usage-and-quotas.md)
+- **Делайте полную резервную копию для файлов пользователей.** Системная копия включает конфигурацию, учётные данные, состояние базы, шаблоны и настройки MCP. Для сохранения файлов рабочих пространств и истории чатов остановите службу и соответствующие контейнеры и сделайте полную копию. [Резервное копирование и восстановление](deploy/README.md#备份与恢复)
+- **Развёртывайте AgentBox в доверенной среде.** Сервер обращается к локальному Docker и использует один процесс на каталог данных. По умолчанию агенты выполняют код с `bypassPermissions`. Контейнеры запускаются от непривилегированного пользователя с лимитами ресурсов. При развёртывании клиенты ненадолго теряют соединение.
+- **Проверяйте и отправляйте изменения отдельными действиями.** В веб-интерфейсе коммит записывается локально и отправляется отдельной командой. Используйте терминал для коммитов с хуками или подписью. [Управление Git](docs/architecture/git-management.md)
 
-## Documentation
+## Документация
 
-English and Chinese READMEs cover the same overview and setup. Detailed guides are currently in Chinese; start with the [documentation index](docs/README.md).
+README на английском, китайском и русском охватывают возможности проекта и настройку. Подробные руководства написаны на китайском. [Оглавление документации](docs/README.md)
 
-| You want to… | Read |
+| Задача | Документация |
 | --- | --- |
-| Use chat, terminal, files, previews, and Git | [Workspace guide](docs/user-guide.md) |
-| Connect accounts or choose models | [Accounts and models](docs/accounts-and-models.md) |
-| Reuse skills, templates, and MCP tools | [Skills, plugins, and MCP](docs/skills-and-mcp.md) |
-| Understand or manage costs | [Usage and credits](docs/usage-and-quotas.md) · [Pricing catalogs](docs/pricing-catalog.md) |
-| Turn on extensions or stop repetitive model output | [Extensions and SPI](docs/architecture/extensions-spi.md) · [Standalone loop guard (preview)](docs/loop-guard.md) |
-| Let a strong model hand work to cheaper ones | [Supervisor delegation](docs/architecture/delegation-supervisor.md) |
-| Connect private services | [Proxies and abox-link](docs/networking.md) |
-| Install, upgrade, back up, or recover | [Deployment](deploy/README.md) · [Releases](docs/releases.md) · [CLI compatibility](docs/compatibility.md) |
-| Configure or integrate the server | [Configuration](docs/configuration.md) · [API reference](docs/api.md) |
-| Choose a language or make a theme | [Languages](docs/i18n.md) · [Interface themes](docs/themes.md) |
-| Resolve an error | [Troubleshooting](docs/troubleshooting.md) · [Error codes](docs/errors.md) · [Diagnostics](docs/diagnostics.md) |
-| See what changed | [Changelog](CHANGELOG.md) · [Capabilities and verification](docs/capabilities.md) |
-| Contribute code | [Development guide](docs/development.md) · [Contributing](CONTRIBUTING.md) |
+| Использовать чат, терминал, файлы, предпросмотр и Git | [Руководство по рабочим пространствам](docs/user-guide.md) |
+| Подключить аккаунты или выбрать модели | [Аккаунты и модели](docs/accounts-and-models.md) |
+| Повторно использовать навыки, шаблоны и инструменты MCP | [Навыки, плагины и MCP](docs/skills-and-mcp.md) |
+| Понять и контролировать расходы | [Расход и кредиты](docs/usage-and-quotas.md) · [Каталоги тарифов](docs/pricing-catalog.md) |
+| Включить расширения или остановить повторяющиеся ответы модели | [Расширения и SPI](docs/architecture/extensions-spi.md) · [Отдельный Loop guard (предварительная версия)](docs/loop-guard.md) |
+| Делегировать подзадачи более дешёвым моделям | [Делегирование задач](docs/architecture/delegation-supervisor.md) |
+| Подключиться к частным сервисам | [Прокси и abox-link](docs/networking.md) |
+| Установить, обновить, создать резервную копию или восстановить сервер | [Развёртывание](deploy/README.md) · [Релизы](docs/releases.md) · [Совместимость CLI](docs/compatibility.md) |
+| Настроить сервер или интегрировать его с другим сервисом | [Конфигурация](docs/configuration.md) · [Справочник API](docs/api.md) |
+| Выбрать язык или создать тему | [Языки](docs/i18n.md) · [Темы оформления](docs/themes.md) |
+| Устранить ошибку | [Устранение неполадок](docs/troubleshooting.md) · [Коды ошибок](docs/errors.md) · [Диагностика](docs/diagnostics.md) |
+| Узнать, что изменилось | [История изменений](CHANGELOG.md) · [Возможности и проверки](docs/capabilities.md) |
+| Внести вклад в проект | [Руководство по разработке](docs/development.md) · [Правила участия](CONTRIBUTING.md) |
 
-## Development roadmap
+## План развития
 
-The current server release is **v0.1.20** (2026-11-12). Recent releases added supervisor delegation, the theme editor and local storage capacity management (v0.1.13); questions, follow-ups, `/` commands, `@` mentions, the context meter, the task list and per-request billing (v0.1.14); extensions, webhook notifications, the turn timer and background Git network operations (v0.1.16); prompt cache keepalive, measured per-request latency, live per-request billing, CLI-style tool rows and icon management (v0.1.17); the conversation rail, system announcements with a release countdown, restricted workspace egress, terminal usage billing and per-user storage limits (v0.1.18); up to three conversation threads running at once in a workspace, terminal tabs and the folding workbench top bar (v0.1.19); and `abox-remote` for offloading work to your own machine over the tunnel, an admin panel for logins and last activity, a usage trend chart and a configurable number of concurrent conversations (v0.1.20). See the [changelog](CHANGELOG.md).
+Серверная версия **v0.1.20** вышла в оригинальном проекте 12 ноября 2026 года. Ниже перечислены изменения в ней и предыдущих выпусках. [История изменений](CHANGELOG.md)
 
-The first round (M1–M5: diagnostics, onboarding, reliable chat, maintenance quality, desktop consistency) shipped in v0.1.11; its external acceptance — real-user observations, performance thresholds, recovery targets and desktop signing — is still pending ([record](docs/milestones/backlog.md)). The second round continues it:
+- **v0.1.13** — делегирование подзадач, редактор тем и управление локальным хранилищем.
+- **v0.1.14** — вопросы и дополнительные сообщения в чате, команды `/`, ссылки на файлы через `@`, индикатор контекста, список задач и расчёт стоимости по запросам.
+- **v0.1.16** — расширения, Webhook-уведомления, таймер хода и фоновые сетевые операции Git.
+- **v0.1.17** — поддержание кеша промпта, измерение задержки и расчёт стоимости в реальном времени по запросам, вызовы инструментов в стиле CLI и управление значками.
+- **v0.1.18** — навигация по диалогу, системные объявления с отсчётом до обновления, ограничение исходящего трафика рабочих пространств, учёт расхода в терминале и лимиты хранилища по пользователям.
+- **v0.1.19** — до трёх параллельных чатов в одном пространстве, вкладки терминала и сворачиваемая верхняя панель.
+- **v0.1.20** — `abox-remote` для выполнения задач на своём компьютере через туннель, панель входов и последней активности для администратора, график расхода и настройка количества одновременных чатов.
 
-| Milestone | Planned focus |
+Первый этап (M1–M5) охватывал диагностику, первый запуск, надёжность чата, обслуживание и согласованность приложения для ПК с веб-версией. Его результаты вошли в v0.1.11. В плане внешней проверки остаются наблюдения за работой реальных пользователей, пороги производительности, требования к восстановлению и подпись приложения для ПК. [Итоги первого этапа](docs/milestones/backlog.md)
+
+| Этап | План работ |
 | --- | --- |
-| **M6 · Wrap-up and formal release** | Commit the development tree, run hosted CI end to end, release v0.1.11 and align documented version status ([record](docs/milestones/m6.md)) |
-| **M7 · Real-use acceptance and metrics baseline** | In-instance aggregate metrics with redacted export, real task observations, agreed performance thresholds and recovery targets |
-| **M8 · Feedback-driven daily efficiency** | Fix the most frequent blockers found in observations; candidates: workspace archiving, task completion notifications, long-conversation rendering |
-| **M9 · Upstream updates and installation cost** | Prebuilt Agent images, CLI baseline advancement, routine dependency upgrades, broader contract generation |
-| **M10 · Stable desktop release** | OS signing and notarization, minimum OS and real devices, a full sync pilot cycle; a test release if certificates are unavailable |
-| **M11 · Additional agents** | Provider registry and ACP transport, optional agents in the image; Kimi Code CLI first |
+| **M6 · Подготовка и выпуск стабильной версии** | Зафиксировать изменения разработки, прогнать CI целиком, выпустить v0.1.11 и сверить сведения о версиях в документации. [Отчёт](docs/milestones/m6.md) |
+| **M7 · Проверка на реальных задачах и базовые метрики** | Собирать агрегированные метрики на экземпляре с обезличенным экспортом, наблюдать за реальными задачами, согласовать показатели производительности и восстановления |
+| **M8 · Удобство ежедневной работы** | Устранить частые проблемы, выявленные при наблюдениях. В числе кандидатов архивация пространств, уведомления о завершении задач и отображение длинных диалогов |
+| **M9 · Обновления зависимостей и упрощение установки** | Готовые образы агента, повышение базовых версий CLI, регулярные обновления зависимостей и расширение генерации контрактов |
+| **M10 · Стабильный выпуск приложения для ПК** | Подпись и нотариальное заверение, проверка минимальных версий ОС и реальных устройств, пилотное тестирование синхронизации. При недоступности сертификатов предусмотрен тестовый выпуск |
+| **M11 · Дополнительные агенты** | Реестр провайдеров, транспорт ACP и опциональные агенты в образе. Первым планируется Kimi Code CLI |
 
-Each iteration is scoped to about **3 weeks**; order and scope follow user feedback and acceptance results, and these are not release-date commitments. Scope, dependencies and acceptance criteria are in the [second-round plan](docs/roadmap-2.md) and the sealed [first-round plan](docs/roadmap.md) (both Chinese). Issues with concrete use cases are welcome.
+На каждую итерацию ориентировочно отводится **три недели**. Порядок и объём работ зависят от обратной связи и результатов проверок. В планах на китайском языке описаны объём работ, зависимости и критерии приёмки. Предложения с конкретными сценариями можно оставлять в Issues. [План второго этапа](docs/roadmap-2.md) · [Архивный план первого этапа](docs/roadmap.md)
 
-## Build and contribute
+## Сборка и участие в разработке
 
-The [capability and verification inventory](docs/capabilities.md) separates implemented features, release records, and pending acceptance. Run `python3 scripts/verify.py list` to choose checks or `python3 scripts/verify.py run quick` for local checks with saved reports; see the [verification guide](docs/verification.md).
+Список возможностей и проверок показывает, что реализовано, в каких версиях выпущено и что ещё предстоит проверить. Выполните `python3 scripts/verify.py list`, чтобы выбрать проверки, или `python3 scripts/verify.py run quick`, чтобы провести быстрые локальные проверки с сохранением отчётов. [Список возможностей и проверок](docs/capabilities.md) · [Руководство по проверкам](docs/verification.md)
 
-The server uses **Go + SQLite + Docker**; the browser console uses **TypeScript, native ES Modules, and xterm.js**. See the [development guide](docs/development.md) for toolchains and platform-specific checks.
+Сервер использует **Go, SQLite и Docker**. Веб-интерфейс использует **TypeScript, стандартные модули ES и xterm.js**. [Инструменты и проверки для разных платформ](docs/development.md)
 
 ```bash
 go build ./...
 go test ./...
 
-# If you edit the frontend
+# Если меняете веб-интерфейс
 npm ci
 npm run check
 npm run build
 ```
 
-Commit generated `internal/web/static/js/` files alongside changes to `web/src/`. Full container validation targets Linux; macOS builds and unit tests do not replace it. The screenshots and tour above are regenerated from the shipped UI with `scripts/capture-readme.mjs` and `scripts/render-readme-tour.mjs` ([capture guide](docs/development.md#文档截图)).
+Включайте в коммит с изменениями `web/src/` сгенерированные файлы из `internal/web/static/js/`. Полная проверка контейнеров выполняется на Linux, а на macOS доступны сборка и модульные тесты. Скриншоты и демонстрацию выше можно обновить из выпущенной версии интерфейса скриптами `scripts/capture-readme.mjs` и `scripts/render-readme-tour.mjs`. [Руководство по съёмке](docs/development.md#文档截图)
 
-Useful bug reports, workflow suggestions, and focused pull requests are welcome. Include reproduction steps and sanitized logs; report vulnerabilities privately via [SECURITY.md](SECURITY.md). If agentbox is useful to you, a **Star** helps other developers discover it.
+Приветствуются отчёты об ошибках, предложения по рабочим сценариям и небольшие pull request. В отчёте укажите шаги воспроизведения и приложите журналы без конфиденциальных данных. Об уязвимостях сообщайте приватно. Если AgentBox пригодился вам, поставьте звезду репозиторию, чтобы другие разработчики могли его найти. [Как сообщить об уязвимости](SECURITY.md)
 
-## License and community
+## Лицензия и сообщество
 
-[Apache-2.0](LICENSE) · [Copyright notices](NOTICE) · [Third-party licenses](third_party/README.md) · [Changelog](CHANGELOG.md)
+[Apache-2.0](LICENSE) · [Уведомления об авторских правах](NOTICE) · [Лицензии сторонних компонентов](third_party/README.md) · [История изменений](CHANGELOG.md)
 
-Model services and runtime CLIs retain their upstream terms. Thanks to the [LINUX DO](https://linux.do) community for its support and discussions.
+На сервисы моделей и используемые CLI распространяются условия их поставщиков. Спасибо сообществу за поддержку и обсуждения. [LINUX DO](https://linux.do)

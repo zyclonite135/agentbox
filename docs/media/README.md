@@ -1,6 +1,6 @@
 # Product tour / 项目演示
 
-[English README](../../README.md) · [中文首页](../../README_CN.md)
+[English README](../../README_EN.md) · [中文首页](../../README_CN.md) · [Русский README](../../README.md)
 
 | Language / 语言 | Full tour / 完整版 MP4 | Looping GIF / 循环动图 | Screenshots / 截图 |
 | --- | --- | --- | --- |

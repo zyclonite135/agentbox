@@ -18,15 +18,15 @@ LOGIN_HOME="$DIR/accounts/.claude-login-home"
 POOL="$DIR/accounts/claude-1"
 
 mkdir -p "$LOGIN_HOME"
-echo ">>> 打开 Claude Code 完成登录（登录完成后退出即可）..."
+echo ">>> Войдите в аккаунт в Claude Code, затем выйдите из Claude Code."
 HOME="$LOGIN_HOME" claude || true
 
 CRED="$LOGIN_HOME/.claude/.credentials.json"
 if [ ! -f "$CRED" ]; then
-  echo "!!! 未找到 $CRED，登录似乎没有完成，请重跑脚本" >&2
+  echo "!!! Файл $CRED не найден. Проверьте, что вход завершён, и повторите запуск скрипта." >&2
   exit 1
 fi
 cp -f "$CRED" "$POOL/.credentials.json"
 rm -f "$CRED"   # 池子接管令牌链，登录 HOME 里不留副本
-echo ">>> 已发布到 $POOL/.credentials.json"
-echo ">>> 重启会话容器（或直接发一轮对话）即可用新凭证"
+echo ">>> Учётные данные сохранены в $POOL/.credentials.json"
+echo ">>> Перезапустите контейнер рабочего пространства или отправьте следующее сообщение, чтобы применить новые учётные данные."

@@ -42,7 +42,7 @@
   "proxies": [
     {
       "id": "px-hk1",
-      "name": "香港 #1",
+      "name": "Гонконг № 1",
       "scheme": "socks5",
       "host": "1.2.3.4",
       "port": 1080,
@@ -72,7 +72,7 @@
     {
       "id": "claude-1",
       "type": "claude",
-      "label": "Claude 订阅 #1",
+      "label": "Подписка Claude № 1",
       "credentials_dir": "accounts/claude-1",
       "proxy_id": "px-hk1"
     },
@@ -85,7 +85,7 @@
     {
       "id": "codex-1",
       "type": "codex",
-      "label": "Codex 订阅 #1",
+      "label": "Подписка Codex № 1",
       "credentials_dir": "accounts/codex-1"
     }
   ]

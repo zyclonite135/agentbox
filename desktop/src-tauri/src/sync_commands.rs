@@ -48,7 +48,7 @@ pub async fn sync_orphan_list(
         state,
         "sync_orphan_list",
         json!(query),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -66,7 +66,7 @@ pub async fn sync_orphan_review(
         state,
         "sync_orphan_review",
         json!(operation),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -78,13 +78,14 @@ pub async fn sync_orphan_export(
     state: State<'_, Desktop>,
     operation: OrphanOperation,
     events: Channel<ProgressEvent>,
+    dialog_title: Option<String>,
 ) -> Result<Value> {
     run(
         app,
         state,
         "sync_orphan_export",
         json!(operation),
-        false,
+        Some(dialog_title.unwrap_or_else(|| "Choose an export folder outside the project".into())),
         Some(events),
     )
     .await
@@ -105,7 +106,7 @@ pub async fn sync_orphan_retire(
         state,
         "sync_orphan_retire",
         payload,
-        false,
+        None,
         Some(events),
     )
     .await
@@ -157,7 +158,7 @@ async fn run(
     state: State<'_, Desktop>,
     kind: &str,
     payload: Value,
-    pick: bool,
+    dialog_title: Option<String>,
     events: Option<Channel<ProgressEvent>>,
 ) -> Result<Value> {
     let _exclusive = state
@@ -221,13 +222,8 @@ async fn run(
         request["state_dir"] = json!(directory
             .to_str()
             .ok_or_else(|| Error::new("path", "应用数据路径无法用 UTF-8 表示"))?);
-        let exporting = matches!(kind, "sync_export" | "sync_orphan_export");
-        if pick || exporting {
-            let title = if exporting {
-                "选择恢复副本导出目录（项目目录之外）"
-            } else {
-                "选择同步的本地项目目录"
-            };
+        if let Some(title) = dialog_title {
+            let exporting = matches!(kind, "sync_export" | "sync_orphan_export");
             #[cfg(feature = "desktop-smoke")]
             let injected = app
                 .state::<crate::smoke::Fixture>()
@@ -308,13 +304,14 @@ pub async fn sync_bind(
     project: String,
     project_path: String,
     events: Channel<ProgressEvent>,
+    dialog_title: Option<String>,
 ) -> Result<Value> {
     run(
         app,
         state,
         "sync_bind",
         json!({"binding":{"workspace":session,"project":project,"project_path":project_path}}),
-        true,
+        Some(dialog_title.unwrap_or_else(|| "Choose a local project folder".into())),
         Some(events),
     )
     .await
@@ -325,7 +322,7 @@ pub async fn sync_list(
     state: State<'_, Desktop>,
     events: Channel<ProgressEvent>,
 ) -> Result<Value> {
-    run(app, state, "sync_list", json!({}), false, Some(events)).await
+    run(app, state, "sync_list", json!({}), None, Some(events)).await
 }
 #[tauri::command]
 pub async fn sync_preview(
@@ -342,7 +339,7 @@ pub async fn sync_preview(
         state,
         "sync_preview",
         json!({"binding_id":binding_id,"direction":direction,"choices":choices,"basis_digest":basis_digest.unwrap_or_default()}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -361,7 +358,7 @@ pub async fn sync_apply(
         state,
         "sync_apply",
         json!({"binding_id":binding_id,"preview":preview,"confirmation":confirmation}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -390,7 +387,7 @@ pub async fn sync_review(
         state,
         "sync_review",
         json!({"binding_id":binding_id}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -409,7 +406,7 @@ pub async fn sync_resolve(
         state,
         "sync_resolve",
         json!({"binding_id":binding_id,"confirmation":confirmation,"action":action}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -427,7 +424,7 @@ pub async fn sync_history(
         state,
         "sync_history",
         json!({"binding_id":binding_id,"cursor":cursor.unwrap_or_default()}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -440,13 +437,14 @@ pub async fn sync_export(
     batch_id: String,
     operation_id: String,
     events: Channel<ProgressEvent>,
+    dialog_title: Option<String>,
 ) -> Result<Value> {
     run(
         app,
         state,
         "sync_export",
         json!({"binding_id":binding_id,"batch_id":batch_id,"operation_id":operation_id}),
-        false,
+        Some(dialog_title.unwrap_or_else(|| "Choose an export folder outside the project".into())),
         Some(events),
     )
     .await
@@ -480,7 +478,7 @@ pub async fn sync_archive(
         state,
         "sync_archive",
         json!({"binding_id":binding_id,"revision":revision}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -498,7 +496,7 @@ pub async fn sync_abandon_review(
         state,
         "sync_abandon_review",
         json!({"binding_id":binding_id}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -516,7 +514,7 @@ pub async fn sync_abandon(
         state,
         "sync_abandon",
         json!({"binding_id":binding_id,"confirmation":confirmation}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -536,7 +534,7 @@ pub async fn sync_history_cleanup(
         state,
         "sync_history_cleanup",
         json!({"binding_id":binding_id,"batch_id":batch_id,"revision":revision}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -557,7 +555,7 @@ pub async fn sync_recovery_discard(
         state,
         "sync_recovery_discard",
         json!({"binding_id":binding_id,"batch_id":batch_id,"operation_id":operation_id,"revision":revision}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -577,7 +575,7 @@ pub async fn sync_remote_cleanup_review(
         state,
         "sync_remote_cleanup_review",
         json!({"binding_id":binding_id,"batch_id":batch_id,"revision":revision}),
-        false,
+        None,
         Some(events),
     )
     .await
@@ -598,7 +596,7 @@ pub async fn sync_remote_cleanup(
         state,
         "sync_remote_cleanup",
         json!({"binding_id":binding_id,"batch_id":batch_id,"revision":revision,"confirmation":confirmation}),
-        false,
+        None,
         Some(events),
     )
     .await

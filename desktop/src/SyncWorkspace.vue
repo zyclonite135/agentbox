@@ -81,7 +81,7 @@ async function refresh(){clearDialogs();busy.value=true;message.value='';review.
 async function bind(){
  const project=projects.value.find(item=>item.id===selected.value);if(!project)return;
  busy.value=true;message.value='';
- try{const result=await task.run<{binding:SyncBinding}|null>('sync_bind',{session:props.session.id,project:project.id,projectPath:project.path});if(alive&&result){bindings.value.push(result.binding);preview.value=null;}}
+ try{const result=await task.run<{binding:SyncBinding}|null>('sync_bind',{session:props.session.id,project:project.id,projectPath:project.path,dialogTitle:t('选择同步的本地项目目录')});if(alive&&result){bindings.value.push(result.binding);preview.value=null;}}
  catch(err){if(alive)message.value=errorNotice(err);}finally{if(alive)busy.value=false;}
 }
 async function check(){
@@ -180,7 +180,7 @@ async function cleanupRemote(){
 }
 async function exportRecovery(batchId:string,operationId:string){
  if(!binding.value)return;clearDialogs();busy.value=true;message.value='';
- try{const result=await task.run<{filename:string}|null>('sync_export',{bindingId:binding.value.id,batchId,operationId});if(alive&&result)message.value=msg("副本已导出：{p1}", { p1: (result.filename) });}
+ try{const result=await task.run<{filename:string}|null>('sync_export',{bindingId:binding.value.id,batchId,operationId,dialogTitle:t('选择恢复副本导出目录（项目目录之外）')});if(alive&&result)message.value=msg("副本已导出：{p1}", { p1: (result.filename) });}
  catch(err){if(alive)message.value=errorNotice(err);}finally{if(alive)busy.value=false;}
 }
 function clearDialogs(){cleaning.value=null;discarding.value=null;remoteCleaning.value=null;abandoning.value=null;abandonPhrase.value='';archiving.value=null;resolving.value=null;}

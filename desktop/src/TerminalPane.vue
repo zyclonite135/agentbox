@@ -193,7 +193,7 @@ function setFiles(files:AttachmentInput[]){
  pendingFiles.value=files;attachmentMessage.value=msg("附件已选择，确认上传到当前空间的共享附件目录。");
 }
 async function chooseFiles() {
- try{const files=await bridge.invoke<AttachmentInput[]>('choose_attachments');if(alive)setFiles(files);else await releaseFiles(files);}
+ try{const files=await bridge.invoke<AttachmentInput[]>('choose_attachments',{dialogTitle:t('选择附件（每个最多 19 MiB）')});if(alive)setFiles(files);else await releaseFiles(files);}
  catch(error){if(alive)attachmentMessage.value=errorNotice(error);}
 }
 function pasteFiles(event: ClipboardEvent) {

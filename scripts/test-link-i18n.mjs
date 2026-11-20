@@ -37,6 +37,7 @@ export async function linkI18nSmoke(page) {
   let mutations = 0;
   let configPayload = null;
   let refuseSave = false;
+  let refusePair = true;
   const diagnostic = '已保存 <script>window.untrusted = true</script>';
   await page.route('**/api/**', async route => {
     try {
@@ -50,6 +51,11 @@ export async function linkI18nSmoke(page) {
       }
       if (url.pathname === '/api/pair') {
         assert.deepEqual(req.postDataJSON(), { code: 'ABOX1-fixture-保存', insecure: true });
+        if (refusePair) {
+          refusePair = false;
+          await route.fulfill({ status: 400, json: { error: '配对失败：配对码无效或已过期，请重新生成' } });
+          return;
+        }
         state = { ...state, paired: true, running: true, status: { state: 'online', transparent: true, since: Date.now() - 75000, ping_ms: 18, maps: [{ port: 3306, ok: false, detail: '保存' }] } };
       } else if (url.pathname === '/api/config') {
         if (refuseSave) { await route.fulfill({ status: 400, json: { error: diagnostic } }); return; }
@@ -78,7 +84,10 @@ export async function linkI18nSmoke(page) {
     assert.equal(await language.getAttribute('aria-label'), 'Язык интерфейса');
     await page.locator('#pair-code').fill('ABOX1-fixture-保存');
     await page.locator('#pair-insecure').check();
+    await page.locator('#btn-pair').click();
+    await page.locator('#pair-err').filter({hasText:'Не удалось выполнить сопряжение. Подробности: Код сопряжения недействителен или просрочен. Создайте новый код.'}).waitFor();
     await language.selectOption('zh-TW');
+    assert.match(await page.locator('#pair-err').textContent(),/配對/);
     assert.equal(await page.locator('#pair-code').inputValue(), 'ABOX1-fixture-保存');
     assert.equal(await page.locator('#pair-insecure').isChecked(), true);
     assert.equal((await page.locator('#btn-pair').textContent()).trim(), '連線');
@@ -116,7 +125,7 @@ export async function linkI18nSmoke(page) {
     assert.equal(await page.locator('#savebar').isVisible(), true);
     assert.equal(await page.locator('#opt-auto').isChecked(), false);
     assert.equal(await page.locator('#st-title').textContent(), 'Туннель подключён');
-    assert.equal(mutations, 1, 'language changes must not write configuration or restart the tunnel');
+    assert.equal(mutations, 2, 'language changes must not write configuration or restart the tunnel');
     await page.waitForTimeout(2200); // One real panel polling interval must preserve unsaved input.
     assert.equal(await page.locator('#allow-list input').inputValue(), '保存.example:5432');
     assert.equal(await page.locator('#map-list .rule').count(), 2);
@@ -141,7 +150,7 @@ export async function linkI18nSmoke(page) {
     const dialogText = new Promise(resolve => page.once('dialog', async dialog => { resolve(dialog.message()); await dialog.dismiss(); }));
     await page.locator('#btn-unpair').click();
     assert.equal(await dialogText, en['解除绑定后需要重新配对才能连接，放行规则会保留。继续？']);
-    assert.equal(mutations, 3, 'canceling an unpair confirmation must not send a request');
+    assert.equal(mutations, 4, 'canceling an unpair confirmation must not send a request');
     await language.selectOption('ru');
     await page.reload();
     await page.locator('#card-status').waitFor({ state: 'visible' });

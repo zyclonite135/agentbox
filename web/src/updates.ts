@@ -8,6 +8,7 @@ import type { UpdateInfo, UpgradeInfo } from "./types.js";
 import {initUpdateComponents} from "./features/settings/update-components.js";
 import { markdownPreview } from "./markdown-preview.js";
 import { ProgressBar, RateMeter } from "./progress.js";
+import { localizeLegacyError } from "./problems.js";
 
 const interval = 4 * 60 * 60 * 1000;
 const releasesURL = "https://github.com/zyclonite135/agentbox/releases";
@@ -110,7 +111,9 @@ export function initUpdates() {
     buttonLabel(install, () => info?.comparable === false ? i18nText("切换到正式版并重启") : i18nText("升级并重启"), "download");
     install.classList.toggle("hidden", !upgrade?.supported || !info?.available);
     install.disabled = busy || readingUpgrade || checking || !!error;
-    setTextRender($("upgrade-support"), () => i18nText(upgrade?.reason ?? "正在读取在线升级支持状态…"));
+    setTextRender($("upgrade-support"), () => upgrade?.reason
+      ? localizeLegacyError(upgrade.reason, i18nText)
+      : upgrade ? "" : i18nText("正在读取在线升级支持状态…"));
     $("upgrade-progress").classList.toggle("hidden", !job && !upgradeError && !submissionError && !submitting && !awaitingSubmission);
     const verified = job?.phase === "succeeded" && upgrade?.current_version === job.version;
     setTextRender($("upgrade-message"), () => submitting ? i18nText("正在提交升级任务…") : awaitingSubmission ? i18nText("正在确认升级任务是否已提交…")
@@ -119,7 +122,13 @@ export function initUpdates() {
       : job ? `${job.version} · ${phaseMessages[job.phase]?.() || job.message}` : "");
     renderMeter(job, verified);
     const detail = upgradeError || submissionError || job?.error || "";
-    $("upgrade-error").textContent = detail;
+    setTextRender($("upgrade-error"), () => {
+      const failedStep = job?.failed_phase && Object.hasOwn(stepNames, job.failed_phase) ? stepNames[job.failed_phase] : undefined;
+      if (failedStep && detail.endsWith("时失败。请查看升级任务日志；版本切换后不会自动回退数据库。")) {
+        return i18nText("{phase}时失败。请查看升级任务日志；版本切换后不会自动回退数据库。", { phase: failedStep() });
+      }
+      return localizeLegacyError(detail, i18nText);
+    });
     $("upgrade-error").classList.toggle("hidden", !detail);
     setTextRender($("upgrade-log"), () => job ? i18nText("任务日志：journalctl -u agentbox-upgrade-{p0}.service", { p0: String(job.id) }) : "");
     $("upgrade-log").classList.toggle("hidden", !detail && job?.phase !== "failed" && !(job?.phase === "succeeded" && !verified));

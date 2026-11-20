@@ -1,5 +1,6 @@
 import { msg, renderMessage, type DisplayMessage } from './i18n';
 import nativeProblems from './native-problems.json';
+import nativeFileProblems from './native-file-problems.json';
 import { Channel, invoke } from '@tauri-apps/api/core';
 
 export interface Connection {
@@ -20,8 +21,11 @@ export type TerminalEvent = { type: 'data'; sequence: number; bytes: number[] } 
 export function errorNotice(error: unknown): DisplayMessage {
   if (typeof error !== 'object' || error === null) return msg("操作失败，请重试");
   const value = error as Partial<BridgeError>;
-  const native = typeof value.kind === 'string' && Object.hasOwn(nativeProblems,value.kind) && (nativeProblems as Record<string,string>)[value.kind] === value.message;
-  const fallback = native ? msg(value.message!) : typeof value.message === 'string' ? value.message : '';
+  const source = typeof value.message === 'string' ? value.message : '';
+  const kind = typeof value.kind === 'string' ? value.kind : '';
+  const native = (Object.hasOwn(nativeProblems, kind) && (nativeProblems as Record<string, string>)[kind] === source)
+    || (Object.hasOwn(nativeFileProblems, kind) && (nativeFileProblems as Record<string, string[]>)[kind].includes(source));
+  const fallback = native ? msg(source) : source;
   if (typeof value.code !== 'string' && typeof value.operation_id !== 'string' && typeof value.message === 'string') return fallback;
   return {problem: {code: typeof value.code === 'string' ? value.code : undefined,
     operation_id: typeof value.operation_id === 'string' ? value.operation_id : undefined},

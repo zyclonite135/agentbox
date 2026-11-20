@@ -23,7 +23,7 @@ PLATFORMS=(
   windows/amd64
 )
 
-echo "==> 编译"
+echo "==> Сборка клиентов"
 for p in "${PLATFORMS[@]}"; do
   os=${p%/*} arch=${p#*/}
   name="abox-link-$os-$arch"
@@ -34,7 +34,7 @@ for p in "${PLATFORMS[@]}"; do
   printf '    %-32s %s\n' "$name" "$(du -h "$STAGE/$name" | cut -f1)"
 done
 
-echo "==> 发布到 $OUT"
+echo "==> Готовые файлы в $OUT"
 mkdir -p "$OUT"
 chmod 0755 "$STAGE"/*
 mv -f "$STAGE"/* "$OUT/"

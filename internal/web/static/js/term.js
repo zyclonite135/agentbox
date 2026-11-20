@@ -5,6 +5,8 @@ import { setAttrRender, setText, setTextRender, t as i18nText } from "./i18n.js"
 import { S, bus } from "./state.js";
 import { $, askConfirm, isMobile, openLightbox, toast } from "./util.js";
 import { api, wsURL, imgURLFromPath, uploadAttachment } from "./api.js";
+import { localizeLegacyError } from "./problems.js";
+import { DEFAULT_TERMINAL_TIP } from "./terminal-tips.js";
 import { fmtUSD } from "./quota.js";
 import { fmtTokens } from "./usage-math.js";
 import { refreshAll } from "./data.js";
@@ -167,8 +169,9 @@ function renderConn() {
     // Bind only this generic label. An explicit diagnostic replacing it owns its
     // text, so switching language cannot overwrite a raw server refusal reason.
     setText(st, text, { p0: String(active?.attempt ?? 0) });
-    if (active?.refused)
-        st.textContent = active.refused;
+    const refusal = active?.refused;
+    if (refusal)
+        setTextRender(st, () => localizeLegacyError(refusal, i18nText));
     st.dataset.state = state;
     if (btn)
         btn.classList.toggle("busy", state === "connecting" || state === "reconnecting");
@@ -496,8 +499,8 @@ function connectPane(p, isReconnect) {
         // 人看的一句话，写进终端画面并顶到状态栏。绝不自动重连——理由不会因为重试
         // 而改变，只会被同一句话再挡一次。
         if (e && e.code >= 4000 && e.code < 5000) {
-            const why = e.reason || i18nText("连接已被服务端拒绝");
-            p.term?.write("\r\n\x1b[31m" + why + "\x1b[0m\r\n");
+            const why = e.reason || "连接已被服务端拒绝";
+            p.term?.write("\r\n\x1b[31m" + localizeLegacyError(why, i18nText) + "\x1b[0m\r\n");
             p.refused = why;
             setConnStatus(p, "closed");
             return;
@@ -776,8 +779,6 @@ for (const id of ["tab-term", "view-work"]) {
  * 提示语与频率/动画在系统设置「界面与提示」里配置，经 /me 下发给所有用户（S.termTips）。
  * 单行视窗 + 纵向轨道：每隔 interval 逐条上移一行，末尾追加首条克隆做无缝回卷。
  * animation 目前只有 "scroll"（滚动），作为字段保留以便日后扩展滑动/翻转等。 */
-// Match the original default from defaultTerminalTips, including saved configs.
-const DEFAULT_TERMINAL_TIP = "可直接粘贴图片，路径可点击预览";
 let tipsTimer = null;
 function initTermTips() {
     const host = $("term-tips");

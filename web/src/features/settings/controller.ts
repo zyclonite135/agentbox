@@ -8,6 +8,7 @@ import { loadSystem, stopSystem, startMonitor, stopMonitor } from "./operations.
 import { settingsState } from "./state.js";
 import { bindSaveBar, confirmDiscard, defineGroups, dirtyGroups, holdDirty, rebaseline, saveDirty } from "./savebar.js";
 import type { SettingsPatch } from "./savebar.js";
+import { DEFAULT_TERMINAL_TIP, terminalTipSource, terminalTipText } from "../../terminal-tips.js";
 /* settings：系统设置视图 —— 账号池维护（含 OAuth / API Key 登录弹窗）、
  * 容器与资源、模型管理、安全与访问、关于。 */
 "use strict";
@@ -50,6 +51,24 @@ for (const h of document.querySelectorAll<HTMLElement>("h3[data-agent]")) {
   h.classList.add("agent-h3", "agent-" + agentKey(h.dataset.agent!));
   h.prepend(agentIcon(h.dataset.agent!, 15));
 }
+
+interface TerminalTipsEditor {
+  loaded: string[];
+  displayed: string;
+}
+
+const terminalTipsEditor: TerminalTipsEditor = { loaded: [], displayed: "" };
+
+window.addEventListener("agentbox-language-change", () => {
+  const editor = $<HTMLTextAreaElement>("set-tips");
+  if (editor.value !== terminalTipsEditor.displayed || !terminalTipsEditor.loaded.includes(DEFAULT_TERMINAL_TIP)) return;
+  const translated = terminalTipsEditor.loaded.map(terminalTipText).join("\n");
+  if (editor.value === translated) return;
+  const { selectionStart, selectionEnd, selectionDirection } = editor;
+  terminalTipsEditor.displayed = editor.value = translated;
+  editor.setSelectionRange(selectionStart, selectionEnd, selectionDirection);
+  rebaseline(["set-tips"]);
+});
 
 for (const caption of document.querySelectorAll<HTMLElement>("#set-nav [data-settings-nav-label]")) {
   const source = caption.textContent!.trim();
@@ -540,7 +559,9 @@ function fillSettingsForms() {
     ? (st.tunnel_active ? i18nText("隧道已启用，SOCKS5 代理监听中") : i18nText("隧道已启用，但代理未在监听（检查绑定地址）"))
     : i18nText("默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达"));
   const tips: Partial<Settings["terminal_tips"]> = st.terminal_tips || {};
-  $<HTMLTextAreaElement>("set-tips").value = (tips.tips || []).join("\n");
+  terminalTipsEditor.loaded = tips.tips || [];
+  terminalTipsEditor.displayed = terminalTipsEditor.loaded.map(terminalTipText).join("\n");
+  $<HTMLTextAreaElement>("set-tips").value = terminalTipsEditor.displayed;
   $<HTMLInputElement>("set-tips-interval").value = String(tips.interval_sec != null ? tips.interval_sec : 4);
   setSelectValue($<HTMLSelectElement>("set-tips-anim"), tips.animation || "scroll");
   renderModels();
@@ -876,7 +897,9 @@ function initSaveBar(signal: AbortSignal) {
     { id: "tips", get label() { return i18nText("终端提示语"); }, fields: ["set-tips", "set-tips-interval", "set-tips-anim"],
       patch: () => ({
         terminal_tips: {
-          tips: $<HTMLTextAreaElement>("set-tips").value.split("\n").map((t) => t.trim()).filter(Boolean),
+          tips: $<HTMLTextAreaElement>("set-tips").value.split("\n").map((t) => t.trim()).filter(Boolean)
+            .map((label, index) => label !== terminalTipsEditor.loaded[index] && terminalTipsEditor.loaded.includes(DEFAULT_TERMINAL_TIP)
+              ? terminalTipSource(label) : label),
           interval_sec: Number(inputVal("set-tips-interval")) || 0,
           animation: $<HTMLSelectElement>("set-tips-anim").value,
         },

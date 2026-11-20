@@ -31,8 +31,10 @@ export async function webI18nSmoke(browser) {
  let meTimezone;
  let usageDates;
  let holdUsageRead;
+ let failedUpgrade=false;
  const customTip='保存 <custom tip>';
  const terminalTips={tips:['可直接粘贴图片，路径可点击预览',customTip],interval_sec:4,animation:'scroll'};
+ let savedTerminalTips=terminalTips;
  const usageRows=Array.from({length:20},(_,i)=>({id:i+1,ts:Date.now(),user:'保存',session_id:space.id,session_name:space.name,thread_id:'thread',turn_id:'turn-'+i,agent:'claude',account_id:'fixture',model:'保存',kind:'chat',billing:'table',input_tokens:100,output_tokens:1000,cache_read_tokens:80,cache_write_tokens:10,total_tokens:1190,cost_micro_usd:2128,ttft_ms:100,wall_ms:1000,duration_ms:900,rate:{input:1,output:2,cache_read:0.1,cache_write:2,snapshot:true,per_request:true,key:'保存'}}));
  const usageRun='a'.repeat(32);
  Object.assign(usageRows[0],{kind:'delegation',delegation_id:usageRun});
@@ -55,8 +57,12 @@ export async function webI18nSmoke(browser) {
   else if(path==='/api/onboarding')body={version:1,can_configure:true,can_create:true,has_workspaces:true,accounts:[{id:'fixture',label:'取消',type:'codex',credentials_present:true}],default_models:{codex:'fixture'},container_resources:{cpus:1,memory_mb:512,pids_limit:128}};
   else if(path==='/api/accounts')body=[{id:'fixture',label:'取消',type:'codex',cred_status:'ok',sessions:1}];
   else if(path==='/api/settings'){
-   if(route.request().method()==='PUT')timezone=route.request().postDataJSON().timezone;
-   body={listen:'127.0.0.1:8180',agent_image:'fixture',permission_mode:'default',max_upload_mb:20,idle_timeout_min:30,timezone,container:{memory_mb:512,cpus:1,pids_limit:128,network:'none'},resources:{max_running:0,max_running_per_user:0,min_free_bytes:0},models:{claude:[],codex:[]},default_models:{claude:'fixture',codex:'fixture'},terminal_tips:{tips:['保存'],interval_sec:0,animation:'none'},tunnel:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},pricing:{}};
+   if(route.request().method()==='PUT'){
+    const patch=route.request().postDataJSON();
+    timezone=patch.timezone??timezone;
+    savedTerminalTips=patch.terminal_tips??savedTerminalTips;
+   }
+   body={listen:'127.0.0.1:8180',agent_image:'fixture',permission_mode:'default',max_upload_mb:20,idle_timeout_min:30,timezone,container:{memory_mb:512,cpus:1,pids_limit:128,network:'none'},resources:{max_running:0,max_running_per_user:0,min_free_bytes:0},models:{claude:[],codex:[]},default_models:{claude:'fixture',codex:'fixture'},terminal_tips:savedTerminalTips,tunnel:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},pricing:{}};
   }
   else if(path.endsWith('/models'))body={models:[],discovery:'available'};
   else if(path.endsWith('/files'))body=[];
@@ -73,7 +79,9 @@ export async function webI18nSmoke(browser) {
    body={current_version:'v0.1.9',revision:'0123456789abcdef',built_at:'2026-10-04T08:00:00Z',latest_version:'',available:false,comparable:true,checked_at:checked,attempted_at:checked,error:''};
   }
   else if(path==='/api/updates/components')body={version:1,observed_at:Date.now(),server:{version:'v0.1.9',schema:11,candidate_compatibility:'preflight_required'},image:{reference:'fixture',id:'',claude:'',codex:'',state:'unavailable',observed_at:0},desktop:{installed_version_state:'browser_unknown',server_protocol:1,sync_enabled:false}};
-  else if(path==='/api/updates/upgrade')body={supported:false,reason:'当前部署不是支持在线升级的版本目录安装，请使用手工升级。',current_version:'v0.1.9',job:null};
+  else if(path==='/api/updates/upgrade')body=failedUpgrade
+   ? {supported:true,current_version:'v0.1.9',job:{id:usageRun,version:'v0.1.10',phase:'failed',failed_phase:'backup',error:'正在备份并验证数据时失败。请查看升级任务日志；版本切换后不会自动回退数据库。'}}
+   : {supported:false,reason:'当前部署不是支持在线升级的版本目录安装，请使用手工升级。',current_version:'v0.1.9',job:null};
   if(path==='/api/usage/events' && holdUsageRead){
    const hold=holdUsageRead;
    holdUsageRead=undefined;
@@ -321,8 +329,23 @@ export async function webI18nSmoke(browser) {
   await page.getByRole('menuitemradio',{name:'Интерфейс',exact:true}).click();
   await page.locator('#sec-interface').waitFor();
   assert.equal(await page.locator('#mobile-section-label').textContent(),'Интерфейс');
+  const tipsInput=page.locator('#set-tips');
+  const ruTip='Вставляйте изображения прямо в терминал. Нажмите на путь для предпросмотра.';
+  const enTip='Paste images directly into the terminal. Click an image path to preview it.';
+  assert.equal(await tipsInput.inputValue(),`${ruTip}\n${customTip}`);
   await language('en');
   assert.equal(await page.locator('#mobile-section-label').textContent(),'Appearance and tips');
+  assert.equal(await tipsInput.inputValue(),`${enTip}\n${customTip}`);
+  assert.equal(await page.locator('#set-savebar').isVisible(),false,'language changes must not mark settings as edited');
+  const draftTips=`${enTip}\n${customTip} 2`;
+  await tipsInput.fill(draftTips);
+  await language('ru');
+  assert.equal(await tipsInput.inputValue(),draftTips,'switching language keeps an unsaved tip draft');
+  const tipSave=page.waitForResponse(res=>new URL(res.url()).pathname==='/api/settings' && res.request().method()==='PUT');
+  await page.locator('#set-save').click();
+  assert.deepEqual((await tipSave).request().postDataJSON(),{terminal_tips:{...terminalTips,tips:[terminalTips.tips[0],`${customTip} 2`]}});
+  await page.locator('#set-savebar').waitFor({state:'hidden'});
+  assert.equal(await tipsInput.inputValue(),`${ruTip}\n${customTip} 2`);
   await page.goto(base+'/#/settings/about');
   await page.locator('#sec-about').waitFor();
   await language('ru');
@@ -332,6 +355,9 @@ export async function webI18nSmoke(browser) {
   await updatePanel.getByText('Стабильных релизов пока нет',{exact:true}).waitFor();
   await updatePanel.getByText('Для обновления из интерфейса нужна стандартная установка на Linux с systemd. Обновите этот экземпляр вручную.',{exact:true}).waitFor();
   assert.equal(await page.locator('#update-install').isVisible(),false);
+  failedUpgrade=true;
+  await page.reload();
+  await page.locator('#upgrade-error').filter({hasText:'Обновление прервалось на этапе «Резервное копирование данных».'}).waitFor();
 
   await page.setViewportSize({width:1280,height:900});
   const midnightBoundary=Date.UTC(2026,10,19,20,30);

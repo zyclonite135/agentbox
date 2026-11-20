@@ -249,6 +249,7 @@ fn open_many(paths: Vec<PathBuf>) -> Result<Vec<(Source, String, u64)>> {
 pub async fn choose_attachments(
     app: tauri::AppHandle,
     state: State<'_, Desktop>,
+    dialog_title: Option<String>,
 ) -> Result<Vec<SelectedFile>> {
     let _selection = state
         .attachment_selection
@@ -261,7 +262,7 @@ pub async fn choose_attachments(
     let paths = {
         let _ = app;
         let Some(files) = rfd::AsyncFileDialog::new()
-            .set_title("选择附件（每个最多 19 MiB）")
+            .set_title(dialog_title.as_deref().unwrap_or("Choose attachments"))
             .pick_files()
             .await
         else {

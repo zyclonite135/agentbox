@@ -31,14 +31,14 @@ function join(name:string){return path.value?`${path.value}/${name}`:name;}
 async function download(entry:Entry){
  if(busy.value)return;busy.value=true;downloading.value=true;message.value='';bytes.value=0;total.value=null;const request=++generation;
  const events=new Channel<{bytes:number;total:number|null}>();events.onmessage=value=>{if(alive&&generation===request){bytes.value=value.bytes;total.value=value.total;}};
- try{const saved=await bridge.invoke<boolean>('download_file',{task,session:props.session,path:join(entry.name),scope:scope.value,events});if(alive&&request===generation)message.value=saved?msg("文件已保存"):msg("已取消保存选择");}
+ try{const saved=await bridge.invoke<boolean>('download_file',{task,session:props.session,path:join(entry.name),scope:scope.value,events,dialogTitle:t('保存文件（不覆盖已有文件）')});if(alive&&request===generation)message.value=saved?msg("文件已保存"):msg("已取消保存选择");}
  catch(error){if(alive&&request===generation)message.value=errorNotice(error);}finally{if(alive&&request===generation){busy.value=false;downloading.value=false;}}
 }
 async function chooseUpload(){
  if(busy.value||!loaded.value)return;busy.value=true;message.value='';await discardPreview();if(!alive)return;const request=++generation;
  let files:SelectedFile[]=[];
  try{
-  files=await bridge.invoke<SelectedFile[]>('choose_attachments');
+  files=await bridge.invoke<SelectedFile[]>('choose_attachments',{dialogTitle:t('选择附件（每个最多 19 MiB）')});
   if(!alive||!props.visible||request!==generation||files.length===0)return;
   if(files.length!==1){message.value=msg("目录上传每次请选择一个文件或代码压缩包，以便逐项核对覆盖范围。");return;}
   const result=await bridge.invoke<UploadPreview>('preview_file_upload',{request:{session:props.session,path:path.value,scope:scope.value,file:files[0]}});

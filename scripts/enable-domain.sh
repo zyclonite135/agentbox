@@ -15,29 +15,29 @@ if [[ -f deploy/production.env ]]; then
     source deploy/production.env
 fi
 
-DOMAIN=${PROD_DOMAIN:?请在 deploy/production.env 设置 PROD_DOMAIN 或通过环境变量传入}
+DOMAIN=${PROD_DOMAIN:?Укажите PROD_DOMAIN в deploy/production.env или передайте его через переменную окружения}
 LISTEN=${PROD_LISTEN:-127.0.0.1:8180}
 PORT=${LISTEN##*:}
 CONF=/etc/nginx/conf.d/$DOMAIN.conf
 
 if [[ ! -f /etc/systemd/system/agentbox.service ]]; then
-    echo "错误：agentbox systemd 单元未安装，请先跑 ./deploy/install.sh" >&2
+    echo "Служба AgentBox не установлена. Сначала выполните ./deploy/install.sh." >&2
     exit 1
 fi
 
-echo "==> 1/4 检查 DNS ($DOMAIN)"
+echo "==> 1/4. Проверка DNS для $DOMAIN"
 if ! getent hosts "$DOMAIN" >/dev/null; then
-    echo "错误：$DOMAIN 尚未解析，请先在 DNS 服务商添加指向本机公网 IP 的 A 记录" >&2
+    echo "Домен $DOMAIN не разрешается. Добавьте у DNS-провайдера запись A с публичным IP-адресом этого сервера." >&2
     exit 1
 fi
 
-echo "==> 2/4 签发证书 (certbot webroot)"
+echo "==> 2/4. Выпуск сертификата через certbot в режиме webroot"
 if [ ! -e "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
     certbot certonly --webroot -w /var/www/certbot -d "$DOMAIN" \
         --non-interactive --agree-tos --keep-until-expiring
 fi
 
-echo "==> 3/4 部署完整 nginx 配置"
+echo "==> 3/4. Установка конфигурации nginx"
 # heredoc 不加引号以展开 $DOMAIN/$PORT；nginx 自身的变量用 \$ 转义保留。
 cat > "$CONF" <<NGINX
 server {
@@ -90,7 +90,7 @@ server {
 NGINX
 nginx -t && systemctl reload nginx
 
-echo "==> 4/4 收紧直连入口：回绑 $LISTEN，关闭防火墙 $PORT"
+echo "==> 4/4. Ограничение прямого доступа. AgentBox будет слушать $LISTEN, а порт $PORT будет закрыт в брандмауэре."
 python3 - "$APP_DIR/config.json" "$LISTEN" <<'EOF'
 import json, sys
 path, listen = sys.argv[1], sys.argv[2]
@@ -104,6 +104,6 @@ systemctl restart agentbox
 firewall-cmd --remove-port="$PORT/tcp" --permanent >/dev/null && firewall-cmd --reload >/dev/null
 
 echo
-echo "完成。访问地址：https://$DOMAIN （密码不变，见 config.json 的 auth_token）"
+echo "Готово. Откройте https://$DOMAIN. Пароль прежний, см. auth_token в config.json."
 sleep 1.5
-curl -s -o /dev/null -w "本地回环检查: %{http_code}\n" "http://$LISTEN/"
+curl -s -o /dev/null -w "Проверка локального подключения: %{http_code}\n" "http://$LISTEN/"

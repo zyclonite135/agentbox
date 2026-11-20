@@ -73,4 +73,12 @@ describe('web and desktop contract meanings', () => {
     expect(errorMessage({kind:'foreign',message:nativeProblems.server})).toBe(nativeProblems.server);
   });
 
+  it('localizes native file failures and dialog titles in Russian', () => {
+    language.value='ru';
+    const source='文件已存在，请选择新名称';
+    expect(errorMessage({kind:'exists',message:source})).toBe('Файл уже существует. Выберите другое имя.');
+    expect(errorMessage({kind:'foreign',message:source})).toBe(source);
+    expect(t('选择附件（每个最多 19 MiB）')).toBe('Выберите вложения (до 19 МиБ на файл)');
+  });
+
 });

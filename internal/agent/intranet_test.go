@@ -74,7 +74,7 @@ func TestTransparentHintReplacesLegacyGuidance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(raw), "勿尝试代理") || !strings.Contains(string(raw), "直接使用原地址") {
+	if strings.Contains(string(raw), "curl --proxy") || !strings.Contains(string(raw), "Подключайтесь по TCP к исходным IPv4-адресам и доменам") {
 		t.Fatal(string(raw))
 	}
 }

@@ -11,11 +11,11 @@ APP_DIR=$(pwd -P)
 UNIT_DIR=/etc/systemd/system
 
 if [[ $EUID -ne 0 ]]; then
-  echo "需要 root：sudo $0" >&2
+  echo "Для установки нужны права root. Запустите sudo $0" >&2
   exit 1
 fi
 
-echo "安装路径: $APP_DIR"
+echo "Каталог установки: $APP_DIR"
 
 for unit in agentbox.service \
   agentbox-image-update.service agentbox-image-update.timer \
@@ -37,4 +37,4 @@ else
 fi
 
 echo
-echo "单元已安装并设为开机自启。接着跑 ./deploy/deploy.sh 构建并启动。"
+echo "Служба systemd установлена и включена в автозагрузку. Для сборки и запуска выполните ./deploy/deploy.sh."

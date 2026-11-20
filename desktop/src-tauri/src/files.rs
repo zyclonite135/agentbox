@@ -74,6 +74,7 @@ pub async fn download_file(
     path: String,
     scope: String,
     events: Channel<DownloadProgress>,
+    dialog_title: Option<String>,
 ) -> Result<bool> {
     let route = route(&session, &path, &scope, "file")?;
     if task.is_empty() || task.len() > 128 || path.is_empty() {
@@ -99,7 +100,7 @@ pub async fn download_file(
     let work = async {
         let name = path.rsplit('/').next().unwrap_or("download");
         let Some(destination) = rfd::AsyncFileDialog::new()
-            .set_title("保存文件（不覆盖已有文件）")
+            .set_title(dialog_title.as_deref().unwrap_or("Save file"))
             .set_file_name(name)
             .save_file()
             .await

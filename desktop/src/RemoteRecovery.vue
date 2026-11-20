@@ -56,7 +56,7 @@ async function exportBefore() {
   const shown = review.value; if (!shown || busy.value) return;
   busy.value = true; message.value = '';
   try {
-    const result = await task.run<{filename: string}|null>('sync_orphan_export', {operation: operation(shown.status)});
+    const result = await task.run<{filename: string}|null>('sync_orphan_export', {operation: operation(shown.status), dialogTitle: t('选择恢复副本导出目录（项目目录之外）')});
     if (alive && result) message.value = msg("原内容已导出为 {p1}", { p1: (result.filename) });
   } catch (error) { if (alive) message.value = errorNotice(error); }
   finally { if (alive) busy.value = false; }

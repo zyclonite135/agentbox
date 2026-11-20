@@ -62,7 +62,10 @@ struct InspectionState {
 }
 
 #[tauri::command]
-async fn inspect_local(state: State<'_, Desktop>) -> Result<serde_json::Value> {
+async fn inspect_local(
+    state: State<'_, Desktop>,
+    dialog_title: Option<String>,
+) -> Result<serde_json::Value> {
     let (cancel, canceled) = oneshot::channel();
     {
         let mut active = state.inspection.try_lock().map_err(|_| {
@@ -79,7 +82,7 @@ async fn inspect_local(state: State<'_, Desktop>) -> Result<serde_json::Value> {
     }
     let task = async {
         let selected = rfd::AsyncFileDialog::new()
-            .set_title("选择要检查的本地项目目录")
+            .set_title(dialog_title.as_deref().unwrap_or("Choose a project folder"))
             .pick_folder()
             .await;
         let Some(selected) = selected else {

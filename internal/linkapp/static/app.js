@@ -63,6 +63,25 @@ function actionLabel(button, label, icon) {
 }
 
 /* 面板 API：X-Abox-Panel 头是防跨站的凭据——浏览器不会让外站页面带上它。 */
+function panelErrorMessage(message) {
+  if (message.startsWith("配对失败：")) {
+    return tr("配对失败：{detail}", { detail: tr(message.slice("配对失败：".length)) });
+  }
+  for (const prefix of ["保存配置失败：", "配置文件损坏: "]) {
+    if (message.startsWith(prefix)) return tr(prefix + "{detail}", { detail: message.slice(prefix.length) });
+  }
+  const connection = /^连接 (\S+) 失败：([\s\S]*)$/.exec(message);
+  if (connection) return tr("连接 {host} 失败：{detail}", { host: connection[1], detail: connection[2] });
+  return tr(message);
+}
+
+class PanelAPIError extends Error {
+  constructor(source) {
+    super(panelErrorMessage(source));
+    this.source = source;
+  }
+}
+
 async function api(path, body) {
   const res = await fetch("/api" + path, {
     method: body === undefined ? "GET" : "POST",
@@ -70,7 +89,7 @@ async function api(path, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || res.statusText);
+  if (!res.ok) throw new PanelAPIError(typeof data.error === "string" ? data.error : res.statusText);
   return data;
 }
 
@@ -292,7 +311,7 @@ $("btn-pair").addEventListener("click", async () => {
       render();
       toastUI("接入成功，接下来添加放行规则");
     } catch (e) {
-      pairErrorSource = "";
+      pairErrorSource = e instanceof PanelAPIError ? e.source : "";
       $("pair-err").textContent = e.message;
     }
   });
@@ -446,7 +465,7 @@ function renderLanguage() {
   // renderRules keeps its existing DOM when rule values have not changed.
   // Switching language must never discard an unsaved target or cursor.
   render();
-  if (pairErrorSource) $("pair-err").textContent = tr(pairErrorSource);
+  if (pairErrorSource) $("pair-err").textContent = panelErrorMessage(pairErrorSource);
   if (toastSource) $("toast").textContent = tr(toastSource);
 }
 languageSelect.addEventListener("change", () => i18n.setLanguage(languageSelect.value));

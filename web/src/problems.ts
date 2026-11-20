@@ -171,11 +171,120 @@ export const problemMessages: Record<string, readonly [string, string]> = {
 };
 
 type Translate = (source: string, params?: Params) => string;
+// Known messages from older JSON endpoints and the bundled upgrade helper.
+const legacyErrors = new Set([
+  "账号出口代理已停用",
+  "账号出口代理尚未就绪",
+  "请输入有效的 HTTP / HTTPS 地址",
+  "无法读取容器状态",
+  "请重新启动浏览器以应用当前网络设置",
+  "剪贴板最多支持 48 KiB 的文字",
+  "请先连接浏览器",
+  "授权或网络配置已变更，请重新连接浏览器",
+  "地址格式无效",
+  "仅支持不含用户名密码的 HTTP / HTTPS 地址",
+  "显示服务启动超时",
+  "显示服务启动失败",
+  "浏览器代理配置无效",
+  "浏览器启动失败，请检查镜像及用户命名空间沙箱支持",
+  "远程桌面启动超时",
+  "剪贴板内容过长",
+  "打开网页失败",
+  "未知操作",
+  "浏览器未运行",
+  "浏览器尚未完全停止，请稍后重试",
+  "浏览器网络切换超时，请停止工作空间后重试",
+  "浏览器启动超时",
+  "工作空间未运行",
+  "终端已结束或正在关闭",
+  "请求体格式错误",
+  "切换回兼容代理模式前，请先停止运行中的工作空间",
+  "该账号类型不使用 OAuth 登录",
+  "账号未配置 credentials_dir",
+  "正在完成授权，请稍后重试",
+  "缺少授权码",
+  "授权已过期，请重新生成授权链接",
+  "state 不匹配，请重新生成授权链接",
+  "令牌响应解析失败",
+  "API Key 为空或含非法字符",
+  "wire_api 只能是 responses 或 chat",
+  "该账号类型不使用 API Key",
+  "仅 claude 账号支持清除中转站配置",
+  "Base URL 含非法字符",
+  "Base URL 必须是 http(s)://host[/path] 形式",
+  "请先输入 API Key（或保存过一次后可留空）",
+  "暂时无法读取升级任务，请稍后刷新。",
+  "请选择有效的正式版本。",
+  "无效的升级请求。",
+  "版本检查结果已变化，请重新检查更新后升级。",
+  "升级提交结果尚未确认，请刷新任务状态并检查服务器日志。",
+  "存储附加配置需要受支持的 storage_policy.mount，请使用手工升级。",
+  "存在未识别的服务附加配置，请使用手工升级。",
+  "存储附加配置的属主或权限不安全，请使用手工升级。",
+  "存储附加配置内容不匹配，请使用手工升级。",
+  "存储挂载或配额保护尚未实际生效，请使用手工升级。",
+  "运行中的服务仍可能绕过磁盘配额，请使用手工升级。",
+  "一键升级需要以 root 运行的 Linux/systemd 发布安装。",
+  "当前架构或版本标识不支持一键升级，请使用手工升级。",
+  "服务器缺少 systemd-run，请使用手工升级。",
+  "当前服务不是标准版本目录安装，请使用手工升级。",
+  "当前安装的构建信息不匹配，请使用手工升级。",
+  "服务单元经过自定义或使用旧布局，请使用手工升级。",
+  "正在运行的服务与发布安装不一致，请使用手工升级。",
+  "升级状态文件损坏，请检查服务器。",
+  "升级任务已退出或服务器曾重启，请查看任务日志后重试。",
+  "只能升级到更新的正式版本，请重新检查更新。",
+  "已有其他版本的升级任务正在执行。",
+  "升级提交结果尚未确认，请刷新任务状态，不要手工替换程序。",
+  "已有部署或升级操作正在执行，请稍后刷新。",
+  "无法提交或读取升级任务，请刷新状态并检查服务器日志。",
+  "浏览器返回无效状态",
+  "浏览器操作失败",
+  "剪贴板操作失败",
+  "当前部署不是支持在线升级的版本目录安装，请使用手工升级。",
+  "一键升级需要以 root 运行的 Linux/systemd 版本目录安装；当前环境请手工升级。",
+  "服务器缺少 Python 3，请使用手工升级。",
+  "连接已被服务端拒绝",
+  "当前用户无权使用该账号，请联系管理员调整账号使用范围",
+  "请粘贴完整的 http://localhost:1455/auth/callback?... 回调地址",
+  "state 不匹配，请使用本次授权的完整回调地址",
+  "授权未完成，请重新打开授权链接并同意授权",
+  "回调地址缺少授权码",
+  "无法构造令牌请求",
+  "请求令牌接口失败，请检查账号出口代理或网络",
+  "令牌响应不完整，请重新授权",
+  "账号 ID 不合法：小写字母或数字开头，可含 - 和 _，长度 2-32",
+  "账号类型必须是 claude 或 codex",
+]);
+
+const legacyDetailPrefixes = [
+  "请求令牌接口失败: ",
+  "登录成功但清除中转站配置失败: ",
+  "连接失败: ",
+  "保存凭证失败，请重新授权：",
+  "浏览器操作失败，请检查镜像、内存和 Chrome 沙箱支持: ",
+];
+
+export function localizeLegacyError(message: string, translate: Translate): string {
+  if (legacyErrors.has(message)) return translate(message);
+  const prefix = legacyDetailPrefixes.find(value => message.startsWith(value));
+  if (prefix) return translate(prefix + "{detail}", { detail: message.slice(prefix.length) });
+  const exchange = /^换取令牌失败 [(]HTTP (\d{3})[)]: ([\s\S]*)$/.exec(message);
+  if (exchange) return translate("换取令牌失败 (HTTP {status}): {detail}", { status: exchange[1], detail: exchange[2] });
+  const reauthorize = /^换取令牌失败 [(]HTTP (\d{3})[)]，请重新授权$/.exec(message);
+  if (reauthorize) return translate("换取令牌失败 (HTTP {status})，请重新授权", { status: reauthorize[1] });
+  const quota = /^额度已用完（余额 (.+)），请联系管理员充值后再继续$/.exec(message);
+  if (quota) return translate("额度已用完（余额 {balance}），请联系管理员充值后再继续", { balance: quota[1] });
+  return message;
+}
+
 const validID = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9]{32}$/.test(value);
 
 export function formatProblem(problem: APIProblem, translate: Translate, fallback = ""): string {
   const known = problem.code && Object.hasOwn(problemMessages, problem.code) ? problemMessages[problem.code] : undefined;
-  const message = known ? translate(known[0]) : (typeof problem.error === "string" ? problem.error : fallback);
+  const message = known ? translate(known[0]) : (typeof problem.error === "string"
+    ? (problem.code ? problem.error : localizeLegacyError(problem.error, translate))
+    : fallback);
   const hint = known ? translate(known[1]) : (typeof problem.hint === "string" ? problem.hint : "");
   const reference = validID(problem.operation_id) ? translate("操作编号：{id}", { id: problem.operation_id }) : "";
   return [message, hint, reference].filter(Boolean).join(" ");

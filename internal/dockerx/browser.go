@@ -48,7 +48,7 @@ func (m *Manager) BrowserCommand(ctx context.Context, id, action, url string, en
 		return BrowserInfo{}, errors.New("浏览器返回无效状态")
 	}
 	if result.Error != "" {
-		return BrowserInfo{}, errors.New("浏览器操作失败")
+		return BrowserInfo{}, browserHelperError(result.Error, "浏览器操作失败")
 	}
 	return BrowserInfo{Available: true, Running: result.Running, Browser: result.Browser, Proxy: result.Proxy, NetworkKey: result.NetworkKey}, nil
 }
@@ -80,9 +80,24 @@ func (m *Manager) BrowserClipboard(ctx context.Context, id string, write bool, t
 		return "", err
 	}
 	if result.Error != "" {
-		return "", errors.New("剪贴板操作失败")
+		return "", browserHelperError(result.Error, "剪贴板操作失败")
 	}
 	return result.Text, nil
+}
+
+// Only forward fixed messages authored by the bundled browser helper. Arbitrary
+// container diagnostics may contain private paths, configuration, or credentials.
+func browserHelperError(message, fallback string) error {
+	switch message {
+	case "地址格式无效", "仅支持不含用户名密码的 HTTP / HTTPS 地址",
+		"显示服务启动超时", "显示服务启动失败", "浏览器代理配置无效",
+		"浏览器启动失败，请检查镜像及用户命名空间沙箱支持", "远程桌面启动超时",
+		"剪贴板内容过长", "打开网页失败", "未知操作", "浏览器未运行",
+		"浏览器尚未完全停止，请稍后重试", "浏览器网络切换超时，请停止工作空间后重试", "浏览器启动超时":
+		return errors.New(message)
+	default:
+		return errors.New(fallback)
+	}
 }
 
 // Flush browser state before stopping/removing the workspace. Docker's stop

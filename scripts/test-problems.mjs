@@ -50,6 +50,15 @@ test('old servers, future error codes and malformed responses remain readable', 
   assert.ok(!json.message.includes('private data'));
 });
 
+test('known legacy messages are localized without translating diagnostic payloads', () => {
+  const i18n = createI18n({catalogs:{en,'zh-TW':tw,ru},storage:null,systemLanguages:()=>['ru']});
+  assert.equal(formatProblem({error:'浏览器启动超时'},i18n.t),'Браузер не успел запуститься.');
+  assert.equal(formatProblem({error:'换取令牌失败 (HTTP 401): 原文 {status}'},i18n.t),
+    'Не удалось обменять код авторизации на токен (HTTP 401). Подробности: 原文 {status}');
+  assert.equal(formatProblem({code:'future',error:'浏览器启动超时'},i18n.t),'浏览器启动超时');
+  i18n.dispose();
+});
+
 test('WS connection references survive close callbacks and retries get new references', t => {
   t.mock.timers.enable({apis:['setTimeout']});
   const original = globalThis.WebSocket;

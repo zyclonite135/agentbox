@@ -460,24 +460,22 @@ const (
 // the reverse tunnel. It keys off $AGENTBOX_INTRANET_PROXY, which is present in
 // the exec env only while the user's tunnel is live — so the guidance is inert
 // when no tunnel is up.
-const intranetHintBody = `## 访问用户内网 / 局域网（agentbox 内网隧道）
+const intranetHintBody = `## Доступ к внутренней сети пользователя через туннель AgentBox
 
-当环境变量 ` + "`$AGENTBOX_INTRANET_PROXY`" + ` 存在时，表示用户已开启内网反向隧道。
-需要访问只有用户本机 / 内网才能连通的地址（内网 IP、内网域名、局域网服务）时，
-经该 SOCKS5 代理发起请求，例如：
+Если задана переменная окружения ` + "`$AGENTBOX_INTRANET_PROXY`" + `, пользователь включил обратный туннель во внутреннюю сеть.
+Чтобы обратиться к адресу, доступному только с компьютера пользователя или из его сети (внутренний IP-адрес, домен или локальная служба), отправляйте запрос через этот прокси SOCKS5. Примеры:
 
     curl --proxy "$AGENTBOX_INTRANET_PROXY" http://gitlab.corp.local/...
     git -c http.proxy="$AGENTBOX_INTRANET_PROXY" clone http://10.0.0.5/repo.git
 
-若还存在 ` + "`$AGENTBOX_INTRANET_MAPS`" + `（逗号分隔的 ` + "`监听地址=内网目标`" + ` 列表，如
-` + "`172.17.0.1:3306=10.0.1.5:3306`" + `），则每个监听地址是对应内网目标的直连 TCP
-端口——psql / mysql / redis-cli 及各类数据库驱动等不支持 SOCKS 的程序直接连
-监听地址即可，例如：
+Если также задана переменная ` + "`$AGENTBOX_INTRANET_MAPS`" + ` (список вида ` + "`адрес_прослушивания=внутренний_адрес`" + ` через запятую, например
+` + "`172.17.0.1:3306=10.0.1.5:3306`" + `), каждый адрес прослушивания даёт прямой доступ по TCP к соответствующему внутреннему ресурсу.
+Клиенты без поддержки SOCKS, например psql, mysql, redis-cli и драйверы баз данных, могут подключаться напрямую к адресу прослушивания. Пример:
 
-    mysql -h 172.17.0.1 -P 3306 ...   # 实际连到内网 10.0.1.5:3306
+    mysql -h 172.17.0.1 -P 3306 ...   # Подключение к внутреннему адресу 10.0.1.5:3306
 
-注意：代理与映射端口仅用于内网目标；公网与模型 API 请求请直连，不要走此代理。
-若上述变量不存在，则当前无内网隧道可用，勿尝试代理。`
+Используйте прокси и сопоставленные порты только для внутренних адресов. К общедоступным ресурсам и API моделей подключайтесь напрямую.
+Если этих переменных нет, туннель недоступен. Не пытайтесь подключаться через этот прокси.`
 
 // SeedIntranetHint writes/refreshes the intranet-proxy guidance into the agent's
 // home-level instructions file (claude: ~/.claude/CLAUDE.md, codex:
@@ -491,11 +489,11 @@ func SeedIntranetHint(agentType, homeDir string, uid, gid int) error {
 // SeedTransparentHint replaces legacy proxy instructions without touching user
 // instructions. Networking works independently of whether the CLI reads this.
 func SeedTransparentHint(agentType, homeDir string, uid, gid int) error {
-	return seedNetworkHint(agentType, homeDir, uid, gid, `## 内网访问
+	return seedNetworkHint(agentType, homeDir, uid, gid, `## Доступ к внутренней сети
 
-此工作空间由系统提供透明内网访问。对用户配置的内网 IPv4 地址和域名，直接使用原地址发起 TCP 连接即可；不需要代理参数或专用环境变量。可用目标与连接状态见控制台「内网隧道」。隧道离线或目标未放行时请求会失败。
+Для этого рабочего пространства настроен прозрачный доступ к внутренней сети. Подключайтесь по TCP к исходным IPv4-адресам и доменам, настроенным пользователем. Параметры прокси и специальные переменные окружения не нужны. Доступные адреса и состояние подключения указаны в разделе «Сетевой туннель». Если туннель отключён или адрес не разрешён, подключение завершится ошибкой.
 
-若使用兼容客户端并且存在 AGENTBOX_INTRANET_PROXY，可对兼容模式目标显式使用该代理。公网与模型 API 沿用已有出口设置。`)
+Если используется клиент в режиме совместимости и задана переменная AGENTBOX_INTRANET_PROXY, для адресов, доступных в этом режиме, можно явно указать этот прокси. Для общедоступных ресурсов и API моделей действуют текущие настройки исходящих подключений.`)
 }
 
 func seedNetworkHint(agentType, homeDir string, uid, gid int, body string) error {

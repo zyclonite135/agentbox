@@ -18,7 +18,7 @@ async function inspect() {
   if (busy.value || !alive) return;
   busy.value = true; canceling.value = false; error.value = ''; result.value = null;
   try {
-    const value = await bridge.invoke<Inspection|null>('inspect_local');
+    const value = await bridge.invoke<Inspection|null>('inspect_local', {dialogTitle: t('选择要检查的本地项目目录')});
     if (alive) result.value = value;
   } catch (err) { if (alive) error.value = errorNotice(err); }
   finally { if (alive) { busy.value = false; canceling.value = false; } }

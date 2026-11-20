@@ -29,6 +29,8 @@ export async function webI18nSmoke(browser) {
  let sockets=0, writes=0, usageReads=0, terminalSocket;
  let timezone='Asia/Tokyo';
  let holdUsageRead;
+ const customTip='保存 <custom tip>';
+ const terminalTips={tips:['可直接粘贴图片，路径可点击预览',customTip],interval_sec:4,animation:'scroll'};
  const usageRows=Array.from({length:20},(_,i)=>({id:i+1,ts:Date.now(),user:'保存',session_id:space.id,session_name:space.name,thread_id:'thread',turn_id:'turn-'+i,agent:'claude',account_id:'fixture',model:'保存',kind:'chat',billing:'table',input_tokens:100,output_tokens:1000,cache_read_tokens:80,cache_write_tokens:10,total_tokens:1190,cost_micro_usd:2128,ttft_ms:100,wall_ms:1000,duration_ms:900,rate:{input:1,output:2,cache_read:0.1,cache_write:2,snapshot:true,per_request:true,key:'保存'}}));
  const usageRun='a'.repeat(32);
  Object.assign(usageRows[0],{kind:'delegation',delegation_id:usageRun});
@@ -42,7 +44,7 @@ export async function webI18nSmoke(browser) {
   if(path==='/api/usage/events') usageReads++;
   let body={};
   if(path==='/api/login')body={token:'synthetic-locale-token'};
-  else if(path==='/api/me')body={user:'保存',role:'admin',timezone,models:{claude:[],codex:[]},quota:{metered:false}};
+  else if(path==='/api/me')body={user:'保存',role:'admin',timezone,models:{claude:[],codex:[]},quota:{metered:false},terminal_tips:terminalTips};
   else if(path==='/api/sessions')body=[space];
   else if(path==='/api/session-creations')body={version:1,actor_key:'a'.repeat(64),creations:[]};
   else if(path==='/api/onboarding')body={version:1,can_configure:true,can_create:true,has_workspaces:true,accounts:[{id:'fixture',label:'取消',type:'codex',credentials_present:true}],default_models:{codex:'fixture'},container_resources:{cpus:1,memory_mb:512,pids_limit:128}};
@@ -119,7 +121,13 @@ export async function webI18nSmoke(browser) {
   await page.evaluate(()=>{window.localeTerminal=document.querySelector('.xterm');});
   await language('ru');
   assert.equal(await page.locator('#term-state').textContent(),'Оболочка подключена');
-  await language('zh-TW'); await language('en');
+  const tips=page.locator('#term-tips .term-tip');
+  const assertTips=async builtIn=>assert.deepEqual(await tips.allTextContents(),[builtIn,customTip,builtIn]);
+  await assertTips('Вставляйте изображения прямо в терминал. Нажмите на путь для предпросмотра.');
+  await language('zh-TW');
+  await assertTips('可直接貼上圖片，點選路徑即可預覽。');
+  await language('en');
+  await assertTips('Paste images directly into the terminal. Click an image path to preview it.');
   assert.equal(sockets,connected,'language change must not reconnect terminal');
   assert.equal(await page.evaluate(()=>document.querySelector('.xterm')===window.localeTerminal),true);
   assert.equal(await page.locator('#wb-name').textContent(),'保存','user workspace name stays verbatim');

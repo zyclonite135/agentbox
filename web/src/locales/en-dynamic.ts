@@ -1519,6 +1519,7 @@ export default {
   "上传失败：": "Upload failed:",
   "连接中…": "Connecting...",
   "shell 已连接": "Shell connected",
+  "可直接粘贴图片，路径可点击预览": "Paste images directly into the terminal. Click an image path to preview it.",
   "重连中…（第 {p0} 次）": "Reconnecting… (attempt {p0})",
   "重连中…": "Reconnecting...",
   "已断开，点右侧按钮重连": "Disconnected. Use the button on the right to reconnect.",

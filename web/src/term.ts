@@ -739,6 +739,8 @@ for (const id of ["tab-term", "view-work"]) {
  * 提示语与频率/动画在系统设置「界面与提示」里配置，经 /me 下发给所有用户（S.termTips）。
  * 单行视窗 + 纵向轨道：每隔 interval 逐条上移一行，末尾追加首条克隆做无缝回卷。
  * animation 目前只有 "scroll"（滚动），作为字段保留以便日后扩展滑动/翻转等。 */
+// Match the original default from defaultTerminalTips, including saved configs.
+const DEFAULT_TERMINAL_TIP = "可直接粘贴图片，路径可点击预览";
 let tipsTimer: ReturnType<typeof setInterval> | null = null;
 
 function initTermTips() {
@@ -755,16 +757,18 @@ function initTermTips() {
 
   const track = document.createElement("div");
   track.className = "term-tips-track anim-" + (cfg.animation || "scroll");
-  for (const t of tips) {
-    track.appendChild(Object.assign(document.createElement("div"), { className: "term-tip", textContent: t }));
+  const interval = Math.floor(cfg.interval_sec || 0) * 1000;
+  const rotates = tips.length > 1 && interval > 0;
+  for (const text of rotates ? [...tips, tips[0]] : tips) {
+    const tip = document.createElement("div");
+    tip.className = "term-tip";
+    if (text === DEFAULT_TERMINAL_TIP) setText(tip, DEFAULT_TERMINAL_TIP);
+    else tip.textContent = text;
+    track.appendChild(tip);
   }
   host.appendChild(track);
+  if (!rotates) return; // 单条或频率 0：静止显示第一条
 
-  const interval = Math.floor(cfg.interval_sec || 0) * 1000;
-  if (tips.length <= 1 || interval <= 0) return; // 单条或频率 0：静止显示第一条
-
-  // 末尾克隆首条，滚到它时无缝跳回顶部
-  track.appendChild(track.firstElementChild!.cloneNode(true));
   let idx = 0;
   tipsTimer = setInterval(() => {
     const h = host.clientHeight;

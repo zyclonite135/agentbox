@@ -28,6 +28,8 @@ export async function webI18nSmoke(browser) {
  const space={id:'locale-space',name:'保存',agent:'codex',account_id:'fixture',account_label:'取消',status:'running',default_model:'fixture'};
  let sockets=0, writes=0, usageReads=0, terminalSocket;
  let timezone='Asia/Tokyo';
+ let meTimezone;
+ let usageDates;
  let holdUsageRead;
  const customTip='保存 <custom tip>';
  const terminalTips={tips:['可直接粘贴图片，路径可点击预览',customTip],interval_sec:4,animation:'scroll'};
@@ -39,12 +41,15 @@ export async function webI18nSmoke(browser) {
  await page.routeWebSocket('**/api/sessions/*/term?*',ws=>{sockets++; terminalSocket=ws; ws.send(Buffer.from('保存 Cancel <code>\r\n'));});
  await page.routeWebSocket('**/api/sessions/*/chat?*',()=>{});
  await page.route('**/api/**',async route=>{
-  const path=new URL(route.request().url()).pathname;
+  const {pathname:path,searchParams}=new URL(route.request().url());
   if (route.request().method()!=='GET' && path!=='/api/updates/check' && path!=='/api/me/activity') writes++;
-  if(path==='/api/usage/events') usageReads++;
+  if(path==='/api/usage/events'){
+   usageReads++;
+   usageDates?.push(searchParams.get('since'));
+  }
   let body={};
   if(path==='/api/login')body={token:'synthetic-locale-token'};
-  else if(path==='/api/me')body={user:'保存',role:'admin',timezone,models:{claude:[],codex:[]},quota:{metered:false},terminal_tips:terminalTips};
+  else if(path==='/api/me')body={user:'保存',role:'admin',timezone:meTimezone??timezone,models:{claude:[],codex:[]},quota:{metered:false},terminal_tips:terminalTips};
   else if(path==='/api/sessions')body=[space];
   else if(path==='/api/session-creations')body={version:1,actor_key:'a'.repeat(64),creations:[]};
   else if(path==='/api/onboarding')body={version:1,can_configure:true,can_create:true,has_workspaces:true,accounts:[{id:'fixture',label:'取消',type:'codex',credentials_present:true}],default_models:{codex:'fixture'},container_resources:{cpus:1,memory_mb:512,pids_limit:128}};
@@ -62,6 +67,7 @@ export async function webI18nSmoke(browser) {
   else if(path==='/api/me/git/default')body={connection_id:''};
   else if(path==='/api/proxies')body={proxies:[],bridge_up:false,bridge_host:'127.0.0.1'};
   else if(path==='/api/usage/events')body={rows:usageRows,total:{rows:20,turns:20,input_tokens:2000,output_tokens:20000,cache_read_tokens:1600,cache_write_tokens:200,cost_micro_usd:42560},facets:{users:[],agents:[],models:[]},scope:'all',timezone,order:'desc',limit:20,offset:0,sync:{last_scan_at:Date.now(),last_success_at:Date.now(),scanning:false,errors:0}};
+  else if(path==='/api/usage/trend')body={granularity:'hour',buckets:[],timezone};
   else if(path==='/api/updates'||path==='/api/updates/check'){
    const checked=path.endsWith('/check') ? Date.now() : 0;
    body={current_version:'v0.1.9',revision:'0123456789abcdef',built_at:'2026-10-04T08:00:00Z',latest_version:'',available:false,comparable:true,checked_at:checked,attempted_at:checked,error:''};
@@ -132,9 +138,14 @@ export async function webI18nSmoke(browser) {
    await hero.getByRole('button',{name:button,exact:true}).click();
    assert.equal(await chatInput.inputValue(),prompt,button);
   }
+  await chatInput.fill('');
+  await hero.getByRole('button',{name:quickPrompts[0][0],exact:true}).click();
+  await hero.getByRole('button',{name:quickPrompts[2][0],exact:true}).click();
+  const combinedPrompt=`${quickPrompts[0][1]} ${quickPrompts[2][1]}`;
+  assert.equal(await chatInput.inputValue(),combinedPrompt,'consecutive quick prompts are separated');
   await language('en');
-  assert.equal(await chatInput.inputValue(),quickPrompts.at(-1)[1],'switching the language preserves inserted text');
-  await chatInput.fill('My draft. ');
+  assert.equal(await chatInput.inputValue(),combinedPrompt,'switching the language preserves inserted text');
+  await chatInput.fill('My draft.');
   await hero.getByRole('button',{name:'Review the code',exact:true}).click();
   assert.equal(await chatInput.inputValue(),'My draft. Review the current code, identify problems, and suggest specific fixes.');
   assert.equal(writes,beforeQuickPrompts,'quick prompts only insert text');
@@ -395,6 +406,27 @@ export async function webI18nSmoke(browser) {
   assert.ok(csv.split('\r\n')[0].includes('Asia/Yekaterinburg'));
   assert.ok(csv.split('\r\n')[1].startsWith('2026-11-20 01:30,'));
   assert.equal(await page.locator('#usage-zone-id').textContent(),'Europe/Moscow','CSV must not change the active usage timezone');
+
+  await page.locator('#btn-usagelog').click();
+  await page.waitForFunction(()=>document.querySelector('#usage-table-scroll').getAttribute('aria-busy')==='false');
+  // Model a timezone change on the server before this tab polls /me.
+  const trendToggle=page.locator('#ut-toggle');
+  if(await trendToggle.getAttribute('aria-expanded')==='false') await trendToggle.click();
+  await page.waitForFunction(()=>!document.querySelector('#ut-chart').classList.contains('busy'));
+  meTimezone=timezone;
+  timezone='Asia/Yekaterinburg';
+  usageDates=[];
+  const updatedTrend=page.waitForResponse(res=>{
+   const {pathname,searchParams}=new URL(res.url());
+   return pathname==='/api/usage/trend' && searchParams.get('since')==='2026-11-20T00:00';
+  });
+  await page.locator('#uf-refresh').click();
+  await updatedTrend;
+  await page.locator('#usage-zone-id').filter({hasText:timezone}).waitFor();
+  await page.waitForFunction(()=>document.querySelector('#usage-table-scroll').getAttribute('aria-busy')==='false');
+  assert.deepEqual(usageDates,['2026-11-19T00:00','2026-11-20T00:00'],'reapply Today in the newly reported timezone');
+  usageDates=undefined;
+  meTimezone=undefined;
 
   await page.evaluate(async()=>{const {emit}=await import('/_v/{{BUILD}}/js/state.js');emit('unauthorized');});
   await page.locator('#login').waitFor({state:'visible'});

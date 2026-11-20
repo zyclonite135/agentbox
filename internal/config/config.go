@@ -438,9 +438,8 @@ func Load(path string) (*Config, error) {
 	cfg.Extensions.normalizeLoaded()
 	cfg.migrateModelGateway()
 
-	// 未配置 terminal_tips（老配置文件里没这一块）时，补上原来的单条提示，
-	// 避免终端页顶栏空掉。已显式配置的（哪怕 interval 为 0）尊重原样。
-	if len(cfg.TerminalTips.Tips) == 0 {
+	// 未配置 tips 时保留默认提示。显式的空数组表示不显示提示。
+	if cfg.TerminalTips.Tips == nil {
 		cfg.TerminalTips = defaultTerminalTips()
 	} else {
 		cfg.TerminalTips = sanitizeTips(cfg.TerminalTips)

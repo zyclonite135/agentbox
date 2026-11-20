@@ -81,7 +81,7 @@ export async function smoke(page) {
  let sessions = [{id:'fixture-space',name:'Fixture workspace',agent:'codex',account_id:'fixture',account_label:'Fixture',status:'stopped',default_model:'fixture'}];
  const chatMessages = []; let chatSocket, historyEntries = [], historyCosts = {}, historyThread = null;
  let usageRows = [];
- let usageTrend = {granularity:'hour',buckets:[],timezone:'Asia/Shanghai'}, usageTrendFail = false, usageTrendReads = 0, usageTrendQuery;
+ let usageTrend = {granularity:'hour',buckets:[],timezone:me.timezone}, usageTrendFail = false, usageTrendReads = 0, usageTrendQuery;
  await page.routeWebSocket('**/api/sessions/*/chat?*', ws => { chatSocket=ws; ws.onMessage(data => chatMessages.push(JSON.parse(data))); });
  let usageLiveSocket;
  await page.routeWebSocket('**/api/usage/live?*', ws => { usageLiveSocket = ws; });
@@ -408,7 +408,7 @@ export async function smoke(page) {
   }
 
   async function usageSmoke() {
-  usageTrend = {granularity:'hour',timezone:'Asia/Shanghai',buckets:Array.from({length:14},(_,hour)=>{
+  usageTrend = {granularity:'hour',timezone:me.timezone,buckets:Array.from({length:14},(_,hour)=>{
     // 13:00 keeps 2,138,741 tokens in all, 2M of them cache reads: a 93.5% hit rate. 09:00 has input but no reads.
     const [input_tokens,cache_read_tokens,requests,cost_micro_usd]=hour===13?[138741,2000000,13,2880000]:hour===9?[500,0,1,1000]:[0,0,0,0];
     return {start:`2026-11-02T${String(hour).padStart(2,'0')}:00`,requests,input_tokens,output_tokens:0,cache_read_tokens,cache_write_tokens:0,cost_micro_usd};
@@ -634,7 +634,7 @@ export async function smoke(page) {
   assert.ok(phoneToggle.width>=30,'toggle is easier to hit on a phone');
   await page.setViewportSize({width:1280,height:900});
   usageRows=[];
-  usageTrend={granularity:'hour',buckets:[],timezone:'Asia/Shanghai'};
+  usageTrend={granularity:'hour',buckets:[],timezone:me.timezone};
   }
   if (process.env.AGENTBOX_BROWSER_ONLY_USAGE === '1') {
    await page.setViewportSize({width:1280,height:900});

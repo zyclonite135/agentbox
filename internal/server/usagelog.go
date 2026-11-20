@@ -200,7 +200,7 @@ func (s *Server) rateFor(e store.UsageEvent) *usageRateView {
 // 返回的 scopeUser 是这个请求的硬边界：普通用户只能是自己，管理员为空（看全部）。
 // 它与 f.User 是两回事——f.User 是用户自己选的筛选项，会被 facets 放宽，
 // scopeUser 不会。
-func (s *Server) usageFilterFrom(r *http.Request) (f store.UsageFilter, scopeUser string) {
+func (s *Server) usageFilterFrom(r *http.Request) (f store.UsageFilter, scopeUser string, loc *time.Location) {
 	q := r.URL.Query()
 	f = store.UsageFilter{
 		User:      q.Get("user"),
@@ -221,7 +221,7 @@ func (s *Server) usageFilterFrom(r *http.Request) (f store.UsageFilter, scopeUse
 		scopeUser = u.Name
 		f.User = u.Name // 无视传进来的 user 参数，别人的流水一行都不给
 	}
-	loc := s.cfg.GetLocation()
+	loc = s.cfg.GetLocation()
 	if v := q.Get("since"); v != "" {
 		if ts, err := parseUsageTime(v, loc); err == nil {
 			f.Since = ts
@@ -237,7 +237,7 @@ func (s *Server) usageFilterFrom(r *http.Request) (f store.UsageFilter, scopeUse
 	// 别的列不开放排序：offset 翻页要求排序键在两次请求之间稳定，而金额/token
 	// 这些列会随「补记终端消耗」这类后台写入变动。
 	f.Asc = q.Get("order") == "asc"
-	return f, scopeUser
+	return f, scopeUser, loc
 }
 
 // parseUsageTime accepts RFC3339 for compatibility with older clients and a
@@ -258,7 +258,7 @@ func (s *Server) handleUsageEvents(w http.ResponseWriter, r *http.Request) {
 	// Queries read committed rows immediately; one bounded worker coalesces refreshes.
 	s.usageService().RequestScan()
 
-	f, scopeUser := s.usageFilterFrom(r)
+	f, scopeUser, loc := s.usageFilterFrom(r)
 	q := r.URL.Query()
 
 	f.Limit = usageRowsDefault
@@ -372,6 +372,6 @@ func (s *Server) handleUsageEvents(w http.ResponseWriter, r *http.Request) {
 		// 前端据此决定要不要显示「用户」列和用户筛选框：只看得到自己的时候
 		// 那一列每行都一样，纯占地方。
 		"scope":    map[bool]string{true: "self", false: "all"}[scopeUser != ""],
-		"timezone": s.cfg.GetTimeZone(),
+		"timezone": loc.String(),
 	})
 }

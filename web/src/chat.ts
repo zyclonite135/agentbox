@@ -1088,7 +1088,13 @@ export function updateHero() {
 
 for (const c of document.querySelectorAll<HTMLElement>(".hero-pill")) {
   c.addEventListener("click", () => {
-    insertAtCursor($<HTMLTextAreaElement>("chat-input"), c.dataset.fill!);
+    const input = $<HTMLTextAreaElement>("chat-input");
+    const prompt = c.dataset.fill!;
+    const before = input.value.slice(0, input.selectionStart);
+    const after = input.value.slice(input.selectionEnd);
+    const prefix = /\S$/.test(before) ? " " : "";
+    const suffix = /^\S/.test(after) && /\S$/.test(prompt) ? " " : "";
+    insertAtCursor(input, prefix + prompt + suffix);
     autoGrow();
   });
 }

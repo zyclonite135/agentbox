@@ -16,7 +16,7 @@ import { cacheHitText, fmtSpeed, fmtTokens, outputSpeed } from "./usage-math.js"
  * 管理员看全部并多一列「用户」，普通用户只看得到自己的，服务端按 scope 下发。 */
 "use strict";
 import { setSelectValue } from "./select.js";
-import { S, bus } from "./state.js";
+import { S, bus, emit } from "./state.js";
 import { $, toast, startDownload, fmtTime, keepScroll } from "./util.js";
 import { DateRangePicker } from "./date-range.js";
 import { api } from "./api.js";
@@ -876,6 +876,15 @@ function goToPage(page) {
     void load();
 }
 /* ---------------- 加载 ---------------- */
+// A different tab may have changed the server timezone before /me polled it.
+// Rebuild the wall-clock filters before displaying rows or buckets in that zone.
+function adoptUsageTimeZone(zone) {
+    if (!zone || zone === usageTimeZone)
+        return false;
+    S.timeZone = zone;
+    emit("timezone-updated");
+    return true;
+}
 async function load() {
     if (loading) {
         loadPending = true;
@@ -897,6 +906,8 @@ async function load() {
         // 确认日期范围时上一趟可能仍在加载；不能让旧结果覆盖新筛选和排序。
         if (generation !== usageGeneration || loadPending)
             return;
+        if (adoptUsageTimeZone(data.timezone))
+            return;
         // 数据减少或相对时间窗口移动后，回到仍有记录的最后一页。
         const maxOffset = Math.max(0, Math.ceil(data.total.rows / pageSize) - 1) * pageSize;
         if (offset > maxOffset) {
@@ -908,9 +919,6 @@ async function load() {
         last = data;
         const sync = data.sync;
         setTextRender($("usage-sub"), () => sync ? (sync.last_scan_at ? i18nText("终端全量扫描：{p0}{p1}{p2}", { p0: String(fmtTime(sync.last_scan_at)), p1: String(sync.errors ? i18nText(" · 部分文件失败，后台将重试") : ""), p2: String(sync.scanning ? i18nText(" · 同步中") : "") }) : i18nText("终端用量正在后台同步")) : i18nText("使用记录"));
-        usageTimeZone = data.timezone || S.timeZone || "Asia/Shanghai";
-        S.timeZone = usageTimeZone;
-        syncTimeZone();
         // 服务端回声一份它实际用的顺序：万一这趟请求被丢掉了（上一趟还在跑），
         // 箭头跟着真拿到的顺序回正，不会出现「箭头指着正序、表还是倒序」。
         asc = data.order === "asc";
@@ -954,7 +962,7 @@ async function loadTrend() {
     const seq = ++trendSeq;
     try {
         const data = await api("/usage/trend?" + query(readFilters()));
-        if (seq === trendSeq)
+        if (seq === trendSeq && !adoptUsageTimeZone(data.timezone))
             renderUsageTrend(data);
     }
     catch (_) {

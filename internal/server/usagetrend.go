@@ -41,18 +41,18 @@ type usageTrendBucket struct {
 }
 
 func (s *Server) handleUsageTrend(w http.ResponseWriter, r *http.Request) {
-	f, _ := s.usageFilterFrom(r)
+	f, _, loc := s.usageFilterFrom(r)
 	slots, err := s.store.UsageSlots(f)
 	if err != nil {
 		log.Printf("usage: 读取使用趋势失败: %v", err)
 		writeErr(w, http.StatusInternalServerError, "读取使用趋势失败")
 		return
 	}
-	granularity, buckets := foldUsageTrend(slots, f.Since, f.Until, time.Now(), s.cfg.GetLocation())
+	granularity, buckets := foldUsageTrend(slots, f.Since, f.Until, time.Now(), loc)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"granularity": granularity,
 		"buckets":     buckets,
-		"timezone":    s.cfg.GetTimeZone(),
+		"timezone":    loc.String(),
 	})
 }
 

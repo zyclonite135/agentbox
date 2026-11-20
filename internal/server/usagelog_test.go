@@ -101,7 +101,10 @@ func TestUsageFilterWallClockUsesConfiguredTimeZone(t *testing.T) {
 		r := asUser(httptest.NewRequest(http.MethodGet,
 			"/api/usage/events?since=2026-09-19T08:30&until=2026-09-19T09:01", nil),
 			"root", store.RoleAdmin)
-		f, _ := s.usageFilterFrom(r)
+		f, _, loc := s.usageFilterFrom(r)
+		if loc.String() != tc.zone {
+			t.Fatalf("expected usage timezone %q, got %q", tc.zone, loc)
+		}
 		wantSince := time.Date(2026, 9, 19, tc.utcHour, 30, 0, 0, time.UTC)
 		wantUntil := wantSince.Add(31 * time.Minute)
 		if !f.Since.Equal(wantSince) || !f.Until.Equal(wantUntil) {
@@ -114,7 +117,7 @@ func TestUsageFilterWallClockUsesConfiguredTimeZone(t *testing.T) {
 	r := asUser(httptest.NewRequest(http.MethodGet,
 		"/api/usage/events?since=2026-09-19T08:30:00-07:00", nil),
 		"root", store.RoleAdmin)
-	f, _ := s.usageFilterFrom(r)
+	f, _, _ := s.usageFilterFrom(r)
 	wantRFC3339 := time.Date(2026, 9, 19, 15, 30, 0, 0, time.UTC)
 	if !f.Since.Equal(wantRFC3339) {
 		t.Fatalf("RFC3339 兼容解析错误: got %s want %s", f.Since, wantRFC3339)

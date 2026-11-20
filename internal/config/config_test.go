@@ -121,6 +121,25 @@ func TestSettingsSaveKeepsPricing(t *testing.T) {
 	}
 }
 
+func TestTerminalTipsStayEmptyAfterReload(t *testing.T) {
+	c := writeConfig(t, minimalConfig)
+	if got := c.GetTerminalTips(); len(got.Tips) == 0 {
+		t.Fatal("missing default terminal tip for a config without terminal_tips")
+	}
+
+	cleared := TerminalTips{Tips: []string{}, IntervalSec: 0, Animation: "scroll"}
+	if err := c.ApplySettings(SettingsPatch{TerminalTips: &cleared}); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := Load(c.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := reloaded.GetTerminalTips(); len(got.Tips) != 0 || got.IntervalSec != cleared.IntervalSec {
+		t.Errorf("reloading the config restored terminal tips: %+v", got)
+	}
+}
+
 func TestTimeZoneDefaultAndValidation(t *testing.T) {
 	c := writeConfig(t, minimalConfig)
 	if got := c.GetTimeZone(); got != DefaultTimeZone {

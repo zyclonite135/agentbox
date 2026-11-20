@@ -1755,6 +1755,8 @@ export default {
   "请联系管理员检查 Docker 服务和访问权限。": "Ask an administrator to check the Docker service and access permissions.",
   "工作空间镜像不存在": "Workspace image not found",
   "请联系管理员构建或安装配置中指定的 Agent 镜像。": "Ask an administrator to build or install the configured Agent image.",
+  "当前镜像未安装浏览器": "The current agent image does not include a browser.",
+  "请管理员构建并选择 agentbox-agent:browser 镜像，然后停止并重新启动工作空间。": "Ask an administrator to build and select the agentbox-agent:browser image. Then stop and restart the workspace.",
   "工作空间启动失败": "Workspace failed to start",
   "请将操作编号交给管理员检查环境，修复后再启动。": "Give the operation ID to an administrator to check the environment, then start again after it is fixed.",
   "这个问题已经结束": "This question has already ended",

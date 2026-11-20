@@ -6,6 +6,7 @@ import { mkdir } from 'node:fs/promises';
 export async function remoteBrowserSmoke(page) {
  let running = false, unavailable = false, clipboard = '', delayResolve;
  const opened = [];
+ const operationID = '0123456789abcdef0123456789abcdef';
  await page.route('**/vendor/novnc/core/rfb.js', route => route.fulfill({contentType:'text/javascript',body:`
  export default class extends EventTarget {
  constructor(el,url){super();this.el=el;this.timer=setTimeout(()=>{el.textContent='Synthetic remote desktop';this.dispatchEvent(new Event('connect'));},20);}
@@ -17,7 +18,10 @@ export async function remoteBrowserSmoke(page) {
  await page.route('**/api/sessions/*/browser', async route => {
   const method = route.request().method();
   if (method === 'POST') {
-   if (unavailable) {await route.fulfill({status:409,json:{error:'当前镜像未安装浏览器'}});return;}
+   if (unavailable) {
+    await route.fulfill({status:409,json:{code:'browser_image_required',error:'当前镜像未安装浏览器',operation_id:operationID}});
+    return;
+   }
    running = true; opened.push(route.request().postDataJSON().url);
    if (delayResolve) await new Promise(resolve => { delayResolve(resolve); });
   } else if (method === 'DELETE') running = false;
@@ -31,8 +35,14 @@ export async function remoteBrowserSmoke(page) {
  await page.locator('#tab-browser').waitFor({state:'visible'});
  await page.getByText('浏览器未启动 · 点击启动后继续上次的登录状态',{exact:true}).waitFor();
  unavailable = true;
+ const setLanguage = value => page.evaluate(async value => (await import('/_v/{{BUILD}}/js/i18n.js')).i18n.setLanguage(value), value);
+ await setLanguage('ru');
  await page.locator('#browser-start').click();
- await page.locator('#browser-state').filter({hasText:'当前镜像未安装浏览器'}).waitFor();
+ const message = 'В текущем образе агента браузер не установлен. Попросите администратора собрать и выбрать образ agentbox-agent:browser. Затем остановите и снова запустите рабочее пространство. Идентификатор операции: ' + operationID;
+ await page.getByText(message,{exact:true}).first().waitFor();
+ assert.equal(await page.locator('#browser-state').textContent(),message);
+ await page.locator('.toast').filter({hasText:message}).waitFor();
+ await setLanguage('zh-CN');
  unavailable = false;
  await page.locator('[data-browser-url="https://claude.ai/"]').click();
  await page.locator('#browser-state').filter({hasText:'已连接'}).waitFor();

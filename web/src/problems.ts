@@ -96,6 +96,10 @@ export const problemMessages: Record<string, readonly [string, string]> = {
     "工作空间镜像不存在",
     "请联系管理员构建或安装配置中指定的 Agent 镜像。"
   ],
+  "browser_image_required": [
+    "当前镜像未安装浏览器",
+    "请管理员构建并选择 agentbox-agent:browser 镜像，然后停止并重新启动工作空间。"
+  ],
   "workspace_start_failed": [
     "工作空间启动失败",
     "请将操作编号交给管理员检查环境，修复后再启动。"

@@ -60,6 +60,7 @@ var problemCatalog = map[string]problemDefinition{
 	"storage_permission_denied":       {500, "数据目录权限不足", "请联系管理员检查数据目录及容器用户的读写权限。", "contact_admin", false},
 	"docker_unavailable":              {500, "无法连接 Docker 服务", "请联系管理员检查 Docker 服务和访问权限。", "contact_admin", false},
 	"agent_image_missing":             {500, "工作空间镜像不存在", "请联系管理员构建或安装配置中指定的 Agent 镜像。", "contact_admin", false},
+	"browser_image_required":          {409, "当前镜像未安装浏览器", "请管理员构建并选择 agentbox-agent:browser 镜像，然后停止并重新启动工作空间。", "contact_admin", false},
 	"workspace_start_failed":          {500, "工作空间启动失败", "请将操作编号交给管理员检查环境，修复后再启动。", "contact_admin", false},
 	"chat_busy":                       {409, "上一条消息仍在处理中", "请等待当前回合完成，或先中断当前回合。", "wait", true},
 	"chat_parallel_limit":             {409, "同时运行的对话已达上限", "这个工作空间同时运行的对话已达上限，请等其中一个完成或中断后再发送。", "wait", true},

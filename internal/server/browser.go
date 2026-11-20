@@ -123,7 +123,7 @@ func (s *Server) handleBrowser(w http.ResponseWriter, r *http.Request, sess stor
 		return
 	}
 	if action == "start" && !result.Available {
-		writeErr(w, 409, "当前镜像未安装浏览器，请管理员构建并选择 agentbox-agent:browser 镜像，再停止并启动空间")
+		writeProblem(w, r, "browser.start", "browser_image_required")
 		return
 	}
 	writeJSON(w, 200, result)

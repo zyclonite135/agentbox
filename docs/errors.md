@@ -50,6 +50,7 @@
 | `storage_permission_denied` | 管理员检查目录及容器 UID 的读写权限 |
 | `docker_unavailable` | 管理员检查 daemon、socket/网络及访问权限 |
 | `agent_image_missing` | 管理员构建/安装配置中指定的镜像 |
+| `browser_image_required` | 管理员构建并选择带浏览器的镜像，再停止并启动工作空间 |
 | `workspace_start_failed` | 未归类的启动失败；管理员通过编号与环境检查排查 |
 | `chat_busy` | 等待当前回合完成或先中断 |
 | `chat_parallel_limit` | 空间同时运行的对话已达上限（`max_parallel_chats`，默认 3）；等其中一个完成或中断（运行中继续发送的消息会排队，有空位时自动开始） |

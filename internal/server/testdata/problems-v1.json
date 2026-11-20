@@ -170,6 +170,14 @@
       "retryable": false
     },
     {
+      "code": "browser_image_required",
+      "http_status": 409,
+      "error": "当前镜像未安装浏览器",
+      "hint": "请管理员构建并选择 agentbox-agent:browser 镜像，然后停止并重新启动工作空间。",
+      "action": "contact_admin",
+      "retryable": false
+    },
+    {
       "code": "workspace_start_failed",
       "http_status": 500,
       "error": "工作空间启动失败",

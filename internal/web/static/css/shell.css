@@ -458,7 +458,11 @@
   transition: opacity var(--dur) var(--ease-out);
 }
 @starting-style { .announce-bar { opacity: 0; } }
-.announce-bar[hidden], .announce-bar [hidden] { display: none; }
+.announce-bar.dismissing {
+  transition: opacity var(--dur) var(--ease-in), display var(--dur) allow-discrete;
+}
+.announce-bar[hidden] { display: none; opacity: 0; }
+.announce-bar [hidden] { display: none; }
 .announce-ico {
   grid-area: icon; display: grid; place-items: center; width: 28px; height: 28px;
   color: var(--announce-accent);

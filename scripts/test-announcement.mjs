@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { emulateMotion } from './playwright-launch.mjs';
 
 // System announcements on the synthetic API: the administrator sees who a
 // restart would affect, posts a release with a lead time, every page shows the
@@ -107,8 +108,18 @@ export async function announcementSmoke(page, liveSocket) {
     await setLanguage('zh-CN');
 
     // Dismissed stays dismissed for the same announcement…
-    await page.locator('#announce-close').click();
+    await emulateMotion(page, 'no-preference');
+    const closing = await bar.evaluate(element => {
+      element.querySelector('#announce-close').click();
+      const display = getComputedStyle(element).display;
+      const fade = element.getAnimations().find(animation => animation.transitionProperty === 'opacity');
+      return { display, inert: element.inert, opacity: fade?.effect.getKeyframes().at(-1).opacity };
+    });
+    assert.equal(closing.display, 'grid', 'announcement stopped rendering before the fade finished');
+    assert.equal(closing.inert, true, 'announcement remained interactive during the fade');
+    assert.equal(Number(closing.opacity), 0, 'closing did not start a fade to transparent');
     await bar.waitFor({ state: 'hidden' });
+    await emulateMotion(page, 'reduce');
     await push();
     await page.waitForTimeout(300);
     assert.equal(await bar.isHidden(), true, 'dismissed banner came back without a change');
@@ -121,6 +132,13 @@ export async function announcementSmoke(page, liveSocket) {
     assert.equal(await page.locator('#announce-msg').isHidden(), true);
     assert.equal(await page.locator('#announce-date').isHidden(), true);
     assert.equal(await page.locator('#announce-countdown').isHidden(), true);
+    const reduced = await bar.evaluate(element => {
+      const wasInert = element.inert;
+      element.querySelector('#announce-close').click();
+      return { wasInert, display: getComputedStyle(element).display };
+    });
+    assert.equal(reduced.wasInert, false, 'completed announcement remained inert');
+    assert.equal(reduced.display, 'none', 'reduced motion did not hide the announcement immediately');
 
     await page.locator('#ann-clear').click();
     await page.locator('#dlg-ask').waitFor({ state: 'visible' });

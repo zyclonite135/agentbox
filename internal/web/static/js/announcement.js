@@ -107,6 +107,8 @@ function render() {
         if (changed || countdown.textContent !== countdownLabel())
             setTextRender(countdown, countdownLabel);
     }
+    bar.classList.remove("dismissing");
+    bar.inert = false;
     bar.hidden = false;
 }
 async function refresh() {
@@ -134,6 +136,8 @@ export function initAnnouncement() {
                 localStorage.setItem(DISMISSED, dismissKey(current));
             }
             catch { /* 存不了就只收起这一次 */ }
+        bar.classList.add("dismissing");
+        bar.inert = true;
         bar.hidden = true;
     };
     const onChanged = () => void refresh();
@@ -159,6 +163,8 @@ export function initAnnouncement() {
         watchUsageLive("announcement", false);
         current = null;
         rendered = null;
+        bar.classList.remove("dismissing");
+        bar.inert = false;
         bar.hidden = true;
     };
 }

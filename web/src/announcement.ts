@@ -105,6 +105,8 @@ function render() {
     const countdownLabel = () => remaining(startsAt - serverNow());
     if (changed || countdown.textContent !== countdownLabel()) setTextRender(countdown, countdownLabel);
   }
+  bar.classList.remove("dismissing");
+  bar.inert = false;
   bar.hidden = false;
 }
 
@@ -128,6 +130,8 @@ export function initAnnouncement() {
   const close = $("announce-close");
   const onClose = () => {
     if (current) try { localStorage.setItem(DISMISSED, dismissKey(current)); } catch { /* 存不了就只收起这一次 */ }
+    bar.classList.add("dismissing");
+    bar.inert = true;
     bar.hidden = true;
   };
   const onChanged = () => void refresh();
@@ -150,6 +154,8 @@ export function initAnnouncement() {
     watchUsageLive("announcement", false);
     current = null;
     rendered = null;
+    bar.classList.remove("dismissing");
+    bar.inert = false;
     bar.hidden = true;
   };
 }

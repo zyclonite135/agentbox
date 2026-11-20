@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export async function webI18nSmoke(browser) {
  const root = fileURLToPath(new URL('../internal/web/static/', import.meta.url));
+ let serverVersion='v0.1.9';
  const server = createServer(async (req,res) => {
   try {
    if (req.url === '/language-peer') { res.setHeader('Content-Type','text/html'); res.end('<!doctype html><title>Language fixture</title>'); return; }
@@ -16,7 +17,8 @@ export async function webI18nSmoke(browser) {
    const path = resolve(root,'.'+(rel==='/'?'/index.html':rel));
    if (!path.startsWith(root)) { res.writeHead(403).end(); return; }
    res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml'})[extname(path)] || 'application/octet-stream');
-   res.end(await readFile(path));
+   const data=await readFile(path);
+   res.end(rel==='/'||rel==='/index.html' ? data.toString('utf8').replace('{{SERVER_VERSION}}',serverVersion) : data);
   } catch {res.writeHead(404).end();}
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
@@ -31,7 +33,7 @@ export async function webI18nSmoke(browser) {
  let meTimezone;
  let usageDates;
  let holdUsageRead;
- let failedUpgrade=false;
+ let upgradeJob=null;
  const customTip='保存 <custom tip>';
  const terminalTips={tips:['可直接粘贴图片，路径可点击预览',customTip],interval_sec:4,animation:'scroll'};
  let savedTerminalTips=terminalTips;
@@ -76,12 +78,11 @@ export async function webI18nSmoke(browser) {
   else if(path==='/api/usage/trend')body={granularity:'hour',buckets:[],timezone};
   else if(path==='/api/updates'||path==='/api/updates/check'){
    const checked=path.endsWith('/check') ? Date.now() : 0;
-   body={current_version:'v0.1.9',revision:'0123456789abcdef',built_at:'2026-10-04T08:00:00Z',latest_version:'',available:false,comparable:true,checked_at:checked,attempted_at:checked,error:''};
+   body={current_version:serverVersion,revision:'0123456789abcdef',built_at:'2026-10-04T08:00:00Z',latest_version:'',available:false,comparable:true,checked_at:checked,attempted_at:checked,error:''};
   }
   else if(path==='/api/updates/components')body={version:1,observed_at:Date.now(),server:{version:'v0.1.9',schema:11,candidate_compatibility:'preflight_required'},image:{reference:'fixture',id:'',claude:'',codex:'',state:'unavailable',observed_at:0},desktop:{installed_version_state:'browser_unknown',server_protocol:1,sync_enabled:false}};
-  else if(path==='/api/updates/upgrade')body=failedUpgrade
-   ? {supported:true,current_version:'v0.1.9',job:{id:usageRun,version:'v0.1.10',phase:'failed',failed_phase:'backup',error:'正在备份并验证数据时失败。请查看升级任务日志；版本切换后不会自动回退数据库。'}}
-   : {supported:false,reason:'当前部署不是支持在线升级的版本目录安装，请使用手工升级。',current_version:'v0.1.9',job:null};
+  else if(path==='/api/updates/upgrade')body={supported:!!upgradeJob,current_version:serverVersion,job:upgradeJob,
+   reason:upgradeJob?'':'当前部署不是支持在线升级的版本目录安装，请使用手工升级。'};
   if(path==='/api/usage/events' && holdUsageRead){
    const hold=holdUsageRead;
    holdUsageRead=undefined;
@@ -355,9 +356,31 @@ export async function webI18nSmoke(browser) {
   await updatePanel.getByText('Стабильных релизов пока нет',{exact:true}).waitFor();
   await updatePanel.getByText('Для обновления из интерфейса нужна стандартная установка на Linux с systemd. Обновите этот экземпляр вручную.',{exact:true}).waitFor();
   assert.equal(await page.locator('#update-install').isVisible(),false);
-  failedUpgrade=true;
-  await page.reload();
+  upgradeJob={id:usageRun,version:'v0.1.10',phase:'downloading',downloaded:50,total:100};
+  await updatePanel.locator('[data-update-check]').click();
+  await page.locator('#upgrade-steps .current').filter({hasText:'Скачать'}).waitFor();
+  upgradeJob={...upgradeJob,phase:'failed',failed_phase:'backup',error:'正在备份并验证数据时失败。请查看升级任务日志；版本切换后不会自动回退数据库。'};
+  await page.locator('#upgrade-refresh').click();
   await page.locator('#upgrade-error').filter({hasText:'Обновление прервалось на этапе «Резервное копирование данных».'}).waitFor();
+  assert.equal(await page.locator('#upgrade-meter').isVisible(),true);
+  assert.equal(await page.locator('#upgrade-steps .failed').count(),1);
+  await page.reload();
+  await page.locator('#upgrade-steps .failed').waitFor();
+
+  serverVersion=upgradeJob.version;
+  upgradeJob={...upgradeJob,phase:'succeeded',error:''};
+  await page.locator('#upgrade-refresh').click();
+  await page.locator('#upgrade-reload').waitFor();
+  assert.equal(await page.locator('#upgrade-pct').textContent(),'100%');
+  const installed=page.locator('#upgrade-support');
+  await page.locator('#upgrade-reload').click();
+  await installed.filter({hasText:'Установлена версия v0.1.10'}).waitFor();
+  for(const id of ['upgrade-progress','upgrade-meter','upgrade-steps','upgrade-reload']){
+   assert.equal(await page.locator(`#${id}`).isVisible(),false,`${id} must be hidden on the updated page`);
+  }
+  await language('en');
+  assert.equal(await installed.textContent(),'Version v0.1.10 installed');
+  await language('ru');
 
   await page.setViewportSize({width:1280,height:900});
   const midnightBoundary=Date.UTC(2026,10,19,20,30);

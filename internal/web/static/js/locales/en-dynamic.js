@@ -1574,6 +1574,7 @@ export default {
     "正在提交升级任务…": "Submitting upgrade task...",
     "正在确认升级任务是否已提交…": "Confirming whether the upgrade task has been submitted...",
     "升级完成，当前运行 {p0}。刷新页面加载新版界面。": "Upgrade completed, currently running {p0}. Refresh the page to load the new version of the interface.",
+    "已安装版本 {p0}": "Version {p0} installed",
     "任务已结束，但当前运行版本与目标不一致，请检查服务器。": "The task has ended, but the current running version is inconsistent with the target. Please check the server.",
     "任务日志：journalctl -u agentbox-upgrade-{p0}.service": "Task log: journalctl -u agentbox-upgrade-{p0}.service",
     "长时间未能确认升级结果，自动查询已暂停。请刷新升级状态或在服务器检查任务日志。": "The upgrade result cannot be confirmed for a long time, and the automatic query has been suspended. Please refresh the upgrade status or check the task log on the server.",

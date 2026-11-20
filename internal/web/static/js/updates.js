@@ -53,6 +53,8 @@ export function initUpdates() {
     const disposeComponents = initUpdateComponents();
     const lifetime = new AbortController();
     const { signal } = lifetime;
+    // Unlike API responses, this version belongs to the document in this tab.
+    const loadedVersion = document.documentElement.dataset.serverVersion;
     let info;
     let checking = false;
     let error = "";
@@ -113,21 +115,23 @@ export function initUpdates() {
     }
     function renderUpgrade() {
         const job = upgrade?.job;
+        const verified = job?.phase === "succeeded" && upgrade?.current_version === job.version;
+        const installed = verified && loadedVersion === job.version;
+        const progressJob = installed ? null : job;
         const busy = submitting || awaitingSubmission || upgrading();
         const install = $("update-install");
         buttonLabel(install, () => info?.comparable === false ? i18nText("切换到正式版并重启") : i18nText("升级并重启"), "download");
         install.classList.toggle("hidden", !upgrade?.supported || !info?.available);
         install.disabled = busy || readingUpgrade || checking || !!error;
-        setTextRender($("upgrade-support"), () => upgrade?.reason
-            ? localizeLegacyError(upgrade.reason, i18nText)
-            : upgrade ? "" : i18nText("正在读取在线升级支持状态…"));
-        $("upgrade-progress").classList.toggle("hidden", !job && !upgradeError && !submissionError && !submitting && !awaitingSubmission);
-        const verified = job?.phase === "succeeded" && upgrade?.current_version === job.version;
+        setTextRender($("upgrade-support"), () => installed ? i18nText("已安装版本 {p0}", { p0: versionLabel(job.version) })
+            : upgrade?.reason ? localizeLegacyError(upgrade.reason, i18nText)
+                : upgrade ? "" : i18nText("正在读取在线升级支持状态…"));
+        $("upgrade-progress").classList.toggle("hidden", !progressJob && !upgradeError && !submissionError && !submitting && !awaitingSubmission);
         setTextRender($("upgrade-message"), () => submitting ? i18nText("正在提交升级任务…") : awaitingSubmission ? i18nText("正在确认升级任务是否已提交…")
-            : verified ? i18nText("升级完成，当前运行 {p0}。刷新页面加载新版界面。", { p0: String(job.version) })
-                : job?.phase === "succeeded" ? i18nText("任务已结束，但当前运行版本与目标不一致，请检查服务器。")
-                    : job ? `${job.version} · ${phaseMessages[job.phase]?.() || job.message}` : "");
-        renderMeter(job, verified);
+            : !progressJob ? "" : verified ? i18nText("升级完成，当前运行 {p0}。刷新页面加载新版界面。", { p0: progressJob.version })
+                : progressJob.phase === "succeeded" ? i18nText("任务已结束，但当前运行版本与目标不一致，请检查服务器。")
+                    : `${progressJob.version} · ${phaseMessages[progressJob.phase]?.() || progressJob.message}`);
+        renderMeter(progressJob, verified);
         const detail = upgradeError || submissionError || job?.error || "";
         setTextRender($("upgrade-error"), () => {
             const failedStep = job?.failed_phase && Object.hasOwn(stepNames, job.failed_phase) ? stepNames[job.failed_phase] : undefined;
@@ -139,7 +143,7 @@ export function initUpdates() {
         $("upgrade-error").classList.toggle("hidden", !detail);
         setTextRender($("upgrade-log"), () => job ? i18nText("任务日志：journalctl -u agentbox-upgrade-{p0}.service", { p0: String(job.id) }) : "");
         $("upgrade-log").classList.toggle("hidden", !detail && job?.phase !== "failed" && !(job?.phase === "succeeded" && !verified));
-        $("upgrade-reload").classList.toggle("hidden", !verified);
+        $("upgrade-reload").classList.toggle("hidden", !verified || installed);
         $("upgrade-refresh").disabled = readingUpgrade || submitting;
     }
     function scheduleUpgrade() {

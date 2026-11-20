@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"html"
 	"io/fs"
 	"log"
 	"net"
@@ -25,6 +26,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"agentbox/internal/announce"
+	"agentbox/internal/buildinfo"
 	"agentbox/internal/config"
 	"agentbox/internal/credentials"
 	"agentbox/internal/decision"
@@ -693,7 +695,8 @@ func staticHandler() http.Handler {
 		if err != nil {
 			return []byte("index.html missing")
 		}
-		return bytes.ReplaceAll(raw, []byte("{{BUILD}}"), []byte(build))
+		raw = bytes.ReplaceAll(raw, []byte("{{BUILD}}"), []byte(build))
+		return bytes.ReplaceAll(raw, []byte("{{SERVER_VERSION}}"), []byte(html.EscapeString(buildinfo.Version)))
 	}
 	index := loadIndex()
 

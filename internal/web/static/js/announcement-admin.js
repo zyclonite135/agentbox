@@ -3,7 +3,7 @@
  * 工作空间列表是挂着终端/对话连接、有对话回合在跑或 30 分钟内用过的空间。 */
 import { api } from "./api.js";
 import { announcementTitle } from "./announcement.js";
-import { setTextRender, t } from "./i18n.js";
+import { i18n, setTextRender, t } from "./i18n.js";
 import { setSelectValue } from "./select.js";
 import { S, bus } from "./state.js";
 import { toast } from "./toast.js";
@@ -37,7 +37,7 @@ function renderCurrent() {
         msg.textContent = a.message;
         box.append(msg);
     }
-    setTextRender(meta, () => t("{p0} 于 {p1} 发布", { p0: a.posted_by, p1: fmtTime(a.posted_at) }));
+    setTextRender(meta, () => t("{p0} 于 {p1} 发布", { p0: a.posted_by, p1: fmtTime(a.posted_at, i18n.locale) }));
 }
 function renderActivity(v) {
     const online = v.online.map(u => u.pages > 1 ? t("{p0}（{p1} 个页面）", { p0: u.user, p1: u.pages }) : u.user);

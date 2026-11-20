@@ -7,7 +7,7 @@
  * 10 分钟后不再返回。用户可以收起；重新发布（ID 变了）或升级完成会再出现。 */
 import { bus } from "./state.js";
 import { api } from "./api.js";
-import { setTextRender, t } from "./i18n.js";
+import { i18n, setTextRender, t } from "./i18n.js";
 import { usageLiveConnected, watchUsageLive } from "./usage-live.js";
 import { $, fmtTime } from "./util.js";
 import type { Announcement, AnnouncementView } from "./types.js";
@@ -46,7 +46,7 @@ export function announcementTitle(a: Announcement, now: number): string {
         ? t("正在发版升级，预计中断约 {p0} 分钟，页面和终端可能短暂断开。", { p0: downtime })
         : t("正在发版升级，页面和终端可能短暂断开。");
     case "scheduled": {
-      const at = fmtTime(a.starts_at!), left = remaining(a.starts_at! - now);
+      const at = fmtTime(a.starts_at!, i18n.locale), left = remaining(a.starts_at! - now);
       return downtime
         ? t("计划于 {p0} 发版升级（{p1}），预计中断约 {p2} 分钟。请先保存进度，避免在此期间开始长任务。", { p0: at, p1: left, p2: downtime })
         : t("计划于 {p0} 发版升级（{p1}）。请先保存进度，避免在此期间开始长任务。", { p0: at, p1: left });

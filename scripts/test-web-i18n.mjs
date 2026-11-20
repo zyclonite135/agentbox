@@ -239,6 +239,12 @@ export async function webI18nSmoke(browser) {
   await page.locator('#sec-security').waitFor();
   const securityHeading=page.locator('#sec-security h2');
   await language('ru');
+  const scheduledTitle=await page.evaluate(async()=>{
+   const {announcementTitle}=await import('/_v/{{BUILD}}/js/announcement.js');
+   const starts=Date.UTC(2026,10,19,20,12);
+   return announcementTitle({kind:'release',starts_at:starts,duration_min:2},starts-10*60*1000);
+  });
+  assert.match(scheduledTitle,/20\.11\.2026 05:12/, 'Russian announcement includes the year in the configured Tokyo time zone');
   const settingsLabels={proxies:'IP-прокси',container:'Контейнеры',decision:'Решения',interface:'Интерфейс',
    security:'Безопасность',logins:'Активность',about:'Обновления'};
   for (const [section,label] of Object.entries(settingsLabels)) {

@@ -120,9 +120,10 @@ function zonedParts(ms) {
     return p;
 }
 /* 简短时间：09-29 22:44，用于对话、列表这类「最近」的时间 */
-export function fmtTime(ms) {
+export function fmtTime(ms, locale) {
     const p = zonedParts(ms);
-    return `${p.month}-${p.day} ${p.hour}:${p.minute}`;
+    const date = locale === "ru" ? `${p.day}.${p.month}.${p.year}` : `${p.month}-${p.day}`;
+    return `${date} ${p.hour}:${p.minute}`;
 }
 /* 系统时区下今天 0 点的墙上时间（YYYY-MM-DDT00:00），用作用量接口的 since */
 export function todayWall() {

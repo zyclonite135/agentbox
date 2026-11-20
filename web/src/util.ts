@@ -1,5 +1,6 @@
 /* util：DOM / 格式化 / 加载态 / 气泡 / 灯箱等无业务依赖的小工具。 */
 import { t as i18nText, setTextRender, setAttrRender } from "./i18n.js";
+import type { Locale } from "./i18n/core.js";
 "use strict";
 
 import { actionButton, type IconSlot } from "./icons.js";
@@ -128,9 +129,10 @@ function zonedParts(ms: number | string | Date) {
 }
 
 /* 简短时间：09-29 22:44，用于对话、列表这类「最近」的时间 */
-export function fmtTime(ms: number | string) {
+export function fmtTime(ms: number | string, locale?: Locale) {
   const p = zonedParts(ms);
-  return `${p.month}-${p.day} ${p.hour}:${p.minute}`;
+  const date = locale === "ru" ? `${p.day}.${p.month}.${p.year}` : `${p.month}-${p.day}`;
+  return `${date} ${p.hour}:${p.minute}`;
 }
 
 /* 系统时区下今天 0 点的墙上时间（YYYY-MM-DDT00:00），用作用量接口的 since */

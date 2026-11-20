@@ -87,15 +87,15 @@ const zoneFormatters = new Map<string, Intl.DateTimeFormat>();
 
 /* Intl 负责把一个绝对时刻投影到系统配置的 IANA 时区。formatToParts 避免依赖
  * 不同浏览器的日期字符串顺序；h23 保证午夜是 00:xx 而不是 24:xx。 */
-function clockParts(d: Date): ClockParts {
-  let fmt = zoneFormatters.get(usageTimeZone);
+function clockParts(d: Date, zone = usageTimeZone): ClockParts {
+  let fmt = zoneFormatters.get(zone);
   if (!fmt) {
     fmt = new Intl.DateTimeFormat("en-CA", {
-      timeZone: usageTimeZone,
+      timeZone: zone,
       year: "numeric", month: "2-digit", day: "2-digit",
       hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
     });
-    zoneFormatters.set(usageTimeZone, fmt);
+    zoneFormatters.set(zone, fmt);
   }
   const values: Record<string, number> = {};
   for (const p of fmt.formatToParts(d)) {
@@ -107,8 +107,8 @@ function clockParts(d: Date): ClockParts {
   };
 }
 
-function fmtUsageTime(ms: number | string, withYear = false) {
-  const p = clockParts(new Date(ms));
+function fmtUsageTime(ms: number | string, withYear = false, zone = usageTimeZone) {
+  const p = clockParts(new Date(ms), zone);
   const core = `${pad(p.month)}-${pad(p.day)} ${pad(p.hour)}:${pad(p.minute)}`;
   return withYear ? `${p.year}-${core}` : core;
 }
@@ -1022,22 +1022,22 @@ async function exportCSV() {
   btn.disabled = true;
   try {
     const f = readFilters();
+    const requestedZone = usageTimeZone;
     const data = await api<UsageEvents>(
       "/usage/events?" + query(f, { limit: "500", offset: "0", order: orderParam() }));
-    usageTimeZone = data.timezone || usageTimeZone;
-    syncTimeZone();
+    const exportZone = data.timezone || requestedZone;
     if (data.total.rows > data.rows.length) {
       // 截断是从哪头截的，得跟着排序方向说，否则「最近 500 行」是句假话
       toast(i18nText("只导出了{p0}的 {p1} 行（共 {p2} 行），", { p0: String(asc ? i18nText("最早") : i18nText("最近")), p1: String(data.rows.length), p2: String(data.total.rows) }) +
         i18nText("请缩小时间范围后分批导出"), true);
     }
-    const head = [i18nText("时间（{p0}）", { p0: String(usageTimeZone) }), i18nText("用户"), i18nText("工作空间"), i18nText("工作空间ID"), i18nText("账号"), "Agent", i18nText("模型"), i18nText("思考强度"), i18nText("类型"), i18nText("计费"),
+    const head = [i18nText("时间（{p0}）", { p0: exportZone }), i18nText("用户"), i18nText("工作空间"), i18nText("工作空间ID"), i18nText("账号"), "Agent", i18nText("模型"), i18nText("思考强度"), i18nText("类型"), i18nText("计费"),
       i18nText("输入"), i18nText("输出"), i18nText("缓存读取"), i18nText("缓存写入"), i18nText("缓存命中率"), i18nText("合计Token"), i18nText("回合内序号"), i18nText("合并请求数"), i18nText("费用USD"),
       i18nText("首字ms"), i18nText("总耗时ms"), i18nText("模型耗时ms"), i18nText("请求首字ms"), i18nText("请求耗时ms"), i18nText("输出速度tok/s"), i18nText("回合ID"), i18nText("委派ID")];
     const lines = [head.join(",")];
     for (const r of data.rows) {
       lines.push([
-        fmtUsageTime(r.ts, true),
+        fmtUsageTime(r.ts, true, exportZone),
         r.user, workspaceName(r), r.session_id, r.account_label || "",
         r.agent, r.model || "", effortText(r), KIND_LABEL[r.kind] || r.kind, billingFor(r).text,
         r.input_tokens, r.output_tokens, r.cache_read_tokens, r.cache_write_tokens, cacheHitText(r), r.total_tokens,
@@ -1102,7 +1102,12 @@ $("usage-page-size").addEventListener("change", () => {
 
 bus.addEventListener("open-usage", () => void openUsageView());
 bus.addEventListener("timezone-updated", () => {
-  usageTimeZone = S.timeZone || "Asia/Shanghai";
+  const zone = S.timeZone || "Asia/Shanghai";
+  if (zone !== usageTimeZone) {
+    usageGeneration++;
+    trendSeq++;
+    usageTimeZone = zone;
+  }
   syncTimeZone();
   if (S.view === "usage") reload();
 });

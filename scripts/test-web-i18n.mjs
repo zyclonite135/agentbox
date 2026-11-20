@@ -28,6 +28,7 @@ export async function webI18nSmoke(browser) {
  const space={id:'locale-space',name:'保存',agent:'codex',account_id:'fixture',account_label:'取消',status:'running',default_model:'fixture'};
  let sockets=0, writes=0, usageReads=0, terminalSocket;
  let timezone='Asia/Tokyo';
+ let holdUsageRead;
  const usageRows=Array.from({length:20},(_,i)=>({id:i+1,ts:Date.now(),user:'保存',session_id:space.id,session_name:space.name,thread_id:'thread',turn_id:'turn-'+i,agent:'claude',account_id:'fixture',model:'保存',kind:'chat',billing:'table',input_tokens:100,output_tokens:1000,cache_read_tokens:80,cache_write_tokens:10,total_tokens:1190,cost_micro_usd:2128,ttft_ms:100,wall_ms:1000,duration_ms:900,rate:{input:1,output:2,cache_read:0.1,cache_write:2,snapshot:true,per_request:true,key:'保存'}}));
  const usageRun='a'.repeat(32);
  Object.assign(usageRows[0],{kind:'delegation',delegation_id:usageRun});
@@ -65,6 +66,11 @@ export async function webI18nSmoke(browser) {
   }
   else if(path==='/api/updates/components')body={version:1,observed_at:Date.now(),server:{version:'v0.1.9',schema:11,candidate_compatibility:'preflight_required'},image:{reference:'fixture',id:'',claude:'',codex:'',state:'unavailable',observed_at:0},desktop:{installed_version_state:'browser_unknown',server_protocol:1,sync_enabled:false}};
   else if(path==='/api/updates/upgrade')body={supported:false,reason:'当前部署不是支持在线升级的版本目录安装，请使用手工升级。',current_version:'v0.1.9',job:null};
+  if(path==='/api/usage/events' && holdUsageRead){
+   const hold=holdUsageRead;
+   holdUsageRead=undefined;
+   await hold();
+  }
   await route.fulfill({json:body});
  });
  const language=async value=>{await page.evaluate(async value=>{const {i18n}=await import('/_v/{{BUILD}}/js/i18n.js');i18n.setLanguage(value);},value);};
@@ -285,19 +291,24 @@ export async function webI18nSmoke(browser) {
   assert.equal(await page.locator('#update-install').isVisible(),false);
 
   await page.setViewportSize({width:1280,height:900});
-  usageRows[0].ts=Date.UTC(2026,10,19,20,30);
-  for (const [zone, label, usageLabel, day, hour] of [
-   ['Asia/Yekaterinburg','Екатеринбург','Время Екатеринбурга','2026-11-20','01:30'],
-   ['Europe/Moscow','Москва','Московское время','2026-11-19','23:30'],
-  ]) {
+  const midnightBoundary=Date.UTC(2026,10,19,20,30);
+  await page.clock.setFixedTime(midnightBoundary);
+  usageRows[0].ts=midnightBoundary;
+  const trigger=page.locator('#set-timezone + .select-trigger');
+  const saveTimezone=async (zone,label)=>{
    await page.goto(base+'/#/settings/interface');
-   const trigger=page.locator('#set-timezone + .select-trigger');
    await trigger.click();
    await page.getByRole('option',{name:`${label} (${zone})`,exact:true}).click();
    const saved=page.waitForResponse(res=>new URL(res.url()).pathname==='/api/settings' && res.request().method()==='PUT');
    await page.locator('#set-save').click();
    assert.deepEqual((await saved).request().postDataJSON(),{timezone:zone});
    await page.locator('#set-savebar').waitFor({state:'hidden'});
+  };
+  for (const [zone, label, usageLabel, day, hour] of [
+   ['Asia/Yekaterinburg','Екатеринбург','Время Екатеринбурга','2026-11-20','01:30'],
+   ['Europe/Moscow','Москва','Московское время','2026-11-19','23:30'],
+  ]) {
+   await saveTimezone(zone,label);
    await page.reload();
    await trigger.filter({hasText:`${label} (${zone})`}).waitFor();
 
@@ -310,6 +321,7 @@ export async function webI18nSmoke(browser) {
    assert.equal(await time.locator('.u-sub').textContent(),day.replaceAll('-','/'));
    await page.locator('#uf-date-range').click();
    assert.equal(await page.locator('[data-dr="zone"]').textContent(),zone);
+   assert.equal(await page.locator('[data-dr="since-day"]').inputValue(),day.replaceAll('-','/'));
    await page.locator('[data-dr="cancel"]').click();
    const downloaded=page.waitForEvent('download');
    await page.locator('#uf-export').click();
@@ -317,6 +329,41 @@ export async function webI18nSmoke(browser) {
    assert.ok(csv.split('\r\n')[0].includes(zone));
    assert.ok(csv.split('\r\n')[1].startsWith(`${day} ${hour},`));
   }
+
+  const pauseNextUsage=()=>{
+   const started=Promise.withResolvers();
+   const resume=Promise.withResolvers();
+   holdUsageRead=()=>{started.resolve();return resume.promise;};
+   return {started:started.promise, resume:resume.resolve};
+  };
+  const staleUsage=pauseNextUsage();
+  await page.locator('#uf-refresh').click();
+  await staleUsage.started;
+  try {
+   await saveTimezone('Asia/Yekaterinburg','Екатеринбург');
+  } finally {
+   staleUsage.resume();
+  }
+  await page.waitForFunction(()=>document.querySelector('#usage-table-scroll').getAttribute('aria-busy')==='false');
+  assert.equal(await page.evaluate(async()=>{const {S}=await import('/_v/{{BUILD}}/js/state.js');return S.timeZone;}),
+   'Asia/Yekaterinburg','an older usage response must not override the saved timezone');
+
+  await page.locator('#btn-usagelog').click();
+  await page.waitForFunction(()=>document.querySelector('#usage-table-scroll').getAttribute('aria-busy')==='false');
+  const staleExport=pauseNextUsage();
+  const completedExport=page.waitForEvent('download');
+  await page.locator('#uf-export').click();
+  await staleExport.started;
+  try {
+   await saveTimezone('Europe/Moscow','Москва');
+  } finally {
+   staleExport.resume();
+  }
+  const csv=await readFile(await (await completedExport).path(),'utf8');
+  assert.ok(csv.split('\r\n')[0].includes('Asia/Yekaterinburg'));
+  assert.ok(csv.split('\r\n')[1].startsWith('2026-11-20 01:30,'));
+  assert.equal(await page.locator('#usage-zone-id').textContent(),'Europe/Moscow','CSV must not change the active usage timezone');
+
   await page.evaluate(async()=>{const {emit}=await import('/_v/{{BUILD}}/js/state.js');emit('unauthorized');});
   await page.locator('#login').waitFor({state:'visible'});
   await language('zh-TW'); await language('en');

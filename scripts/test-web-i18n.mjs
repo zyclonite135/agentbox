@@ -115,6 +115,30 @@ export async function webI18nSmoke(browser) {
   assert.equal(await page.locator('#new-name').inputValue(),'取消 <draft>');
   assert.equal(writes,afterLoginWrites,'language switch must not save drafts');
   await page.locator('#new-cancel').click();
+  await page.goto(base+'/#/sessions/locale-space/chat');
+  const hero=page.locator('#chat-hero');
+  const chatInput=page.locator('#chat-input');
+  await hero.waitFor();
+  await language('ru');
+  const beforeQuickPrompts=writes;
+  const quickPrompts=[
+   ['Изучить репозиторий','Помоги разобраться в структуре этого репозитория. Опиши основные модули и объясни, как организован код.'],
+   ['Создать новую функцию','Хочу добавить новую функцию. Она должна '],
+   ['Проверить код','Проверь текущий код, найди проблемы и предложи конкретные исправления.'],
+   ['Исправить проблему','Помоги исправить ошибку. Она возникает, когда '],
+  ];
+  for(const [button,prompt] of quickPrompts){
+   await chatInput.fill('');
+   await hero.getByRole('button',{name:button,exact:true}).click();
+   assert.equal(await chatInput.inputValue(),prompt,button);
+  }
+  await language('en');
+  assert.equal(await chatInput.inputValue(),quickPrompts.at(-1)[1],'switching the language preserves inserted text');
+  await chatInput.fill('My draft. ');
+  await hero.getByRole('button',{name:'Review the code',exact:true}).click();
+  assert.equal(await chatInput.inputValue(),'My draft. Review the current code, identify problems, and suggest specific fixes.');
+  assert.equal(writes,beforeQuickPrompts,'quick prompts only insert text');
+  await chatInput.fill('');
   await page.goto(base+'/#/sessions/locale-space/term');
   await page.locator('#term-state[data-state="connected"]').waitFor();
   const connected=sockets;

@@ -475,13 +475,19 @@ details.think[open] > summary::after, .fold-open > .fold-head::after, details.fo
 .tc-domain { flex: none; font-size: 11px; color: var(--muted); }
 .chat-tool-image-link { display: inline-block; max-width: 100%; vertical-align: top; }
 .chat-results { display: grid; gap: 8px; width: 100%; max-width: 560px; margin: 12px 0 4px; }
+.chat-results-files {
+  gap: 0; max-width: 480px; background: var(--panel-solid);
+  border: 1px solid var(--line); border-radius: calc(10px * var(--radius-scale));
+}
 .chat-result-file, .chat-result-project-head {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px;
 }
 .chat-result-file {
-  padding: 10px; border: 1px solid var(--line);
-  border-radius: calc(10px * var(--radius-scale)); background: var(--panel-solid);
+  position: relative; padding: 7px 9px; gap: 4px 8px;
 }
+.chat-result-file + .chat-result-file { border-top: 1px solid var(--line); }
+.chat-result-file .chat-result-icon { width: 30px; height: 30px; }
+.chat-result-file .chat-result-icon svg { width: 18px; height: 18px; }
 .chat-result-icon {
   display: grid; place-items: center; width: 36px; height: 36px;
   border-radius: calc(8px * var(--radius-scale)); color: var(--amber); background: var(--panel-2);
@@ -494,6 +500,17 @@ details.think[open] > summary::after, .fold-open > .fold-head::after, details.fo
 .chat-result-status:empty { display: none; }
 .chat-result-download { display: inline-flex; gap: 6px; align-items: center; }
 .chat-result-download svg { flex: none; }
+.chat-result-file .chat-result-action { display: contents; }
+.chat-result-compact {
+  grid-column: 3; grid-row: 1; align-self: start; justify-content: center;
+  width: 34px; height: 34px; min-width: 0; padding: 0;
+  background: transparent; border-color: transparent; color: var(--muted);
+}
+.chat-result-compact:not(:disabled):hover { background: var(--panel-2); color: var(--text); }
+.chat-result-file .chat-result-status.error { grid-column: 2 / -1; overflow-wrap: anywhere; }
+.chat-result-file .chat-result-status:not(.error):not(:empty) {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
 .chat-results-project {
   padding: 12px; gap: 12px; background: var(--panel-solid);
   border: 1px solid var(--line); border-radius: calc(12px * var(--radius-scale));
@@ -517,14 +534,11 @@ details.think[open] > summary::after, .fold-open > .fold-head::after, details.fo
 }
 .chat-result-contents { display: grid; gap: 8px; max-height: min(380px, 48vh); overflow: auto; overscroll-behavior: contain; }
 .chat-result-folder { display: grid; gap: 4px; }
-.chat-result-folder .chat-result-file { border: 0; background: var(--panel-2); }
 .chat-result-directory { display: flex; align-items: center; gap: 6px; padding: 0 2px; overflow-wrap: anywhere; }
 .chat-result-directory svg { flex: none; }
 @media (max-width: 480px) {
-  .chat-result-file { grid-template-columns: auto minmax(0, 1fr); gap: 6px 9px; }
   .chat-result-name { white-space: normal; overflow-wrap: anywhere; }
-  .chat-result-file > .chat-result-action { grid-column: 2; }
-  .chat-result-download { min-height: 36px; white-space: normal; text-align: left; }
+  .chat-result-compact { width: 40px; height: 40px; }
 }
 .chat-image-details { display: none; }
 @media (max-width: 760px) {

@@ -2,6 +2,7 @@ import { fileDownloadURL } from "../../api.js";
 import { t, setAttrRender, setText, setTextRender } from "../../i18n.js";
 import { svgIcon } from "../../icons.js";
 import { S } from "../../state.js";
+import { setTip } from "../../tip.js";
 import { fmtBytes } from "../../util.js";
 const internalNames = new Set([".git", ".agentbox", ".codex", ".claude", ".ds_store", "thumbs.db"]);
 const fences = /^ {0,3}(\x60{3,}|~{3,})([^\r\n]*)\r?$/gm;
@@ -83,13 +84,18 @@ function fileIcon(ext) {
 function downloadAction(url, name, archive) {
     const session = S.current?.id, token = S.token;
     const action = element("div", "chat-result-action");
-    const btn = element("button", archive ? "btn chat-result-download chat-result-zip" : "btn btn-sm chat-result-download");
+    const btn = element("button", archive ? "btn chat-result-download chat-result-zip" : "btn chat-result-download chat-result-compact");
     btn.type = "button";
-    const label = element("span", "");
     const actionLabel = archive ? "下载 ZIP" : "下载文件";
-    setText(label, actionLabel);
     setAttrRender(btn, "aria-label", () => t(actionLabel) + " " + name);
-    btn.append(svgIcon("download", 16), label);
+    btn.append(svgIcon("download", 16));
+    if (archive) {
+        const label = element("span", "");
+        setText(label, actionLabel);
+        btn.append(label);
+    }
+    else
+        setTip(btn, () => t(actionLabel));
     const status = element("span", "chat-result-status");
     status.setAttribute("role", "status");
     action.append(btn, status);
@@ -97,6 +103,7 @@ function downloadAction(url, name, archive) {
         if (btn.disabled || session !== S.current?.id || token !== S.token)
             return;
         btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
         status.classList.remove("error");
         setText(status, "正在准备下载…");
         const active = () => btn.isConnected && session === S.current?.id && token === S.token;
@@ -141,6 +148,7 @@ function downloadAction(url, name, archive) {
         }
         finally {
             btn.disabled = false;
+            btn.removeAttribute("aria-busy");
         }
     });
     return action;
@@ -167,6 +175,7 @@ export function resultFilesCard(result) {
         return null;
     const card = element("section", "chat-results");
     if (result.files.length <= 4) {
+        card.classList.add("chat-results-files");
         card.append(...result.files.map(row));
         return card;
     }

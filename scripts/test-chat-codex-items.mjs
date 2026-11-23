@@ -296,11 +296,19 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await cards.nth(2).waitFor();
  assert.equal(await cards.nth(0).locator('.chat-result-file').count(),1);
  assert.equal(await cards.nth(1).locator('.chat-result-file').count(),4);
+ assert.equal(await cards.nth(1).locator('.chat-result-compact > span').count(),0);
+ assert.match(await cards.nth(1).locator('.chat-result-compact').first().getAttribute('aria-label'),/index\.html/);
  const project = cards.nth(2);
  assert.match(await project.innerText(), /5 个结果文件/);
  assert.doesNotMatch(await page.locator('#chat-log').innerText(), /agentbox-files/);
  await project.screenshot({path:'output/playwright/chat-results-desktop.png', animations:'disabled'});
  await page.setViewportSize({width:320,height:740});
+ const compactRow = cards.nth(1).locator('.chat-result-file').first();
+ const compactBox = await compactRow.boundingBox(), actionBox = await compactRow.locator('button').boundingBox();
+ assert.ok(actionBox.x + actionBox.width <= compactBox.x + compactBox.width &&
+  compactBox.x + compactBox.width - actionBox.x - actionBox.width <= 12 &&
+  actionBox.y - compactBox.y <= 10 && actionBox.width >= 40,
+ 'the icon stays near the top-right corner and has a touch target at narrow widths');
  await project.locator('summary').click();
  assert.equal(await project.locator('.chat-result-file:visible').count(),5);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth),true);

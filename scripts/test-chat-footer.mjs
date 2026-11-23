@@ -26,6 +26,15 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  // Only time and amount stay visible; model, reasoning and billing notes are in the details.
  const details = f => f.locator('.answer-details').evaluate(e=>e.textContent);
  assert.equal(await footers.count(),2);
+ const lastFooter = footers.last();
+ const footerOpacity = () => lastFooter.evaluate(el=>getComputedStyle(el).opacity);
+ await page.mouse.move(0,0);
+ assert.equal(await footerOpacity(),'0');
+ await lastFooter.locator('.answer-copy').first().focus();
+ assert.equal(await footerOpacity(),'1','keyboard focus reveals answer actions');
+ await lastFooter.locator('.answer-copy').first().blur();
+ await lastFooter.locator('..').locator('.msg.agent').hover();
+ assert.equal(await footerOpacity(),'1','hovering the answer reveals its actions');
  assert.match(await details(footers.first()),/模型claude-history/);
  assert.match(await details(footers.first()),/推理强度未记录/);
  assert.match(await details(footers.last()),/模型gpt-5.5/);
@@ -45,6 +54,9 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  const answerContext = footers.last().locator('.answer-context');
  const contextBefore = await answerContext.boundingBox();
  await footers.last().getByRole('button',{name:'回答详情',exact:true}).click();
+ await footers.last().locator('.answer-more').blur();
+ await page.mouse.move(0,0);
+ assert.equal(await footerOpacity(),'1','expanded details keep the footer visible');
  const contextAfter = await answerContext.boundingBox();
  const detailsBox = await footers.last().locator('.answer-details').boundingBox();
  const footerBox = await footers.last().boundingBox();

@@ -399,6 +399,8 @@ export default {
   "复制回答": "Copy response",
   "复制回答（Markdown）": "Copy response as Markdown",
   "回答详情": "Response details",
+  "关于此回答": "About this response",
+  "收起详情": "Hide details",
   "模型": "Model",
   "推理强度": "Reasoning effort",
   "费用": "Cost",

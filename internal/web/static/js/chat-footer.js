@@ -1,6 +1,7 @@
 import { setAttrRender, setText, setTextRender, t as i18nText } from "./i18n.js";
 import { answerSources, copyText } from "./chat-render.js";
 import { svgIcon } from "./icons.js";
+import { openMenu } from "./menu.js";
 import { EFFORT_LABELS } from "./reasoning.js";
 import { S } from "./state.js";
 import { setTip } from "./tip.js";
@@ -103,7 +104,13 @@ export function answerFooter(body, context) {
     more.setAttribute("aria-expanded", "false");
     more.append(svgIcon("info", 16));
     setTip(more, () => i18nText("回答详情"));
-    // 外面只放时间和金额；模型、推理强度、计费说明与本轮 token 收进「详情」
+    const touchMenu = document.createElement("button");
+    touchMenu.type = "button";
+    touchMenu.className = "answer-copy answer-touch-menu";
+    setAttrRender(touchMenu, "aria-label", () => i18nText("更多操作"));
+    touchMenu.setAttribute("aria-haspopup", "menu");
+    touchMenu.setAttribute("aria-expanded", "false");
+    touchMenu.append(svgIcon("more", 16));
     const details = document.createElement("div");
     details.className = "answer-details";
     const detailsShell = document.createElement("div");
@@ -137,12 +144,23 @@ export function answerFooter(body, context) {
     const receipt = document.createElement("div");
     receipt.className = "answer-receipt";
     details.append(model.row, effort.row, durationDetail.row, costDetail.row, receipt);
-    more.addEventListener("click", () => {
+    const toggleDetails = () => {
         const open = detailsShell.classList.toggle("open");
         detailsShell.inert = !open;
         more.setAttribute("aria-expanded", String(open));
+    };
+    more.addEventListener("click", toggleDetails);
+    touchMenu.addEventListener("click", () => {
+        openMenu(touchMenu, [{
+                label: detailsShell.classList.contains("open") ? i18nText("收起详情") : i18nText("关于此回答"),
+                icon: "info",
+                run: () => {
+                    toggleDetails();
+                    touchMenu.focus({ preventScroll: true });
+                },
+            }]);
     });
-    actions.append(copy, more);
+    actions.append(copy, more, touchMenu);
     const info = document.createElement("div");
     info.className = "answer-context";
     const date = document.createElement("time");

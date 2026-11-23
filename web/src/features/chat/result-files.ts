@@ -76,7 +76,8 @@ function downloadAction(url: string, name: string, archive?: string[]) {
     const label = element("span", "");
     setText(label, actionLabel);
     btn.append(label);
-  } else setTip(btn, () => t(actionLabel));
+  }
+  setTip(btn, () => t(actionLabel));
   const status = element("span", "chat-result-status");
   status.setAttribute("role", "status");
   action.append(btn, status);
@@ -188,6 +189,7 @@ export function resultFilesCard(result: ResultFiles) {
     group.append(row(file));
   }
   details.append(summary, contents);
-  card.append(header, archive, details);
+  header.append(archive);
+  card.append(header, details);
   return card;
 }

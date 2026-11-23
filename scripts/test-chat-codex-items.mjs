@@ -299,10 +299,21 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  assert.equal(await cards.nth(1).locator('.chat-result-compact > span').count(),0);
  assert.match(await cards.nth(1).locator('.chat-result-compact').first().getAttribute('aria-label'),/index\.html/);
  const project = cards.nth(2);
+ const zipButton = project.locator('.chat-result-zip');
+ const zipAtTopRight = () => zipButton.evaluate(button => {
+  const header = button.closest('.chat-result-project-head').getBoundingClientRect();
+  const bounds = button.getBoundingClientRect();
+  return Math.abs(header.right - bounds.right) < 2 && Math.abs(header.top - bounds.top) < 2;
+ });
+ assert.equal(await zipButton.locator('span').isVisible(),true);
+ assert.equal(await zipAtTopRight(),true);
  assert.match(await project.innerText(), /5 个结果文件/);
  assert.doesNotMatch(await page.locator('#chat-log').innerText(), /agentbox-files/);
  await project.screenshot({path:'output/playwright/chat-results-desktop.png', animations:'disabled'});
  await page.setViewportSize({width:320,height:740});
+ assert.equal(await zipButton.locator('span').isVisible(),false);
+ assert.match(await zipButton.getAttribute('aria-label'),/ZIP.*Website/);
+ assert.equal(await zipAtTopRight(),true);
  const compactRow = cards.nth(1).locator('.chat-result-file').first();
  const compactBox = await compactRow.boundingBox(), actionBox = await compactRow.locator('button').boundingBox();
  assert.ok(actionBox.x + actionBox.width <= compactBox.x + compactBox.width &&

@@ -2,6 +2,7 @@ package server
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"io"
 	"io/fs"
@@ -78,7 +79,10 @@ func (s *Server) handleChatFilesArchive(w http.ResponseWriter, r *http.Request, 
 		if r.Context().Err() != nil {
 			return
 		}
-		size, status := addChatArchiveFile(zw, root, name, remaining)
+		size, status := addChatArchiveFile(r.Context(), zw, root, name, remaining)
+		if r.Context().Err() != nil {
+			return
+		}
 		if status != 0 {
 			writeErr(w, status, http.StatusText(status))
 			return
@@ -95,7 +99,7 @@ func (s *Server) handleChatFilesArchive(w http.ResponseWriter, r *http.Request, 
 	http.ServeContent(w, r, "project.zip", time.Time{}, tmp)
 }
 
-func addChatArchiveFile(zw *zip.Writer, root *safefs.Root, name string, remaining int64) (int64, int) {
+func addChatArchiveFile(ctx context.Context, zw *zip.Writer, root *safefs.Root, name string, remaining int64) (int64, int) {
 	f, err := root.OpenFile(name)
 	if err != nil {
 		return 0, http.StatusNotFound
@@ -117,8 +121,20 @@ func addChatArchiveFile(zw *zip.Writer, root *safefs.Root, name string, remainin
 	if err != nil {
 		return 0, http.StatusInternalServerError
 	}
-	if _, err := io.CopyN(out, f, info.Size()); err != nil {
+	if _, err := io.CopyN(out, chatArchiveReader{ctx, f}, info.Size()); err != nil {
 		return 0, http.StatusInternalServerError
 	}
 	return info.Size(), 0
+}
+
+type chatArchiveReader struct {
+	ctx context.Context
+	src io.Reader
+}
+
+func (r chatArchiveReader) Read(buf []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.src.Read(buf)
 }

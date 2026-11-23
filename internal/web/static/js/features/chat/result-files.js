@@ -4,16 +4,32 @@ import { svgIcon } from "../../icons.js";
 import { S } from "../../state.js";
 import { fmtBytes } from "../../util.js";
 const internalNames = new Set([".git", ".agentbox", ".codex", ".claude", ".ds_store", "thumbs.db"]);
-const marker = /^\x60{3}agentbox-files[ \t]*\r?$/gm;
+const fences = /^ {0,3}(\x60{3,}|~{3,})([^\r\n]*)\r?$/gm;
 export function splitResultFiles(message, streaming = false) {
-    const start = [...message.matchAll(marker)].at(-1);
+    let open = "", start, end;
+    for (const fence of message.matchAll(fences)) {
+        const [, delimiter, suffix] = fence;
+        if (open) {
+            if (delimiter[0] !== open[0] || delimiter.length < open.length || suffix.trim())
+                continue;
+            if (start && !message.slice(fence.index + fence[0].length).trim()) {
+                end = fence;
+                break;
+            }
+            open = "";
+            start = undefined;
+            continue;
+        }
+        open = delimiter;
+        if (delimiter === "\x60\x60\x60" && suffix.trim() === "agentbox-files")
+            start = fence;
+    }
     if (!start)
         return { text: message };
-    const payload = message.slice(start.index + start[0].length);
-    const end = /\r?\n\x60{3}[ \t]*\s*$/.exec(payload);
+    const text = message.slice(0, start.index).trimEnd();
     if (!end)
-        return { text: streaming ? message.slice(0, start.index).trimEnd() : message };
-    const raw = payload.slice(0, end.index).trim();
+        return { text: streaming ? text : message };
+    const raw = message.slice(start.index + start[0].length, end.index).trim();
     if (raw.length > 768 * 1024)
         return { text: message };
     let result;
@@ -40,7 +56,7 @@ export function splitResultFiles(message, streaming = false) {
     if (!files.size)
         return { text: message };
     const title = typeof result.title === "string" ? result.title.trim().slice(0, 100) : "";
-    return { text: message.slice(0, start.index).trimEnd(), result: { title, files: [...files.values()] } };
+    return { text, result: { title, files: [...files.values()] } };
 }
 function element(tag, cls, text) {
     const node = document.createElement(tag);

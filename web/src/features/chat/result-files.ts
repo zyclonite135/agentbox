@@ -7,15 +7,26 @@ import { fmtBytes } from "../../util.js";
 interface ResultFile { path: string; bytes?: number }
 interface ResultFiles { title: string; files: ResultFile[] }
 const internalNames = new Set([".git", ".agentbox", ".codex", ".claude", ".ds_store", "thumbs.db"]);
-const marker = /^\x60{3}agentbox-files[ \t]*\r?$/gm;
+const fences = /^ {0,3}(\x60{3,}|~{3,})([^\r\n]*)\r?$/gm;
 
 export function splitResultFiles(message: string, streaming = false): { text: string; result?: ResultFiles } {
-  const start = [...message.matchAll(marker)].at(-1);
+  let open = "", start: RegExpMatchArray | undefined, end: RegExpMatchArray | undefined;
+  for (const fence of message.matchAll(fences)) {
+    const [, delimiter, suffix] = fence;
+    if (open) {
+      if (delimiter[0] !== open[0] || delimiter.length < open.length || suffix.trim()) continue;
+      if (start && !message.slice(fence.index! + fence[0].length).trim()) { end = fence; break; }
+      open = "";
+      start = undefined;
+      continue;
+    }
+    open = delimiter;
+    if (delimiter === "\x60\x60\x60" && suffix.trim() === "agentbox-files") start = fence;
+  }
   if (!start) return { text: message };
-  const payload = message.slice(start.index + start[0].length);
-  const end = /\r?\n\x60{3}[ \t]*\s*$/.exec(payload);
-  if (!end) return { text: streaming ? message.slice(0, start.index).trimEnd() : message };
-  const raw = payload.slice(0, end.index).trim();
+  const text = message.slice(0, start.index).trimEnd();
+  if (!end) return { text: streaming ? text : message };
+  const raw = message.slice(start.index! + start[0].length, end.index).trim();
   if (raw.length > 768 * 1024) return { text: message };
   let result: { title?: unknown; files?: unknown };
   try { result = JSON.parse(raw); } catch { return { text: message }; }
@@ -32,7 +43,7 @@ export function splitResultFiles(message: string, streaming = false): { text: st
   }
   if (!files.size) return { text: message };
   const title = typeof result.title === "string" ? result.title.trim().slice(0, 100) : "";
-  return { text: message.slice(0, start.index).trimEnd(), result: { title, files: [...files.values()] } };
+  return { text, result: { title, files: [...files.values()] } };
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string) {

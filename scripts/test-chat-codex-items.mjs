@@ -257,6 +257,20 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  const results = ['site/index.html', 'site/css/main.css', 'site/js/main.js', 'site/img/logo.svg', 'site/pages/about.html'];
  const declared = count => 'Готово.\n\n' + '```agentbox-files\n' +
   JSON.stringify({title:'Website',files:results.slice(0,count).map(path=>({path,bytes:24}))}) + '\n```';
+ const protocol = await page.evaluate(async answer => {
+  const entry = document.querySelector('script[src$="/js/main.js"]');
+  const {splitResultFiles} = await import(new URL('./features/chat/result-files.js', entry.src).href);
+  const nested = '~~~~markdown\n' + answer + '\n~~~~';
+  const followed = answer + '\n\nOrdinary text follows.';
+  return {
+   nested: splitResultFiles(nested).text === nested && !splitResultFiles(nested).result,
+   nestedStreaming: splitResultFiles(nested.slice(0, -5), true).text === nested.slice(0, -5),
+   followed: splitResultFiles(followed, true).text === followed && !splitResultFiles(followed).result,
+   incomplete: splitResultFiles(answer.slice(0, -3), true).text === 'Готово.',
+   completed: splitResultFiles(answer).result?.files.length === 1,
+  };
+ }, declared(1));
+ assert.deepEqual(protocol,{nested:true,nestedStreaming:true,followed:true,incomplete:true,completed:true});
  const individual = '**/api/sessions/fixture-space/file?*';
  const archive = '**/api/sessions/fixture-space/chat/files/archive';
  const resultFile = async route => {

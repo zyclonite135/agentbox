@@ -137,8 +137,26 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await until(() => images.first().evaluate(img => img.naturalWidth > 0), 'history image loads inline');
  assert.equal(await images.count(), 1, 'ImageGen and ViewImage show one image in the same turn');
  await images.first().click();
- await page.locator('#lb-img').waitFor();
- await page.locator('#lb-close').click();
+ const preview = page.locator('#lb-img');
+ const close = page.locator('#lb-close');
+ await preview.waitFor();
+ for (const [width, height, viewport] of [[640, 1500, {width:1280, height:900}], [1500, 640, {width:390, height:844}]]) {
+  await page.setViewportSize(viewport);
+  await preview.evaluate(async (img, [width, height]) => {
+   const canvas = document.createElement('canvas');
+   canvas.width = width;
+   canvas.height = height;
+   img.src = canvas.toDataURL('image/png');
+   await img.decode();
+  }, [width, height]);
+  const imageBox = await preview.boundingBox();
+  const closeBox = await close.boundingBox();
+  assert.ok(Math.abs(imageBox.x + imageBox.width - closeBox.x - closeBox.width - 10) < 2, 'close is inset from the right edge of the displayed image');
+  assert.ok(Math.abs(closeBox.y - imageBox.y - 10) < 2, 'close is inset from the top edge of the displayed image');
+ }
+ await close.click();
+ await page.locator('#dlg-img').waitFor({state:'hidden'});
+ await page.setViewportSize({width:1280, height:900});
  send({type:'user_message', text:'再看一下', turn:turn('t4'), ts});
  send({type:'agent_event', event:{type:'item.completed', item:viewItem}});
  await until(async () => await images.count() === 2, 'the same image is visible in a later live turn');

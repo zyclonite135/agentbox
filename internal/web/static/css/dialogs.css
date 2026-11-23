@@ -254,10 +254,21 @@ dialog label.check input { margin: 0; flex: none; }
 .dlg-img[open] { display: flex; }
 .dlg-img { --dlg-from: scale(.94); } /* 灯箱是从缩略图「放大」出来的，不做上移 */
 .dlg-img::backdrop { background: var(--backdrop-strong); }
-.dlg-img img {
+.lb-stage {
   flex: 1; min-height: 0;
-  width: 100%;
-  object-fit: contain;
+  display: grid; place-items: center;
+  container-type: size;
+  pointer-events: none;
+}
+.lb-frame {
+  position: relative;
+  min-width: 44px; min-height: 44px;
+  display: grid; place-items: center;
+  pointer-events: auto;
+}
+.lb-frame img {
+  display: block;
+  max-width: 100cqw; max-height: 100cqh;
   cursor: zoom-out;
 }
 .lb-bar {

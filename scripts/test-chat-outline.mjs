@@ -80,6 +80,20 @@ export async function chatOutlineSmoke(page, { session, send }) {
   assert.equal(await rail.locator('.outline-tick').count(), N, 'one tick per message, including pages not loaded yet');
   assert.equal(await page.locator('#chat-log .msg.user').count(), PAGE);
   assert.equal(await rail.getAttribute('aria-label'), '对话导航');
+  const viewport = page.viewportSize();
+  await page.setViewportSize({width:1920,height:viewport.height});
+  const atSidebar = collapsed => page.waitForFunction(collapsed => {
+    const sidebar = document.querySelector('#sidebar').getBoundingClientRect();
+    const rail = document.querySelector('#tab-chat > .outline-rail').getBoundingClientRect();
+    return (collapsed ? sidebar.width < 100 : sidebar.width > 100) &&
+      Math.abs(rail.left - sidebar.right - 6) < 2;
+  }, collapsed);
+  await atSidebar(false);
+  await page.locator('#btn-sidebar-toggle').click();
+  await atSidebar(true);
+  await page.locator('#btn-sidebar-toggle').click();
+  await atSidebar(false);
+  await page.setViewportSize(viewport);
   await settle();
   let state = await ticks();
   assert.ok(state[N - 1].active && state.filter(t => t.active).length === 1, 'at the bottom the newest tick is current');

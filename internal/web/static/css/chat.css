@@ -1792,12 +1792,12 @@ details.think.streaming .think-body::after {
 }
 
 /* ---- 刻度导航（features/chat/outline.ts）：对话流旁一条用户消息一根短横线。
- * 桌面在内容栏左侧留白里，鼠标划过时像程序坞一样鼓起（只变长）；颜色只分两档：
+ * 桌面贴在侧栏右侧，鼠标划过时像程序坞一样鼓起（只变长）；颜色只分两档：
  * 指着的（.hot）和当前阅读位置（.active）用正文色，其余一律同一灰色。
  * 手机挪到右边缘（左边缘是 Safari 的返回手势），滚动时浮现、按住拖动预览。 ---- */
 .outline-rail {
   position: absolute; z-index: 6;
-  left: max(6px, calc((100% - 800px) / 2 - 64px));
+  left: 6px;
   width: 44px; padding: 12px 0;
   transform: translateY(-50%);
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;

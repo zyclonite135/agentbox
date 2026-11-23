@@ -106,7 +106,13 @@ export function answerFooter(body, context) {
     // 外面只放时间和金额；模型、推理强度、计费说明与本轮 token 收进「详情」
     const details = document.createElement("div");
     details.className = "answer-details";
-    details.hidden = true;
+    const detailsShell = document.createElement("div");
+    detailsShell.className = "answer-details-shell";
+    detailsShell.inert = true;
+    const detailsClip = document.createElement("div");
+    detailsClip.className = "answer-details-clip";
+    detailsClip.append(details);
+    detailsShell.append(detailsClip);
     const detailRow = (key) => {
         const row = document.createElement("div");
         row.className = "ad-row";
@@ -132,8 +138,9 @@ export function answerFooter(body, context) {
     receipt.className = "answer-receipt";
     details.append(model.row, effort.row, durationDetail.row, costDetail.row, receipt);
     more.addEventListener("click", () => {
-        details.hidden = !details.hidden;
-        more.setAttribute("aria-expanded", String(!details.hidden));
+        const open = detailsShell.classList.toggle("open");
+        detailsShell.inert = !open;
+        more.setAttribute("aria-expanded", String(open));
     });
     actions.append(copy, more);
     const info = document.createElement("div");
@@ -145,7 +152,7 @@ export function answerFooter(body, context) {
     const cost = document.createElement("span");
     cost.className = "answer-cost";
     info.append(date, took, cost);
-    el.append(actions, info, details);
+    el.append(actions, info, detailsShell);
     copy.addEventListener("click", async () => {
         const source = [...body.querySelectorAll(".msg.agent")]
             .map(node => answerSources.get(node) || "").filter(Boolean).join("\n\n");

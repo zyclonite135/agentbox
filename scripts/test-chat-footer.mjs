@@ -60,6 +60,24 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  await calculation.locator('summary').click();
  assert.match(await footers.last().innerText(),/入 820 · 出 215 tokens/);
  await footers.last().getByRole('button',{name:'回答详情',exact:true}).click();
+ const footerToggle = footers.last().locator('.answer-more');
+ const shell = footers.last().locator('.answer-details-shell');
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ await footerToggle.click();
+ assert.match(await shell.evaluate(el=>getComputedStyle(el).transitionDuration), /^0\.35s/);
+ await page.waitForFunction(el=>{
+  const height = el.getBoundingClientRect().height;
+  return height > 0 && height < el.querySelector('.answer-details').getBoundingClientRect().height;
+ },await shell.elementHandle());
+ await footerToggle.click();
+ assert.match(await shell.evaluate(el=>getComputedStyle(el).transitionDuration), /^0\.3s/);
+ await footerToggle.click();
+ assert.equal(await footerToggle.getAttribute('aria-expanded'),'true');
+ await footerToggle.click();
+ await shell.waitFor({state:'hidden'});
+ assert.equal(await shell.evaluate(el=>el.getBoundingClientRect().height),0);
+ await page.emulateMedia({reducedMotion:'reduce'});
+ assert.match(await shell.evaluate(el=>getComputedStyle(el).transitionDuration), /^0s/);
  await page.context().grantPermissions(clipboardPermissions());
  await footers.last().getByRole('button',{name:'复制回答',exact:true}).click();
  await footers.last().getByRole('button',{name:'已复制回答',exact:true}).waitFor();

@@ -178,12 +178,21 @@
 .answer-duration[hidden] { display: none; }
 .answer-cost { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .answer-cost.priced { color: var(--text); font-family: var(--mono); font-size: 0.95em; }
+.answer-details-shell {
+  grid-column: 1 / -1; display: grid; grid-template-rows: 0fr;
+  min-width: 0; visibility: hidden;
+  transition: grid-template-rows 300ms var(--ease-out), visibility 0s linear 300ms;
+}
+.answer-details-shell.open {
+  grid-template-rows: 1fr; visibility: visible;
+  transition: grid-template-rows 350ms var(--ease-out), visibility 0s;
+}
+.answer-details-clip { min-height: 0; overflow: hidden; }
 .answer-details {
-  grid-column: 1 / -1; width: 100%; min-width: 0; max-width: 620px; margin: 6px 0 4px;
+  width: 100%; min-width: 0; max-width: 620px; margin: 6px 0 4px;
   padding: 4px 12px; border: 1px solid var(--line);
   border-radius: calc(10px * var(--radius-scale)); background: var(--panel-solid);
 }
-.answer-details[hidden] { display: none; }
 .ad-row {
   display: grid; grid-template-columns: min(42%, 11rem) minmax(0, 1fr);
   align-items: baseline; gap: 2px 10px; padding: 7px 0;
@@ -204,6 +213,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .answer-copy { transition: none; }
+  .answer-details-shell, .answer-details-shell.open { transition: none; }
 }
 
 /* ---- 轻量 Markdown ---- */

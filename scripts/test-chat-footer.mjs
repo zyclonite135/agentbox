@@ -43,6 +43,12 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  assert.match(await footers.first().locator('.answer-cost').getAttribute('data-tip'),/客户端上报/);
  await footers.last().getByRole('button',{name:'回答详情',exact:true}).click();
  assert.equal(await footers.last().locator('.chip.result').isVisible(),true);
+ assert.equal(await footers.last().locator('.answer-duration-detail').isVisible(),true);
+ const calculation = footers.last().locator('.answer-calculation');
+ assert.equal(await calculation.locator('.ad-note').isVisible(),false);
+ await calculation.locator('summary').click();
+ assert.equal((await calculation.locator('.ad-note').textContent()).trim(),'按单价估算');
+ await calculation.locator('summary').click();
  assert.match(await footers.last().innerText(),/入 820 · 出 215 tokens/);
  await footers.last().getByRole('button',{name:'回答详情',exact:true}).click();
  await page.context().grantPermissions(clipboardPermissions());
@@ -70,6 +76,7 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
   await more.click();
   assert.match(await mobileFooter.locator('.answer-duration-detail').innerText(), /1 分 23 秒/);
   assert.match(await mobileFooter.locator('.answer-details').innerText(), /\$0\.0314/);
+  assert.equal(await mobileFooter.locator('.answer-calculation summary').isVisible(),true);
   await more.click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   const box = await footers.last().boundingBox();

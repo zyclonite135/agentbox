@@ -179,24 +179,28 @@
 .answer-cost { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .answer-cost.priced { color: var(--text); font-family: var(--mono); font-size: 0.95em; }
 .answer-details {
-  flex-basis: 100%; margin: 6px 0 4px 8px; padding: 2px 0 2px 12px;
-  border-left: 2px solid var(--line); overflow-wrap: anywhere;
+  flex-basis: 100%; min-width: 0; max-width: 620px; margin: 6px 0 4px;
+  padding: 4px 12px; border: 1px solid var(--line);
+  border-radius: calc(10px * var(--radius-scale)); background: var(--panel-solid);
 }
 .answer-details[hidden] { display: none; }
-.answer-details .answer-duration-detail { display: none; }
-.answer-details > div + div { margin-top: 4px; }
-.ad-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
-.ad-k { flex: none; width: 4.5em; color: var(--muted); }
-.ad-v { color: var(--text); font-variant-numeric: tabular-nums; }
-.ad-note { flex-basis: 100%; padding-left: calc(4.5em + 10px); color: var(--muted); }
-.ad-note:empty { display: none; }
-@media (max-width: 760px) { .ad-note { padding-left: 0; } }
+.ad-row {
+  display: grid; grid-template-columns: min(42%, 11rem) minmax(0, 1fr);
+  align-items: baseline; gap: 2px 10px; padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ad-row[hidden], .ad-note:empty { display: none; }
+.ad-k { color: var(--muted); }
+.ad-v { color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ad-note, .answer-calculation { grid-column: 2; color: var(--muted); overflow-wrap: anywhere; }
+.answer-calculation summary { cursor: pointer; }
+.answer-calculation .ad-note { display: block; margin-top: 4px; }
+.answer-receipt:not(:empty) { padding: 7px 0; overflow-wrap: anywhere; }
 .answer-details .chip.result { font-size: inherit; padding: 0; opacity: 1; }
 @media (max-width: 760px) {
   .answer-copy { width: 34px; height: 34px; }
   .answer-context { padding: 9px 0; gap: 3px 10px; }
   .answer-context :is(.answer-duration, .answer-cost) { display: none; }
-  .answer-details .answer-duration-detail:not([hidden]) { display: flex; }
 }
 @media (prefers-reduced-motion: reduce) {
   .answer-copy { transition: none; }

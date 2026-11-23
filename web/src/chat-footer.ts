@@ -67,30 +67,30 @@ function costView(context: AnswerContext): { label: string; detail: string; pric
   const money = (micro: number) => "$" + (micro / 1e6).toFixed(micro > 0 && micro < 100 ? 6 : 4);
   const cost = context.cost;
   if (cost && cost.source !== "unknown") {
-    if (cost.source === "unpriced") return { label: i18nText("未定价"), detail: i18nText("本轮已记录用量，但这个模型还没有设置单价，所以没有算出金额；这不表示模型服务免费。"), priced: false };
+    if (cost.source === "unpriced") return { label: i18nText("未定价"), detail: i18nText("模型未设置单价。"), priced: false };
     const source = SOURCE_TEXT[cost.source] || i18nText("混合计价");
     if (context.costRunning) return {
       label: i18nText("{p0} · 累计中", { p0: (cost.partial ? "≥ " : "") + money(cost.cost_micro_usd) }),
-      detail: i18nText("回合进行中：已结束的模型请求累计 {p0}，{p1}，每次请求结束就更新。子 Agent、上下文压缩等其余请求在回合结束时补记，最终金额以那时为准。", { p0: money(cost.cost_micro_usd), p1: cost.partial ? i18nText("部分模型未设置单价，金额不完整") : source }),
+      detail: i18nText("回合结束后显示最终金额。"),
       priced: true,
     };
     return {
       label: (cost.partial ? "≥ " : "") + money(cost.cost_micro_usd),
-      detail: i18nText("本轮用量成本 {p0}，{p1}。与使用记录一致，包含本轮子模型，不含自动起标题；不代表订阅额外扣费或中转站实际账单。", { p0: String(money(cost.cost_micro_usd)), p1: String(cost.partial ? i18nText("部分模型未设置单价，金额不完整") : source) }),
+      detail: cost.partial ? i18nText("部分模型未设置单价，金额不完整") : source,
       priced: true,
     };
   }
   // /compact 同样 num_turns=0 却会请求模型：等服务端确认这一轮没有用量再这么说
   if (context.local && (cost ? cost.source === "unknown" : context.historical)) return {
     label: i18nText("未调用模型"),
-    detail: i18nText("这条斜杠命令由 CLI 在本地执行，没有请求模型，不产生费用。"), priced: false,
+    detail: i18nText("命令在本地执行。"), priced: false,
   };
   if (!context.turn && context.legacyCost !== undefined) return {
     label: money(context.legacyCost),
-    detail: i18nText("历史回答中客户端上报的用量成本；无法关联当时的入账记录，不代表订阅额外扣费或中转站实际账单。"), priced: true,
+    detail: i18nText("客户端上报"), priced: true,
   };
   const pending = !cost && !context.historical;
-  return { label: pending ? i18nText("费用待结算") : i18nText("费用未记录"), detail: pending ? i18nText("每次模型请求结束后显示已入账的用量成本，回合结束时给出最终金额。") : i18nText("未找到这轮回答对应的费用记录，未按当前价格重算历史。"), priced: false };
+  return { label: pending ? i18nText("费用待结算") : i18nText("费用未记录"), detail: pending ? i18nText("回合结束后显示最终金额。") : i18nText("没有费用记录。"), priced: false };
 }
 
 export function answerFooter(body: HTMLElement, context: AnswerContext) {
@@ -130,6 +130,12 @@ export function answerFooter(body: HTMLElement, context: AnswerContext) {
   const model = detailRow(() => i18nText("模型"));
   const effort = detailRow(() => i18nText("推理强度"));
   const costDetail = detailRow(() => i18nText("费用"));
+  const calculation = document.createElement("details");
+  calculation.className = "answer-calculation";
+  const calculationLabel = document.createElement("summary");
+  setText(calculationLabel, "费用如何计算");
+  calculation.append(calculationLabel, costDetail.note);
+  costDetail.row.append(calculation);
   const durationDetail = detailRow(() => i18nText("耗时"));
   durationDetail.row.classList.add("answer-duration-detail");
   const receipt = document.createElement("div");
@@ -175,7 +181,7 @@ export function answerFooter(body: HTMLElement, context: AnswerContext) {
     setTextRender(model.v, () => context.reportedModel || turn?.model || i18nText("未记录"));
     setTextRender(model.note, () => context.reportedModel
       ? (turn && turn.model !== context.reportedModel ? i18nText("请求的是 {p0}，以模型实际返回为准", { p0: String(turn.model) }) : "")
-      : turn ? i18nText("服务未返回实际模型，这里是请求的模型") : i18nText("这条历史回答未记录模型"));
+      : turn ? i18nText("请求的模型") : "");
     setTextRender(effort.v, () => reasoningText(turn));
     setTextRender(effort.note, () => !turn ? i18nText("这条历史回答未记录推理设置")
       : turn.unsupported ? i18nText("本轮模型不支持调整推理强度")

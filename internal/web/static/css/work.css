@@ -42,7 +42,12 @@
 .home-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .home-title { margin: 0; font-size: 20px; font-weight: 600; color: var(--text); text-wrap: balance; }
 .home-sub { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
-.home-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.home-list {
+  --home-card-gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: var(--home-card-gap);
+}
 .home-card {
   display: flex; align-items: flex-start; gap: 12px; min-width: 0;
   padding: 14px 16px; text-align: left;
@@ -63,7 +68,9 @@
 .home-card-spend { font-size: 12px; color: var(--muted); min-height: 1.6em; }
 .home-card-spend .num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); }
 @media (min-width: 761px) {
-  .home-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home-list {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, max(300px, calc((100% - var(--home-card-gap)) / 2))), 1fr));
+  }
 }
 @media (max-width: 760px) {
   .empty.has-recent { padding: 16px; }

@@ -610,7 +610,7 @@ func (t *chatTurn) runTurnObserved(parent context.Context, text, model, effort s
 		control = controls[0]
 	}
 	service := chat.Service{Runtime: chatRuntime{t}, Usage: r.srv.usageService()}
-	in := chat.Input{SessionID: r.sessID, Text: text, Model: model, Effort: effort, Control: control, Timeout: r.srv.turnTimeout()}
+	in := chat.Input{SessionID: r.sessID, Text: text, Model: model, Effort: effort, Control: control, Timeout: r.srv.turnTimeout(), Preface: chatFileResultsHint}
 	if receipt != nil && receipt.receipt.Request != nil {
 		in.Suggestions = receipt.receipt.Request.Suggestions
 		in.Questions = receipt.receipt.Request.Questions
@@ -627,7 +627,8 @@ func (t *chatTurn) runTurnObserved(parent context.Context, text, model, effort s
 		}
 		if grant != nil {
 			defer grant.close()
-			in.Extras, in.Timeout, in.Preface = grant.extras, r.srv.delegationTurnTimeout(), delegation.TurnReminder()
+			in.Extras, in.Timeout = grant.extras, r.srv.delegationTurnTimeout()
+			in.Preface = delegation.TurnReminder() + "\n\n" + in.Preface
 		}
 	}
 	// The thread's own pid file: a stop signal must reach this thread's CLI,

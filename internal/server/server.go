@@ -498,6 +498,7 @@ func (s *Server) routes() *http.ServeMux {
 	mux.Handle("POST /api/sessions/{id}/files/rename", s.auth(s.withSession(s.handleFileRename)))
 	mux.Handle("GET /api/sessions/{id}/file", s.auth(s.withSession(s.handleFileGet)))
 	mux.Handle("GET /api/sessions/{id}/chat/image", s.auth(s.withSession(s.handleChatImage)))
+	mux.Handle("POST /api/sessions/{id}/chat/files/archive", s.auth(s.withSession(s.handleChatFilesArchive)))
 	mux.Handle("PUT /api/sessions/{id}/file", s.auth(s.withSession(s.handleFilePut)))
 	mux.Handle("GET /api/sessions/{id}/preview", s.auth(s.withSession(s.handlePreviewGrant)))
 	mux.Handle("POST /api/sessions/{id}/images", s.auth(s.withSession(s.handleImageUpload)))

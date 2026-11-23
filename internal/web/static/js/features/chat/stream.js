@@ -1,4 +1,4 @@
-import { liveNode, renderEvent, formatText, answerSources } from "../../chat-render.js";
+import { liveNode, renderEvent, renderAnswerContents } from "../../chat-render.js";
 import { t as i18nText } from "../../i18n.js";
 import { codexStreamEvent, codexWorkLabel } from "./codex-items.js";
 import { resetToolRows, settleToolRow } from "./tool-rows.js";
@@ -138,6 +138,8 @@ export function createChatStream(hooks) {
         if (b.raf)
             cancelAnimationFrame(b.raf);
         b.el.classList.remove("streaming", "live-text");
+        if (b.kind === "text")
+            renderAnswerContents(b.body, b.shown);
         if (b.kind === "thinking") {
             b.el.open = false;
             foldThink(b.el);
@@ -326,8 +328,7 @@ export function createChatStream(hooks) {
         const log = hooks.log();
         const stick = hooks.nearBottom(log);
         if (b.kind === "text") {
-            b.body.replaceChildren(formatText(b.shown));
-            answerSources.set(b.el, b.shown);
+            renderAnswerContents(b.body, b.shown, true);
             const footer = hooks.footer();
             if (footer && b.shown)
                 footer.el.hidden = false;

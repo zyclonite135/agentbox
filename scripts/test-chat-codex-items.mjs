@@ -254,6 +254,66 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  assert.equal(overlayImage.x + overlayImage.width - overlayMenu.x - overlayMenu.width, 8);
  await page.setViewportSize({width:1280, height:900});
 
+ const results = ['site/index.html', 'site/css/main.css', 'site/js/main.js', 'site/img/logo.svg', 'site/pages/about.html'];
+ const declared = count => 'Готово.\n\n' + '```agentbox-files\n' +
+  JSON.stringify({title:'Website',files:results.slice(0,count).map(path=>({path,bytes:24}))}) + '\n```';
+ const individual = '**/api/sessions/fixture-space/file?*';
+ const archive = '**/api/sessions/fixture-space/chat/files/archive';
+ const resultFile = async route => {
+  const path = new URL(route.request().url()).searchParams.get('path');
+  assert.equal(new URL(route.request().url()).searchParams.get('dl'), '1');
+  if (path === results[1]) return route.fulfill({status:404});
+  await route.fulfill({body:path,contentType:'application/octet-stream'});
+ };
+ let archiveFails = true;
+ const resultArchive = async route => {
+  assert.deepEqual(route.request().postDataJSON().paths, results);
+  assert.equal(route.request().method(), 'POST');
+  await route.fulfill(archiveFails ? {status:404} : {body:'zip fixture',contentType:'application/zip'});
+ };
+ await page.route(individual, resultFile);
+ await page.route(archive, resultArchive);
+ setHistory([1,4,5].flatMap((count,i)=>[
+  {kind:'user',ts,text:'Generate files',turn:turn('file-'+i)},
+  ev('item.completed',{type:'agent_message',text:declared(count)}),
+ ]));
+ await reload();
+ const cards = page.locator('#chat-log .chat-results');
+ await cards.nth(2).waitFor();
+ assert.equal(await cards.nth(0).locator('.chat-result-file').count(),1);
+ assert.equal(await cards.nth(1).locator('.chat-result-file').count(),4);
+ const project = cards.nth(2);
+ assert.match(await project.innerText(), /5 个结果文件/);
+ assert.doesNotMatch(await page.locator('#chat-log').innerText(), /agentbox-files/);
+ await project.screenshot({path:'output/playwright/chat-results-desktop.png', animations:'disabled'});
+ await page.setViewportSize({width:320,height:740});
+ await project.locator('summary').click();
+ assert.equal(await project.locator('.chat-result-file:visible').count(),5);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth),true);
+ await project.screenshot({path:'output/playwright/chat-results-mobile.png', animations:'disabled'});
+ const checkDownload = async (target,name,expected) => {
+  const [download] = await Promise.all([page.waitForEvent('download'), target.click()]);
+  assert.equal(download.suggestedFilename(),name);
+  assert.equal(await readFile(await download.path(),'utf8'),expected);
+ };
+ const missingFile = project.locator('.chat-result-file').filter({hasText:'main.css'});
+ await missingFile.locator('button').click();
+ await missingFile.getByText('文件已移动或删除。').waitFor();
+ await checkDownload(project.locator('.chat-result-file').filter({hasText:'index.html'}).locator('button'),'index.html',results[0]);
+ await project.locator('.chat-result-zip').click();
+ await project.getByText('部分文件已不可用，无法下载 ZIP。').waitFor();
+ archiveFails = false;
+ await checkDownload(project.locator('.chat-result-zip'),'Website.zip','zip fixture');
+ send({type:'user_message',text:'Generate another result',turn:turn('file-live'),ts});
+ send({type:'status',state:'running'});
+ generationEvent('item.completed',{type:'agent_message',text:declared(1)});
+ await cards.nth(3).waitFor();
+ assert.equal(await cards.nth(3).locator('.chat-result-file').count(),1);
+ send({type:'status',state:'idle'});
+ await page.unroute(individual,resultFile);
+ await page.unroute(archive,resultArchive);
+ await page.setViewportSize({width:1280,height:900});
+
  // Leave the workspace as Codex, as the tasks suite does: later suites expect it.
  setHistory([]);
  console.log('Chat Codex items: commands named like the CLI (Read/Shell, legacy rows paired by command), exit/duration/diff stats, expandable output head/tail and diffs, text-only results with http(s) links only, live spinner + streamed output completing in place, unfinished rows settled when idle, mobile passed');

@@ -114,6 +114,9 @@ export const ICON_SLOTS = {
   "chat.warning": { group: "chat", label: "对话警告", base: "alert" },
   "chat.error": { group: "chat", label: "对话错误", base: "x-circle" },
   "chat.attachment": { group: "chat", label: "附件文件", base: "file" },
+  "chat.result-pdf": { group: "chat", label: "PDF 文件", icon: "tabler:file-type-pdf" },
+  "chat.result-sheet": { group: "chat", label: "电子表格", icon: "tabler:file-spreadsheet" },
+  "chat.result-document": { group: "chat", label: "文档文件", icon: "tabler:file-text" },
 
   // ── 输入框 ──
   "composer.attach": { group: "composer", label: "添加附件", icon: "tabler:paperclip" },

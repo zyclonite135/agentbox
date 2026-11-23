@@ -70,7 +70,7 @@ func (c fakeTurn) eof() bool {
 func (c fakeTurn) prompt(want string) {
 	m := c.read()
 	msg, _ := m["message"].(map[string]any)
-	if m["type"] != "user" || msg["role"] != "user" || msg["content"] != want {
+	if m["type"] != "user" || msg["role"] != "user" || msg["content"] != chatFileResultsHint+"\n\n"+want {
 		c.t.Errorf("prompt %v", m)
 	}
 }

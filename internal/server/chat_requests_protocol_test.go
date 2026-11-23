@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"agentbox/internal/agent"
 	"agentbox/internal/chat"
 	"agentbox/internal/config"
 	"agentbox/internal/dockerx"
@@ -167,7 +168,11 @@ func newAgentReceiptFixture(t *testing.T, agentType, output string, corrupt bool
 			if err != nil {
 				return
 			}
-			if string(prompt) != f.input.Text {
+			want := f.input.Text
+			if !agent.IsClaudeSlashCommand(want) {
+				want = chatFileResultsHint + "\n\n" + want
+			}
+			if string(prompt) != want {
 				t.Errorf("unexpected prompt %q", prompt)
 			}
 			if f.invocations.Add(1) == 1 {

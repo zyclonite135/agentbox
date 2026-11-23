@@ -20,6 +20,7 @@ import { usageCard, usageReportOf } from "./features/chat/usage-card.js";
 import { syntaxMarks, type SyntaxMark } from "./features/chat/syntax.js";
 import { fmtTokens } from "./usage-math.js";
 import { codexItemNodes } from "./features/chat/codex-items.js";
+import { resultFilesCard, splitResultFiles } from "./features/chat/result-files.js";
 import { breakClaudeGroup, claudeTaskProgress, claudeToolResults, claudeToolTitle, claudeToolUse, subAgentKnown, useMarkdown } from "./features/chat/claude-tools.js";
 import { heartbeatNode } from "./features/chat/folds.js";
 
@@ -280,9 +281,16 @@ export const answerSources = new WeakMap<HTMLElement, string>();
 function agentText(text: string) {
   const d = document.createElement("div");
   d.className = "msg agent";
-  d.appendChild(formatText(text));
-  answerSources.set(d, text);
+  renderAnswerContents(d, text);
   return d;
+}
+
+export function renderAnswerContents(node: HTMLElement, message: string, streaming = false) {
+  const { text, result } = splitResultFiles(message, streaming);
+  node.replaceChildren(formatText(text));
+  const card = !streaming && result ? resultFilesCard(result) : null;
+  if (card) node.append(card);
+  answerSources.set(node, text);
 }
 
 /* Codex 计划模式给出的方案：正文照常渲染，上方标一行「计划」 */

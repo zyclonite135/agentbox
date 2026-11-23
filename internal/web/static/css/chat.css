@@ -145,11 +145,11 @@
 
 /* Answer actions and provenance: one quiet footer, always reachable on touch. */
 .answer-footer {
-  display: flex; align-items: flex-start; flex-wrap: wrap; gap: 0 8px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 0 8px;
   margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.6;
 }
 .answer-footer[hidden] { display: none; }
-.answer-actions { display: flex; flex: none; }
+.answer-actions { display: flex; }
 .answer-copy {
   flex: none; width: 32px; height: 32px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -168,7 +168,7 @@
 @keyframes check-draw { from { stroke-dashoffset: 20; } to { stroke-dashoffset: 0; } }
 .answer-context {
   display: flex; align-items: center; flex-wrap: wrap; gap: 2px 12px;
-  flex: 1; min-width: 0; padding: 6px 0;
+  min-width: 0; padding: 6px 0;
 }
 .answer-context > * { min-width: 0; overflow-wrap: anywhere; }
 .answer-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -179,7 +179,7 @@
 .answer-cost { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .answer-cost.priced { color: var(--text); font-family: var(--mono); font-size: 0.95em; }
 .answer-details {
-  flex-basis: 100%; min-width: 0; max-width: 620px; margin: 6px 0 4px;
+  grid-column: 1 / -1; width: 100%; min-width: 0; max-width: 620px; margin: 6px 0 4px;
   padding: 4px 12px; border: 1px solid var(--line);
   border-radius: calc(10px * var(--radius-scale)); background: var(--panel-solid);
 }

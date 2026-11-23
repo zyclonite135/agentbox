@@ -41,7 +41,16 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  assert.match(await footers.last().locator('.answer-duration').getAttribute('data-tip'),/本轮从开始到结束共用时 1 分 23 秒/);
  assert.equal(await footers.first().locator('.answer-duration').isVisible(),false);
  assert.match(await footers.first().locator('.answer-cost').getAttribute('data-tip'),/客户端上报/);
+ await page.setViewportSize({width:908,height:720});
+ const answerContext = footers.last().locator('.answer-context');
+ const contextBefore = await answerContext.boundingBox();
  await footers.last().getByRole('button',{name:'回答详情',exact:true}).click();
+ const contextAfter = await answerContext.boundingBox();
+ const detailsBox = await footers.last().locator('.answer-details').boundingBox();
+ const footerBox = await footers.last().boundingBox();
+ assert.equal(contextAfter.width,contextBefore.width,'expanding details does not squeeze the timestamp and cost');
+ assert.ok(detailsBox.y >= contextAfter.y + contextAfter.height && Math.abs(detailsBox.x-footerBox.x) < 1,
+  'details start below the footer metadata and align with the left edge');
  assert.equal(await footers.last().locator('.chip.result').isVisible(),true);
  assert.equal(await footers.last().locator('.answer-duration-detail').isVisible(),true);
  const calculation = footers.last().locator('.answer-calculation');

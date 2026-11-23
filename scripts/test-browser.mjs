@@ -29,7 +29,7 @@ import { chatContextSmoke } from './test-chat-context.mjs';
 import { chatCommandsSmoke } from './test-chat-commands.mjs';
 import { chatMentionsSmoke } from './test-chat-mentions.mjs';
 import { chatTasksSmoke } from './test-chat-tasks.mjs';
-import { chatCodexItemsSmoke } from './test-chat-codex-items.mjs';
+import { chatCodexItemsSmoke, chatImagePNG, chatOverlayPNG } from './test-chat-codex-items.mjs';
 import { chatClaudeToolsSmoke } from './test-chat-claude-tools.mjs';
 import { chatHistorySettingsSmoke, chatPagesSmoke } from './test-chat-pages.mjs';
 import { chatOutlineSmoke } from './test-chat-outline.mjs';
@@ -50,6 +50,15 @@ export async function smoke(page) {
  const root = resolve(fileURLToPath(new URL('../internal/web/static/', import.meta.url)));
  const server = createServer(async (req,res) => {
   try {
+   const u = new URL(req.url, 'http://127.0.0.1');
+   if (u.pathname === '/api/sessions/fixture-space/chat/image') {
+    const image = {'thread/image.png':chatImagePNG,'thread/overlay.png':chatOverlayPNG}[u.searchParams.get('path')];
+    if (!Buffer.isBuffer(image)) {res.writeHead(404).end();return;}
+    const headers = {'Content-Type':'image/png','Content-Security-Policy':'sandbox','X-Content-Type-Options':'nosniff'};
+    if (u.searchParams.get('dl') === '1') headers['Content-Disposition'] = 'attachment; filename=image.png';
+    res.writeHead(200, headers).end(image);
+    return;
+   }
    const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/_v\/[^/]+/, '');
    const path = resolve(root, '.' + (rel === '/' ? '/index.html' : rel));
    if (!path.startsWith(root + '/')) {res.writeHead(403).end();return;}
@@ -92,6 +101,7 @@ export async function smoke(page) {
  });
  await page.route('**/api/**', async route => {
   const u = new URL(route.request().url()), path=u.pathname;
+  if (path === '/api/sessions/fixture-space/chat/image') return route.continue();
   let body={};
   if (path === '/api/me/activity' && !/^Bearer \S/.test(route.request().headers().authorization||'')) errors.push('activity reported without a login');
   if (path === '/api/login') body={token:'synthetic-browser-token'};

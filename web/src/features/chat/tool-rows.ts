@@ -171,7 +171,10 @@ export function chatToolImage(containerPath: string, { reveal = false, prompt = 
   const img = el("img", "tc-image");
   img.alt = base(path);
   img.loading = "lazy";
-  if (reveal) img.addEventListener("load", () => img.classList.add("chat-image-reveal"), { once: true });
+  img.addEventListener("load", () => {
+    if (reveal) img.classList.add("chat-image-reveal");
+    if (img.naturalWidth >= 52 && img.naturalHeight >= 52) media.classList.add("image-menu-overlay");
+  }, { once: true });
   link.addEventListener("click", e => {
     e.preventDefault();
     openLightbox(url, path);
@@ -200,7 +203,6 @@ export function chatToolImage(containerPath: string, { reveal = false, prompt = 
     setText(gone, "图片已不在原位置");
     link.replaceWith(gone);
     download.remove();
-    media.classList.add("image-unavailable");
   });
   img.src = url;
   link.append(img);

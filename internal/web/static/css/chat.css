@@ -476,11 +476,12 @@ details.think[open] > summary::after, .fold-open > .fold-head::after, details.fo
   .chat-image-media { position: relative; width: fit-content; max-width: 100%; }
   .chat-image-details { display: block; width: 0; min-width: 100%; }
   .chat-image-details > summary {
-    position: absolute; top: 8px; right: 8px;
     display: grid; place-items: center; width: 36px; height: 36px;
     list-style: none; cursor: pointer;
     background: var(--overlay-chip); color: #dfe3ea; border-radius: var(--radius-round);
   }
+  .image-menu-overlay { min-height: 44px; }
+  .image-menu-overlay .chat-image-details > summary { position: absolute; top: 8px; right: 8px; }
   .chat-image-details > summary::-webkit-details-marker { display: none; }
   .chat-image-details > summary:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
   .chat-image-panel {
@@ -492,7 +493,6 @@ details.think[open] > summary::after, .fold-open > .fold-head::after, details.fo
   .chat-image-panel dl { margin: 0 0 8px; }
   .chat-image-panel dt { color: var(--muted); }
   .chat-image-panel dd { margin: 2px 0 0; white-space: pre-wrap; }
-  .chat-image-media.image-unavailable .chat-image-details > summary { position: static; }
 }
 .chat-image-progress {
   display: grid; place-content: center; justify-items: center; gap: 12px;

@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
+
+export const chatImagePNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aFbcAAAAASUVORK5CYII=', 'base64');
+export const chatOverlayPNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAAAAADH8yjkAAAAIElEQVR4nO3BgQAAAADDoPlTX+AIVQEAAAAAAAAAAHwDJGAAAVWkzOIAAAAASUVORK5CYII=', 'base64');
 
 // Shared synthetic browser suite: Codex tool rows — commands named the way the
 // CLI parses them (Read / Search / List / Shell), exit codes and durations,
@@ -117,14 +120,6 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await page.screenshot({path:'output/playwright/chat-codex-items.png', animations:'disabled'});
 
  const generated = '/home/agent/.codex/generated_images/thread/image.png';
- const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aFbcAAAAASUVORK5CYII=', 'base64');
- const serveGenerated = async route => {
-  const params = new URL(route.request().url()).searchParams;
-  assert.equal(params.get('path'), 'thread/image.png');
-  const headers = params.get('dl') === '1' ? {'content-disposition':'attachment; filename="image.png"'} : {};
-  await route.fulfill({contentType:'image/png', headers, body:png});
- };
- await page.route('**/chat/image?*', serveGenerated);
  const generatedItem = {type:'image_generation', id:'g1', saved_path:generated, status:'completed', revised_prompt:'A cat by the window'};
  const viewItem = {type:'image_view', path:'file://' + generated};
  setHistory([
@@ -142,15 +137,22 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  const imageMenu = page.locator('#chat-log .chat-image-details').first();
  assert.equal(await imageMenu.isVisible(), false);
  assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 2);
- await page.setViewportSize({width:390, height:844});
+ await page.setViewportSize({width:320, height:844});
  assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 0);
  assert.doesNotMatch(await page.locator('#chat-log').innerText(), /generated_images/);
- await imageMenu.locator('summary').click();
+ const menuButton = imageMenu.locator('summary');
+ const bounds = await menuButton.boundingBox(), thumb = await images.first().boundingBox();
+ assert.ok(bounds.x >= thumb.x && bounds.x + bounds.width <= 320 && bounds.y >= thumb.y + thumb.height,
+  'the menu for a tiny thumbnail fits on screen and leaves the thumbnail clickable');
+ await menuButton.click();
  assert.match(await imageMenu.innerText(), /thread\/image\.png/);
  assert.match(await imageMenu.innerText(), /A cat by the window/);
  const [download] = await Promise.all([page.waitForEvent('download'), imageMenu.locator('a[download]').click()]);
  assert.equal(download.suggestedFilename(), 'image.png');
- assert.equal(new URL(download.url()).searchParams.get('dl'), '1');
+ const downloadParams = new URL(download.url()).searchParams;
+ assert.equal(downloadParams.get('dl'), '1');
+ assert.equal(downloadParams.get('path'), 'thread/image.png');
+ assert.deepEqual(await readFile(await download.path()), chatImagePNG);
  await imageMenu.locator('summary').click();
  await page.setViewportSize({width:1280, height:900});
  await images.first().click();
@@ -234,7 +236,23 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  });
  assert.deepEqual(joinedRows, [['g2', 'unfinished'], ['g1', 'completed']],
   'joining split history pages keeps only the completed row when both halves share a generation ID');
- await page.unroute('**/chat/image?*', serveGenerated);
+ await page.setViewportSize({width:320, height:844});
+ generationEvent('item.completed', {...generatedItem, id:'g5', saved_path:generated.replace('image.png', 'missing.png')});
+ const missing = page.locator('#chat-log .chat-tool-image[data-chat-image-path$="/missing.png"]');
+ await missing.scrollIntoViewIfNeeded();
+ await missing.getByText('图片已不在原位置').waitFor();
+ await missing.locator('summary').click();
+ assert.match(await missing.innerText(), /thread\/missing\.png/);
+ assert.equal(await missing.locator('a[download]').count(), 0);
+ generationEvent('item.completed', {...generatedItem, id:'g6', saved_path:generated.replace('image.png', 'overlay.png')});
+ const overlay = page.locator('#chat-log .chat-tool-image[data-chat-image-path$="/overlay.png"]');
+ await overlay.scrollIntoViewIfNeeded();
+ await overlay.locator('.image-menu-overlay').waitFor();
+ const overlayImage = await overlay.locator('img').boundingBox();
+ const overlayMenu = await overlay.locator('summary').boundingBox();
+ assert.equal(overlayMenu.y - overlayImage.y, 8, 'regular images keep the menu over the top-right corner');
+ assert.equal(overlayImage.x + overlayImage.width - overlayMenu.x - overlayMenu.width, 8);
+ await page.setViewportSize({width:1280, height:900});
 
  // Leave the workspace as Codex, as the tasks suite does: later suites expect it.
  setHistory([]);

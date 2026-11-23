@@ -158,6 +158,12 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await close.click();
  await page.locator('#dlg-img').waitFor({state:'hidden'});
  await page.setViewportSize({width:1280, height:900});
+ await images.first().click();
+ await page.keyboard.press('Escape');
+ await page.locator('#dlg-img').waitFor({state:'hidden'});
+ await images.first().click();
+ await page.mouse.click(2, 2);
+ await page.locator('#dlg-img').waitFor({state:'hidden'});
  send({type:'user_message', text:'再看一下', turn:turn('t4'), ts});
  send({type:'status', state:'running'});
  const generationEvent = (type, item) => send({type:'agent_event', event:{type, item}});
@@ -185,6 +191,33 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  send({type:'status', state:'idle'});
  await progress.waitFor({state:'hidden'});
  assert.equal(await page.locator('#chat-log .tool-call[data-status="unfinished"] .tc-badge').last().innerText(), '未完成');
+
+ // A replaying Codex message delays insertion of later tool rows. The idle
+ // event must still retire an image card queued behind that message.
+ send({type:'user_message', text:'再画一张', turn:turn('t5'), ts});
+ send({type:'status', state:'running'});
+ generationEvent('item.completed', {type:'agent_message', text:'准备生成。'.repeat(140)});
+ generationEvent('item.started', {type:'image_generation', id:'g4'});
+ send({type:'status', state:'idle'});
+ const pendingBadge = page.locator('#chat-log .turn').last().locator('.tool-call[data-status="unfinished"] .tc-badge');
+ await pendingBadge.waitFor();
+ assert.equal(await pendingBadge.innerText(), '未完成');
+ assert.equal(await progress.count(), 0, 'no generating card remains after the queued replay');
+
+ const joinedRows = await page.evaluate(async () => {
+  const entry = document.querySelector('script[src$="/js/main.js"]');
+  const {joinTurn} = await import(new URL('./features/chat/turns.js', entry.src).href);
+  const older = document.createElement('div'), newer = document.createElement('div');
+  older.className = newer.className = 'turn';
+  older.innerHTML = '<div class="turn-body"><div data-image-generation-id="g1" data-status="unfinished"></div>' +
+    '<div data-image-generation-id="g2" data-status="unfinished"></div></div>';
+  newer.innerHTML = '<div class="turn-body"><div data-image-generation-id="g1" data-status="completed"></div></div>';
+  joinTurn(older, newer);
+  return Array.from(newer.querySelectorAll('[data-image-generation-id]'), row =>
+   [row.dataset.imageGenerationId, row.dataset.status]);
+ });
+ assert.deepEqual(joinedRows, [['g2', 'unfinished'], ['g1', 'completed']],
+  'joining split history pages keeps only the completed row when both halves share a generation ID');
  await page.unroute('**/chat/image?*', serveGenerated);
 
  // Leave the workspace as Codex, as the tasks suite does: later suites expect it.

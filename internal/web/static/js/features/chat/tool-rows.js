@@ -228,6 +228,10 @@ function settleRow(row) {
         if (v === row)
             pending.delete(k);
 }
+export function settleToolRow(node) {
+    if (node.matches('.tool-call[data-status="running"]'))
+        settleRow(node);
+}
 export function settleToolRows(root, keep) {
     for (const row of root.querySelectorAll('.tool-call[data-status="running"]')) {
         if (!keep?.contains(row))

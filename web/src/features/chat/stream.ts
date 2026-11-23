@@ -2,7 +2,7 @@ import type {AgentEvent,StreamEvent,LiveNode} from "../../types.js";
 import {liveNode,renderEvent,formatText,answerSources} from "../../chat-render.js";
 import {t as i18nText} from "../../i18n.js";
 import {codexStreamEvent,codexWorkLabel} from "./codex-items.js";
-import {resetToolRows} from "./tool-rows.js";
+import {resetToolRows,settleToolRow} from "./tool-rows.js";
 import {claudeWorkLabel} from "./claude-tools.js";
 import {foldThink} from "./folds.js";
 
@@ -63,6 +63,7 @@ let liveBlock: LiveBlock | null = null; // 当前追加目标
 /* 回合结束收尾：缓冲余量上屏，临时节点保留在页面上（中断时留住
  * 已生成的部分），只是不再跟踪、去掉光标 */
 function streamSettle() {
+  for (const job of replayQueue) if (job.node) settleToolRow(job.node);
   if (liveBlock && liveBlock.replay) return; // codex 回放自行收尾，不被回合结束截断
   liveDrain();
   for (const el of liveEls) el.classList.remove("streaming");

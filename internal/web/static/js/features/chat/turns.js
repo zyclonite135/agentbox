@@ -141,7 +141,9 @@ export function joinTurn(older, newer) {
     if (!from || !to)
         return;
     const skip = footers.get(from)?.el, footer = footers.get(to);
-    to.prepend(...[...from.children].filter(node => node !== skip));
+    const finishedImages = new Set(Array.from(to.querySelectorAll(":scope > [data-image-generation-id]:not([data-status=running], [data-status=unfinished])"), node => node.dataset.imageGenerationId));
+    to.prepend(...[...from.children].filter(node => node !== skip &&
+        !(node instanceof HTMLElement && node.dataset.status === "unfinished" && finishedImages.has(node.dataset.imageGenerationId))));
     const images = new Set();
     for (const image of to.querySelectorAll(":scope > [data-chat-image-path]")) {
         const path = image.dataset.chatImagePath;

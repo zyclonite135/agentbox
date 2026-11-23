@@ -222,6 +222,10 @@ function settleRow(row: HTMLElement) {
   for (const [k, v] of pending) if (v === row) pending.delete(k);
 }
 
+export function settleToolRow(node: HTMLElement) {
+  if (node.matches('.tool-call[data-status="running"]')) settleRow(node);
+}
+
 export function settleToolRows(root: ParentNode, keep?: Element | null) {
   for (const row of root.querySelectorAll<HTMLElement>('.tool-call[data-status="running"]')) {
     if (!keep?.contains(row)) settleRow(row);

@@ -243,6 +243,7 @@ function imageGenerationNodes(it, completed, live) {
             return [];
         const wrap = el("div", "tool-call");
         wrap.dataset.status = "running";
+        wrap.dataset.imageGenerationId = key;
         const card = el("div", "chat-image-progress");
         const label = el("span", "");
         setText(label, "正在生成图片…");
@@ -255,6 +256,8 @@ function imageGenerationNodes(it, completed, live) {
     }
     const running = takeRow(key);
     const wrap = running ?? el("div", "tool-call");
+    if (key)
+        wrap.dataset.imageGenerationId = key;
     const saved = str(it.saved_path), prompt = str(it.revised_prompt);
     const failed = str(it.status) === "failed" || !!str(it.failure);
     const meta = failed ? [badge(str(it.failure) === "usage_limit_exceeded" ? i18nText("✗ 额度已用完") : i18nText("✗ 失败"), "err")] : [];
@@ -316,7 +319,6 @@ export function codexWorkLabel(ev) {
     if (ev.type !== "item.started" || !it)
         return undefined;
     switch (it.type) {
-        case "image_generation": return () => i18nText("正在生成图片…");
         case "command_execution": return commandView(it).label;
         case "mcp_tool_call":
         case "dynamic_tool_call": {

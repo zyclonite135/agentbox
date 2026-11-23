@@ -194,8 +194,10 @@ export function resultFilesCard(result) {
     header.append(icon, heading);
     const name = (result.title.replace(/[<>:"/\\|?*\x00-\x1f]/g, "-").replace(/[. ]+$/, "") || "project") + ".zip";
     const archive = downloadAction(`/api/sessions/${encodeURIComponent(S.current.id)}/chat/files/archive`, name, result.files.map(file => file.path));
-    const details = element("details", "chat-result-list");
-    const summary = element("summary", "");
+    const details = element("div", "chat-result-list");
+    const summary = element("button", "chat-result-list-toggle");
+    summary.type = "button";
+    summary.setAttribute("aria-expanded", "false");
     const summaryLabel = element("span", "");
     setText(summaryLabel, "文件列表");
     summary.append(summaryLabel, svgIcon("chevron", 16));
@@ -216,7 +218,17 @@ export function resultFilesCard(result) {
         }
         group.append(row(file));
     }
-    details.append(summary, contents);
+    const clip = element("div", "chat-result-list-clip");
+    clip.append(contents);
+    const shell = element("div", "chat-result-list-shell");
+    shell.inert = true;
+    shell.append(clip);
+    summary.addEventListener("click", () => {
+        const open = shell.classList.toggle("open");
+        shell.inert = !open;
+        summary.setAttribute("aria-expanded", String(open));
+    });
+    details.append(summary, shell);
     header.append(archive);
     card.append(header, details);
     return card;

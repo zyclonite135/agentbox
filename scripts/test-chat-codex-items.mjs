@@ -325,7 +325,33 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
   compactBox.x + compactBox.width - actionBox.x - actionBox.width <= 12 &&
   actionBox.y - compactBox.y <= 10 && actionBox.width >= 40,
  'the icon stays near the top-right corner and has a touch target at narrow widths');
- await project.locator('summary').click();
+ const fileList = project.locator('.chat-result-list-shell');
+ const fileListToggle = project.locator('.chat-result-list-toggle');
+ const measuredHeight = () => fileList.evaluate(el=>el.getBoundingClientRect().height);
+ {
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  const closedHeight = await measuredHeight();
+  await fileListToggle.click();
+  const sample = await fileList.evaluate(async (el, closedHeight) => {
+   const first = el.getBoundingClientRect().height;
+   await new Promise(resolve=>setTimeout(resolve,390));
+   const full = el.getBoundingClientRect().height;
+   return {first,full,closedHeight,duration:getComputedStyle(el).transitionDuration};
+  },closedHeight);
+  assert.match(sample.duration,/^0\.35s/);
+  assert.ok(sample.first < sample.full && sample.full > sample.closedHeight,'ZIP list grows over time');
+  await fileListToggle.click();
+  const shrink = await fileList.evaluate(async el=>{
+   const first = el.getBoundingClientRect().height;
+   await new Promise(resolve=>setTimeout(resolve,340));
+   return {first,last:el.getBoundingClientRect().height,duration:getComputedStyle(el).transitionDuration};
+  });
+  assert.match(shrink.duration,/^0\.3s/);
+  assert.ok(shrink.first > shrink.last && Math.abs(shrink.last-closedHeight) < 1,'ZIP list shrinks over time');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.equal(await fileList.evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
+ }
+ await fileListToggle.click();
  assert.equal(await project.locator('.chat-result-file:visible').count(),5);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth),true);
  await project.screenshot({path:'output/playwright/chat-results-mobile.png', animations:'disabled'});

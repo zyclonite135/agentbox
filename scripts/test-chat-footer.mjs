@@ -83,6 +83,29 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
   assert.ok(box.x>=0 && box.x+box.width<=390);
   await page.screenshot({path:`output/playwright/answer-footer-mobile-${theme}.png`,animations:'disabled'});
  }
+ await page.setViewportSize({width:320,height:740});
+ const language = async locale => page.evaluate(async locale => {
+  const entry = document.querySelector('script[src$="/js/main.js"]');
+  const {i18n} = await import(new URL('./i18n.js', entry.src).href);
+  i18n.setLanguage(locale);
+ }, locale);
+ await language('ru');
+ const narrow = footers.last();
+ await narrow.locator('.answer-more').click();
+ const reasoningLabel = narrow.locator('.ad-k').filter({hasText:'Глубина рассуждений'});
+ await reasoningLabel.waitFor();
+ assert.equal(await reasoningLabel.evaluate(label => {
+  const panel = label.closest('.answer-details').getBoundingClientRect();
+  const range = document.createRange();
+  range.selectNodeContents(label);
+  const value = label.nextElementSibling.getBoundingClientRect();
+  return panel.left >= 0 && panel.right <= innerWidth &&
+   Array.from(range.getClientRects()).every(line => line.right <= value.left);
+ }),true,'the Russian label and value fit in separate columns at 320px');
+ await narrow.locator('.answer-calculation summary').click();
+ assert.match(await narrow.locator('.answer-calculation .ad-note').innerText(), /Оценка по настроенным ценам/);
+ await narrow.locator('.answer-more').click();
+ await language('zh-CN');
  await page.setViewportSize({width:1280,height:900});
  await page.evaluate(()=>document.documentElement.dataset.theme='light');
 
@@ -171,9 +194,16 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  // A mid-turn total (requests settled so far) is marked until the final amount replaces it.
  emit({type:'turn_cost',running:true,cost:{turn_id:'live',cost_micro_usd:12000,source:'table'}});
  await footers.last().locator('.answer-cost').filter({hasText:'$0.0120 · 累计中'}).waitFor();
+ emit({type:'turn_cost',running:true,cost:{turn_id:'live',cost_micro_usd:12000,source:'mixed',partial:true}});
+ await footers.last().locator('.answer-cost').filter({hasText:'≥ $0.0120 · 累计中'}).waitFor();
+ await footers.last().locator('.answer-more').click();
+ const liveCalculation = footers.last().locator('.answer-calculation');
+ await liveCalculation.locator('summary').click();
+ assert.match(await liveCalculation.locator('.ad-note').innerText(), /金额不完整/);
  emit({type:'turn_cost',cost:{turn_id:'live',cost_micro_usd:42300,source:'provider'}});
  await footers.last().locator('.answer-cost').filter({hasText:'$0.0423'}).waitFor();
  assert.equal(await footers.last().locator('.answer-cost').innerText(),'$0.0423');
+ assert.match(await liveCalculation.locator('.ad-note').innerText(), /客户端上报/);
  assert.equal(await page.locator('#chat-log .turn').last().locator('.msg.agent').count(),1);
  await footers.last().getByRole('button',{name:'复制回答',exact:true}).click();
  await footers.last().getByRole('button',{name:'已复制回答',exact:true}).waitFor();

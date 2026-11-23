@@ -69,14 +69,15 @@ function costView(context: AnswerContext): { label: string; detail: string; pric
   if (cost && cost.source !== "unknown") {
     if (cost.source === "unpriced") return { label: i18nText("未定价"), detail: i18nText("模型未设置单价。"), priced: false };
     const source = SOURCE_TEXT[cost.source] || i18nText("混合计价");
+    const partial = cost.partial ? i18nText("部分模型未设置单价，金额不完整") : "";
     if (context.costRunning) return {
       label: i18nText("{p0} · 累计中", { p0: (cost.partial ? "≥ " : "") + money(cost.cost_micro_usd) }),
-      detail: i18nText("回合结束后显示最终金额。"),
+      detail: partial || i18nText("回合结束后显示最终金额。"),
       priced: true,
     };
     return {
       label: (cost.partial ? "≥ " : "") + money(cost.cost_micro_usd),
-      detail: cost.partial ? i18nText("部分模型未设置单价，金额不完整") : source,
+      detail: partial || source,
       priced: true,
     };
   }

@@ -31,8 +31,10 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  await page.mouse.move(0,0);
  assert.equal(await footerOpacity(),'0');
  await lastFooter.locator('.answer-copy').first().focus();
+ await page.keyboard.press('Tab');
+ assert.equal(await lastFooter.locator('.answer-more').evaluate(el=>document.activeElement === el),true);
  assert.equal(await footerOpacity(),'1','keyboard focus reveals answer actions');
- await lastFooter.locator('.answer-copy').first().blur();
+ await lastFooter.locator('.answer-more').blur();
  await lastFooter.locator('..').locator('.msg.agent').hover();
  assert.equal(await footerOpacity(),'1','hovering the answer reveals its actions');
  assert.match(await details(footers.first()),/模型claude-history/);
@@ -74,6 +76,8 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  await footers.last().getByRole('button',{name:'回答详情',exact:true}).click();
  const footerToggle = footers.last().locator('.answer-more');
  const shell = footers.last().locator('.answer-details-shell');
+ await page.mouse.move(0,0);
+ assert.equal(await footerOpacity(),'0','a mouse click does not keep the collapsed footer visible');
  await page.emulateMedia({reducedMotion:'no-preference'});
  await footerToggle.click();
  assert.match(await shell.evaluate(el=>getComputedStyle(el).transitionDuration), /^0\.35s/);

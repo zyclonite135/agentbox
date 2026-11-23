@@ -215,7 +215,7 @@
 @media (hover: hover) and (pointer: fine) {
   .answer-footer { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
   .turn:hover > .turn-body > .answer-footer,
-  .answer-footer:focus-within,
+  .answer-footer:has(:focus-visible),
   .answer-footer:has(.answer-details-shell.open) { opacity: 1; }
 }
 @media (hover: none), (pointer: coarse) {

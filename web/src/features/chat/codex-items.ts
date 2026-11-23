@@ -11,7 +11,7 @@ import type { AgentEvent } from "../../types.js";
 import { svgIcon, type IconSlot } from "../../icons.js";
 import { setText, setTextRender, t as i18nText } from "../../i18n.js";
 import {
-  badge, base, clean, clipLabel, clipOutput, diffBlock, diffStat, el, fillRow, imageBody, newRow, num, oneLine,
+  badge, base, chatToolImage, clean, clipLabel, clipOutput, diffBlock, diffStat, el, fillRow, newRow, num, oneLine,
   outputBlocks, pendingRow, shortDuration, statusBadge, str, takeRow, textBlock, trackRow, type Row,
 } from "./tool-rows.js";
 
@@ -215,16 +215,17 @@ function simpleNodes(it: Item): HTMLElement[] {
     case "image_view": {
       const path = str(it.path);
       const wrap = el("div", "tool-call");
-      fillRow(wrap, { name: "ViewImage", icon: "chat.tool-image", sum: path, body: imageBody(path) }, false);
-      return [wrap];
+      fillRow(wrap, { name: "ViewImage", icon: "chat.tool-image", sum: path }, false);
+      return [wrap, ...chatToolImage(path)];
     }
     case "image_generation": {
       const saved = str(it.saved_path), failed = str(it.status) === "failed" || !!str(it.failure);
       const wrap = el("div", "tool-call");
       const meta = failed ? [badge(str(it.failure) === "usage_limit_exceeded" ? i18nText("✗ 额度已用完") : i18nText("✗ 失败"), "err")] : [];
-      const body = [...(str(it.revised_prompt) ? [textBlock(str(it.revised_prompt), "tc-cmd mono")] : []), ...(saved ? imageBody(saved) : [])];
+      const prompt = str(it.revised_prompt);
+      const body = prompt ? [textBlock(prompt, "tc-cmd mono")] : [];
       fillRow(wrap, { name: "ImageGen", icon: "chat.tool-image-gen", sum: saved || oneLine(str(it.revised_prompt)).slice(0, 160), meta, body }, false);
-      return [wrap];
+      return failed ? [wrap] : [wrap, ...chatToolImage(saved)];
     }
     case "context_compaction":
       return [noteChip("chat.compact", () => i18nText("已压缩上下文"), "compact")];

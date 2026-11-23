@@ -115,6 +115,36 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await page.screenshot({path:'output/playwright/chat-codex-items-mobile.png', animations:'disabled'});
  await page.setViewportSize({width:1280, height:900});
  await page.screenshot({path:'output/playwright/chat-codex-items.png', animations:'disabled'});
+
+ const generated = '/home/agent/.codex/generated_images/thread/image.png';
+ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aFbcAAAAASUVORK5CYII=', 'base64');
+ const serveGenerated = async route => {
+  assert.equal(new URL(route.request().url()).searchParams.get('path'), 'thread/image.png');
+  await route.fulfill({contentType:'image/png', body:png});
+ };
+ await page.route('**/chat/image?*', serveGenerated);
+ const generatedItem = {type:'image_generation', saved_path:generated, status:'completed'};
+ const viewItem = {type:'image_view', path:'file://' + generated};
+ setHistory([
+  {kind:'user', ts, text:'画一张图', turn:turn('t3')},
+  ev('item.completed', generatedItem),
+  ev('item.completed', viewItem),
+  ev('item.completed', {type:'agent_message', text:'图片已生成。'}),
+ ]);
+ await reload();
+ const images = page.locator('#chat-log .turn-body > .chat-tool-image .tc-image');
+ await images.first().waitFor();
+ await until(() => images.first().evaluate(img => img.naturalWidth > 0), 'history image loads inline');
+ assert.equal(await images.count(), 1, 'ImageGen and ViewImage show one image in the same turn');
+ await images.first().click();
+ await page.locator('#lb-img').waitFor();
+ await page.locator('#lb-close').click();
+ send({type:'user_message', text:'再看一下', turn:turn('t4'), ts});
+ send({type:'agent_event', event:{type:'item.completed', item:viewItem}});
+ await until(async () => await images.count() === 2, 'the same image is visible in a later live turn');
+ await until(() => images.last().evaluate(img => img.naturalWidth > 0), 'live image loads inline');
+ await page.unroute('**/chat/image?*', serveGenerated);
+
  // Leave the workspace as Codex, as the tasks suite does: later suites expect it.
  setHistory([]);
  console.log('Chat Codex items: commands named like the CLI (Read/Shell, legacy rows paired by command), exit/duration/diff stats, expandable output head/tail and diffs, text-only results with http(s) links only, live spinner + streamed output completing in place, unfinished rows settled when idle, mobile passed');

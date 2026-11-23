@@ -57,6 +57,9 @@ export class TurnWriter {
             return;
         }
         const body = this.turnBody(), footer = this.footer;
+        const imagePath = node.dataset.chatImagePath;
+        if (imagePath && body.querySelector(`:scope > [data-chat-image-path="${CSS.escape(imagePath)}"]`))
+            return;
         if (node.classList.contains("result") && body.querySelector(".msg.agent"))
             footer.setReceipt(node);
         else if (!foldInto(footer.el.previousElementSibling, node))
@@ -139,6 +142,14 @@ export function joinTurn(older, newer) {
         return;
     const skip = footers.get(from)?.el, footer = footers.get(to);
     to.prepend(...[...from.children].filter(node => node !== skip));
+    const images = new Set();
+    for (const image of to.querySelectorAll(":scope > [data-chat-image-path]")) {
+        const path = image.dataset.chatImagePath;
+        if (images.has(path))
+            image.remove();
+        else
+            images.add(path);
+    }
     older.remove();
     // 回合完成章到达时这段还没有正文，当时留在了正文里；补上正文后照常收进详情
     const result = to.querySelector(":scope > .result");

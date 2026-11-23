@@ -148,26 +148,41 @@ export function diffStat(added?: number, removed?: number) {
 /* 容器里的路径 → 文件直链（/workspace 与 /shared 两个范围），其它路径不给图 */
 function fileURL(path: string) {
   if (!S.current) return "";
-  const p = path.replace(/^file:\/\//, "");
-  const [rel, scope] = p.startsWith("/workspace/") ? [p.slice(11), ""] : p.startsWith("/shared/") ? [p.slice(8), "&scope=shared"] : ["", ""];
-  if (!rel) return "";
-  return `/api/sessions/${encodeURIComponent(S.current.id)}/file?path=${encodeURIComponent(rel)}&token=${encodeURIComponent(S.token)}${scope}`;
+  const session = `/api/sessions/${encodeURIComponent(S.current.id)}`;
+  const token = `&token=${encodeURIComponent(S.token)}`;
+  const generated = "/home/agent/.codex/generated_images/";
+  if (path.startsWith(generated) && path.length > generated.length) {
+    return `${session}/chat/image?path=${encodeURIComponent(path.slice(generated.length))}${token}`;
+  }
+  const [rel, scope] = path.startsWith("/workspace/") ? [path.slice(11), ""] :
+    path.startsWith("/shared/") ? [path.slice(8), "&scope=shared"] : ["", ""];
+  return rel ? `${session}/file?path=${encodeURIComponent(rel)}${token}${scope}` : "";
 }
 
-export function imageBody(path: string) {
+export function chatToolImage(containerPath: string) {
+  const path = containerPath.replace(/^file:\/\//, "");
   const url = fileURL(path);
   if (!url) return [];
+  const wrap = el("div", "chat-tool-image");
+  wrap.dataset.chatImagePath = path;
+  const link = el("a", "chat-tool-image-link");
+  link.href = url;
   const img = el("img", "tc-image");
-  img.src = url;
   img.alt = base(path);
   img.loading = "lazy";
-  img.addEventListener("click", () => openLightbox(url, path));
+  link.addEventListener("click", e => {
+    e.preventDefault();
+    openLightbox(url, path);
+  });
   img.addEventListener("error", () => {
     const gone = el("div", "tc-note");
     setText(gone, "图片已不在原位置");
-    img.replaceWith(gone);
+    link.replaceWith(gone);
   });
-  return [img];
+  img.src = url;
+  link.append(img);
+  wrap.append(link);
+  return [wrap];
 }
 
 /* ---- 进行中的行：key → 行元素。完成时取出原地更新；上限防止中断的回合越攒越多 ---- */

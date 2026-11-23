@@ -476,7 +476,7 @@ details.think[open] > summary::after, .fold-open > .fold-head::after, details.fo
 .chat-tool-image-link { display: inline-block; max-width: 100%; vertical-align: top; }
 .chat-results { display: grid; gap: 8px; width: 100%; max-width: 560px; margin: 12px 0 4px; }
 .chat-results-files {
-  gap: 0; max-width: 480px; background: var(--panel-solid);
+  gap: 0; background: var(--panel-solid);
   border: 1px solid var(--line); border-radius: calc(10px * var(--radius-scale));
 }
 .chat-result-file, .chat-result-project-head {

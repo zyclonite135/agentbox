@@ -299,6 +299,11 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  assert.equal(await cards.nth(1).locator('.chat-result-compact > span').count(),0);
  assert.match(await cards.nth(1).locator('.chat-result-compact').first().getAttribute('aria-label'),/index\.html/);
  const project = cards.nth(2);
+ for (const width of [320, 540, 760, 1280]) {
+  await page.setViewportSize({width,height:900});
+  const [filesBox, projectBox] = await Promise.all([cards.nth(1).boundingBox(), project.boundingBox()]);
+  assert.ok(Math.abs(filesBox.width - projectBox.width) < 2, `file and ZIP cards have equal widths at ${width}px`);
+ }
  const zipButton = project.locator('.chat-result-zip');
  const zipAtTopRight = () => zipButton.evaluate(button => {
   const header = button.closest('.chat-result-project-head').getBoundingClientRect();

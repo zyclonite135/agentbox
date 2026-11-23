@@ -119,9 +119,11 @@ export function answerFooter(body, context) {
     const model = detailRow(() => i18nText("模型"));
     const effort = detailRow(() => i18nText("推理强度"));
     const costDetail = detailRow(() => i18nText("费用"));
+    const durationDetail = detailRow(() => i18nText("耗时"));
+    durationDetail.row.classList.add("answer-duration-detail");
     const receipt = document.createElement("div");
     receipt.className = "answer-receipt";
-    details.append(model.row, effort.row, costDetail.row, receipt);
+    details.append(model.row, effort.row, durationDetail.row, costDetail.row, receipt);
     more.addEventListener("click", () => {
         details.hidden = !details.hidden;
         more.setAttribute("aria-expanded", String(!details.hidden));
@@ -188,9 +190,11 @@ export function answerFooter(body, context) {
             setTip(date, () => i18nText("这条回答未记录时间"));
         }
         took.hidden = !context.duration;
+        durationDetail.row.hidden = took.hidden;
         if (context.duration) {
             const ms = context.duration;
             setTextRender(took, () => i18nText("用时 {d}", { d: fmtElapsed(ms) }));
+            setTextRender(durationDetail.v, () => fmtElapsed(ms));
             setTip(took, () => i18nText("本轮从开始到结束共用时 {d}", { d: fmtElapsed(ms) }));
         }
         const price = costView(context);

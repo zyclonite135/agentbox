@@ -2,6 +2,7 @@ package server
 
 import (
 	"io"
+	"mime"
 	"net/http"
 	"path/filepath"
 
@@ -45,5 +46,8 @@ func (s *Server) handleChatImage(w http.ResponseWriter, r *http.Request, sess st
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy", "sandbox")
 	w.Header().Set("Cache-Control", "private, no-store")
+	if r.URL.Query().Get("dl") == "1" {
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": info.Name()}))
+	}
 	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }

@@ -6,6 +6,7 @@ import type { AnswerContext } from "../../chat-footer.js";
 import { renderEntry } from "../../chat-render.js";
 import { agentIcon } from "../../brand.js";
 import { foldInto } from "./folds.js";
+import { mergeChatImagePrompt } from "./tool-rows.js";
 
 type Footer = ReturnType<typeof answerFooter>;
 const footers = new WeakMap<HTMLElement, Footer>();
@@ -57,7 +58,11 @@ export class TurnWriter {
     }
     const body = this.turnBody(), footer = this.footer!;
     const imagePath = node.dataset.chatImagePath;
-    if (imagePath && body.querySelector(`:scope > [data-chat-image-path="${CSS.escape(imagePath)}"]`)) return;
+    const shown = imagePath && body.querySelector<HTMLElement>(`:scope > [data-chat-image-path="${CSS.escape(imagePath)}"]`);
+    if (shown) {
+      mergeChatImagePrompt(shown, node);
+      return;
+    }
     if (node.classList.contains("result") && body.querySelector(".msg.agent")) footer.setReceipt(node);
     else if (!foldInto(footer.el.previousElementSibling, node)) body.insertBefore(node, footer.el);
     this.touch(footer);
@@ -135,11 +140,14 @@ export function joinTurn(older: Element | null, newer: Element | null) {
   ));
   to.prepend(...[...from.children].filter(node => node !== skip &&
     !(node instanceof HTMLElement && node.dataset.status === "unfinished" && finishedImages.has(node.dataset.imageGenerationId))));
-  const images = new Set<string>();
+  const images = new Map<string, HTMLElement>();
   for (const image of to.querySelectorAll<HTMLElement>(":scope > [data-chat-image-path]")) {
     const path = image.dataset.chatImagePath!;
-    if (images.has(path)) image.remove();
-    else images.add(path);
+    const shown = images.get(path);
+    if (shown) {
+      mergeChatImagePrompt(shown, image);
+      image.remove();
+    } else images.set(path, image);
   }
   older.remove();
   // 回合完成章到达时这段还没有正文，当时留在了正文里；补上正文后照常收进详情

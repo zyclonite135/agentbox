@@ -4,7 +4,7 @@
  * 回合结束仍挂着的行由 settleToolRows 停止转圈。模型与工具输出一律走 textContent。 */
 import { buttonLabel, svgIcon, type IconSlot } from "../../icons.js";
 import { setTip } from "../../tip.js";
-import { setText, t as i18nText } from "../../i18n.js";
+import { setAttr, setText, t as i18nText } from "../../i18n.js";
 import { S } from "../../state.js";
 import { openLightbox } from "../../util.js";
 
@@ -159,12 +159,13 @@ function fileURL(path: string) {
   return rel ? `${session}/file?path=${encodeURIComponent(rel)}${token}${scope}` : "";
 }
 
-export function chatToolImage(containerPath: string, reveal = false) {
+export function chatToolImage(containerPath: string, { reveal = false, prompt = "" } = {}) {
   const path = containerPath.replace(/^file:\/\//, "");
   const url = fileURL(path);
   if (!url) return [];
   const wrap = el("div", "chat-tool-image");
   wrap.dataset.chatImagePath = path;
+  const media = el("div", "chat-image-media");
   const link = el("a", "chat-tool-image-link");
   link.href = url;
   const img = el("img", "tc-image");
@@ -175,15 +176,43 @@ export function chatToolImage(containerPath: string, reveal = false) {
     e.preventDefault();
     openLightbox(url, path);
   });
+  const details = el("details", "chat-image-details");
+  const more = el("summary", "");
+  setAttr(more, "aria-label", "图片详情");
+  more.append(svgIcon("more", 18));
+  const panel = el("div", "chat-image-panel");
+  const pathLabel = el("dt", ""), promptLabel = el("dt", "");
+  setText(pathLabel, "文件路径");
+  setText(promptLabel, "图片提示词");
+  const pathInfo = el("dl", "");
+  pathInfo.append(pathLabel, el("dd", "mono", path));
+  const promptInfo = el("dl", "chat-image-prompt");
+  promptInfo.hidden = !prompt;
+  promptInfo.append(promptLabel, el("dd", "", prompt));
+  const download = el("a", "btn btn-sm");
+  download.href = url + "&dl=1";
+  download.download = base(path);
+  setText(download, "下载");
+  panel.append(pathInfo, promptInfo, download);
+  details.append(more, panel);
   img.addEventListener("error", () => {
     const gone = el("div", "tc-note");
     setText(gone, "图片已不在原位置");
     link.replaceWith(gone);
+    download.remove();
+    media.classList.add("image-unavailable");
   });
   img.src = url;
   link.append(img);
-  wrap.append(link);
+  media.append(link, details);
+  wrap.append(media);
   return [wrap];
+}
+
+export function mergeChatImagePrompt(image: HTMLElement, duplicate: HTMLElement) {
+  const current = image.querySelector<HTMLElement>(".chat-image-prompt");
+  const incoming = duplicate.querySelector<HTMLElement>(".chat-image-prompt");
+  if (current?.hidden && incoming && !incoming.hidden) current.replaceWith(incoming);
 }
 
 /* ---- 进行中的行：key → 行元素。完成时取出原地更新；上限防止中断的回合越攒越多 ---- */

@@ -214,7 +214,10 @@ function simpleNodes(it) {
             const path = str(it.path);
             const wrap = el("div", "tool-call");
             fillRow(wrap, { name: "ViewImage", icon: "chat.tool-image", sum: path }, false);
-            return [wrap, ...chatToolImage(path)];
+            const images = chatToolImage(path);
+            if (images.length)
+                wrap.classList.add("chat-image-trace");
+            return [wrap, ...images];
         }
         case "context_compaction":
             return [noteChip("chat.compact", () => i18nText("已压缩上下文"), "compact")];
@@ -264,7 +267,9 @@ function imageGenerationNodes(it, completed, live) {
     wrap.dataset.status = str(it.status);
     fillRow(wrap, { ...summary, sum: saved || oneLine(prompt).slice(0, 160), meta,
         body: prompt ? [textBlock(prompt, "tc-cmd mono")] : [] }, false);
-    const images = failed ? [] : chatToolImage(saved, live && !!running);
+    const images = failed ? [] : chatToolImage(saved, { reveal: live && !!running, prompt });
+    if (images.length)
+        wrap.classList.add("chat-image-trace");
     return running ? images : [wrap, ...images];
 }
 function rowFor(it, completed) {

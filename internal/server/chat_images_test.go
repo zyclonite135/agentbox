@@ -53,29 +53,37 @@ func TestChatImageReadScope(t *testing.T) {
 	}
 
 	handler := s.Handler()
-	request := func(token, path string) *httptest.ResponseRecorder {
+	request := func(token, path string, download bool) *httptest.ResponseRecorder {
 		query := url.Values{"path": {path}, "token": {token}}
+		if download {
+			query.Set("dl", "1")
+		}
 		r := httptest.NewRequest(http.MethodGet, "/api/sessions/"+sess.ID+"/chat/image?"+query.Encode(), nil)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, r)
 		return w
 	}
-	ok := request(sess.User, "turn/image.png")
+	ok := request(sess.User, "turn/image.png", false)
 	if ok.Code != http.StatusOK || ok.Header().Get("Content-Type") != "image/png" ||
 		ok.Header().Get("X-Content-Type-Options") != "nosniff" || !bytes.Equal(ok.Body.Bytes(), pngData.Bytes()) {
 		t.Fatalf("image response: status %d, headers %v, body %q", ok.Code, ok.Header(), ok.Body.Bytes())
 	}
+	download := request(sess.User, "turn/image.png", true)
+	if download.Code != http.StatusOK || download.Header().Get("Content-Disposition") != "attachment; filename=image.png" ||
+		!bytes.Equal(download.Body.Bytes(), pngData.Bytes()) {
+		t.Fatalf("download response: status %d, headers %v", download.Code, download.Header())
+	}
 	for _, token := range []string{"", "bob"} {
-		if w := request(token, "turn/image.png"); w.Code < 400 {
+		if w := request(token, "turn/image.png", false); w.Code < 400 {
 			t.Fatalf("image available to %q: status %d", token, w.Code)
 		}
 	}
 	for _, path := range []string{"../outside.png", "link.png", "linked-dir/outside.png", "gone.png"} {
-		if w := request(sess.User, path); w.Code != http.StatusNotFound {
+		if w := request(sess.User, path, false); w.Code != http.StatusNotFound {
 			t.Errorf("path %q: status %d, want 404", path, w.Code)
 		}
 	}
-	if w := request(sess.User, "fake.png"); w.Code != http.StatusUnsupportedMediaType {
+	if w := request(sess.User, "fake.png", false); w.Code != http.StatusUnsupportedMediaType {
 		t.Errorf("fake image: status %d, want 415", w.Code)
 	}
 }

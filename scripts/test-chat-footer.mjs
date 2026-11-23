@@ -5,6 +5,7 @@ import {clipboardPermissions, readClipboard} from './playwright-launch.mjs';
 // Shared synthetic browser suite: exercises history and real WS rendering,
 // including stream replacement and the Codex exec replay path. No provider calls.
 export async function chatFooterSmoke(page, { setHistory, send }) {
+ const clipboard = async () => (await readClipboard(page)).replaceAll('\r\n', '\n');
  const answer = '已把回答信息收拢到底部，阅读正文时更清爽。\n\n### 实现要点\n\n- 保存每轮的模型与推理设置\n- 复制正文，保留 **Markdown**\n\n```ts\nconst model = "gpt-5.5";\nconsole.log(model);\n```';
  const makeTurn = (id, model, effort, extra = {}) => ({id,model,effort,control:'effort',...extra});
  const history = [
@@ -47,7 +48,7 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  await page.context().grantPermissions(clipboardPermissions());
  await footers.last().getByRole('button',{name:'复制回答',exact:true}).click();
  await footers.last().getByRole('button',{name:'已复制回答',exact:true}).waitFor();
- assert.equal(await readClipboard(page),answer);
+ assert.equal(await clipboard(),answer);
  // The footer uses persisted values, even while the composer has another model.
  assert.doesNotMatch(await page.locator('#btn-pick').innerText(),/gpt-5.5/);
  const savedFooter = await footers.last().innerText();
@@ -62,6 +63,14 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
   await page.screenshot({path:`output/playwright/answer-footer-${theme}.png`,animations:'disabled'});
   await page.setViewportSize({width:390,height:844});
   await footers.last().scrollIntoViewIfNeeded();
+  const mobileFooter = footers.last();
+  assert.match(await mobileFooter.locator('.answer-time').innerText(), /2026-09-26 08:22/);
+  assert.equal(await mobileFooter.locator('.answer-cost, .answer-duration').filter({visible:true}).count(), 0);
+  const more = mobileFooter.getByRole('button',{name:'回答详情',exact:true});
+  await more.click();
+  assert.match(await mobileFooter.locator('.answer-duration-detail').innerText(), /1 分 23 秒/);
+  assert.match(await mobileFooter.locator('.answer-details').innerText(), /\$0\.0314/);
+  await more.click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   const box = await footers.last().boundingBox();
   assert.ok(box.x>=0 && box.x+box.width<=390);
@@ -89,7 +98,7 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  await page.screenshot({path:'output/playwright/user-turn-hover.png',animations:'disabled'});
  await userActions.getByRole('button',{name:'复制消息',exact:true}).click();
  await userRow.locator('.user-action.copied').waitFor();
- assert.equal(await readClipboard(page),'看下这张图 [图片 #1]\n还有 [附件 #2 b2.pdf]');
+ assert.equal(await clipboard(),'看下这张图 [图片 #1]\n还有 [附件 #2 b2.pdf]');
  await userActions.getByRole('button',{name:'填回输入框',exact:true}).click();
  assert.equal(await page.locator('#chat-input').inputValue(),'看下这张图 [Image #1]\n还有 [File #2]');
  assert.equal(await page.locator('#chat-attach .attach-remove').count(),2);
@@ -161,7 +170,7 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  assert.equal(await page.locator('#chat-log .turn').last().locator('.msg.agent').count(),1);
  await footers.last().getByRole('button',{name:'复制回答',exact:true}).click();
  await footers.last().getByRole('button',{name:'已复制回答',exact:true}).waitFor();
- assert.equal(await readClipboard(page),'live **answer**');
+ assert.equal(await clipboard(),'live **answer**');
  assert.match(await details(footers.last()),/请求的是 requested-model/);
 
  emit({type:'user_message',text:'replay question',turn:makeTurn('replay','exec-model','xhigh')});
@@ -176,7 +185,7 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  await footers.last().locator('.answer-cost').filter({hasText:'$0.0012'}).waitFor();
  await footers.last().getByRole('button',{name:'复制回答',exact:true}).click();
  await footers.last().getByRole('button',{name:'已复制回答',exact:true}).waitFor();
- assert.equal(await readClipboard(page),'Replay answer one.\n\nReplay answer two.');
+ assert.equal(await clipboard(),'Replay answer one.\n\nReplay answer two.');
 
  // A denied clipboard must not show success if the legacy fallback also fails.
  await reload();

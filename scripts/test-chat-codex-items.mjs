@@ -119,17 +119,19 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  const generated = '/home/agent/.codex/generated_images/thread/image.png';
  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aFbcAAAAASUVORK5CYII=', 'base64');
  const serveGenerated = async route => {
-  assert.equal(new URL(route.request().url()).searchParams.get('path'), 'thread/image.png');
-  await route.fulfill({contentType:'image/png', body:png});
+  const params = new URL(route.request().url()).searchParams;
+  assert.equal(params.get('path'), 'thread/image.png');
+  const headers = params.get('dl') === '1' ? {'content-disposition':'attachment; filename="image.png"'} : {};
+  await route.fulfill({contentType:'image/png', headers, body:png});
  };
  await page.route('**/chat/image?*', serveGenerated);
- const generatedItem = {type:'image_generation', id:'g1', saved_path:generated, status:'completed'};
+ const generatedItem = {type:'image_generation', id:'g1', saved_path:generated, status:'completed', revised_prompt:'A cat by the window'};
  const viewItem = {type:'image_view', path:'file://' + generated};
  setHistory([
   {kind:'user', ts, text:'画一张图', turn:turn('t3')},
   ev('item.started', {type:'image_generation', id:'g1'}),
-  ev('item.completed', generatedItem),
   ev('item.completed', viewItem),
+  ev('item.completed', generatedItem),
   ev('item.completed', {type:'agent_message', text:'图片已生成。'}),
  ]);
  await reload();
@@ -137,6 +139,20 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await images.first().waitFor();
  await until(() => images.first().evaluate(img => img.naturalWidth > 0), 'history image loads inline');
  assert.equal(await images.count(), 1, 'ImageGen and ViewImage show one image in the same turn');
+ const imageMenu = page.locator('#chat-log .chat-image-details').first();
+ assert.equal(await imageMenu.isVisible(), false);
+ assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 2);
+ await page.setViewportSize({width:390, height:844});
+ assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 0);
+ assert.doesNotMatch(await page.locator('#chat-log').innerText(), /generated_images/);
+ await imageMenu.locator('summary').click();
+ assert.match(await imageMenu.innerText(), /thread\/image\.png/);
+ assert.match(await imageMenu.innerText(), /A cat by the window/);
+ const [download] = await Promise.all([page.waitForEvent('download'), imageMenu.locator('a[download]').click()]);
+ assert.equal(download.suggestedFilename(), 'image.png');
+ assert.equal(new URL(download.url()).searchParams.get('dl'), '1');
+ await imageMenu.locator('summary').click();
+ await page.setViewportSize({width:1280, height:900});
  await images.first().click();
  const preview = page.locator('#lb-img');
  const close = page.locator('#lb-close');

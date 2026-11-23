@@ -4,6 +4,7 @@ import { answerFooter, observeAnswer } from "../../chat-footer.js";
 import { renderEntry } from "../../chat-render.js";
 import { agentIcon } from "../../brand.js";
 import { foldInto } from "./folds.js";
+import { mergeChatImagePrompt } from "./tool-rows.js";
 const footers = new WeakMap();
 /* Agent 回合分组：两条用户消息之间的 agent 输出（文字/工具行/思考…）
  * 归入同一个 .turn 容器，左侧挂品牌头像（OpenWebUI 式对话流）。
@@ -58,8 +59,11 @@ export class TurnWriter {
         }
         const body = this.turnBody(), footer = this.footer;
         const imagePath = node.dataset.chatImagePath;
-        if (imagePath && body.querySelector(`:scope > [data-chat-image-path="${CSS.escape(imagePath)}"]`))
+        const shown = imagePath && body.querySelector(`:scope > [data-chat-image-path="${CSS.escape(imagePath)}"]`);
+        if (shown) {
+            mergeChatImagePrompt(shown, node);
             return;
+        }
         if (node.classList.contains("result") && body.querySelector(".msg.agent"))
             footer.setReceipt(node);
         else if (!foldInto(footer.el.previousElementSibling, node))
@@ -144,13 +148,16 @@ export function joinTurn(older, newer) {
     const finishedImages = new Set(Array.from(to.querySelectorAll(":scope > [data-image-generation-id]:not([data-status=running], [data-status=unfinished])"), node => node.dataset.imageGenerationId));
     to.prepend(...[...from.children].filter(node => node !== skip &&
         !(node instanceof HTMLElement && node.dataset.status === "unfinished" && finishedImages.has(node.dataset.imageGenerationId))));
-    const images = new Set();
+    const images = new Map();
     for (const image of to.querySelectorAll(":scope > [data-chat-image-path]")) {
         const path = image.dataset.chatImagePath;
-        if (images.has(path))
+        const shown = images.get(path);
+        if (shown) {
+            mergeChatImagePrompt(shown, image);
             image.remove();
+        }
         else
-            images.add(path);
+            images.set(path, image);
     }
     older.remove();
     // 回合完成章到达时这段还没有正文，当时留在了正文里；补上正文后照常收进详情

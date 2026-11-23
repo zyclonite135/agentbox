@@ -94,7 +94,7 @@ export async function chatPagesSmoke(page, { session, closeChat }) {
   await page.reload();
   await user(24).waitFor();
   assert.equal(await page.locator('#chat-log .msg.user').count(), 12, 'first paint holds only the newest page');
-  assert.equal(await bar.innerText(), '加载更早的对话');
+  assert.equal((await bar.innerText()).trimEnd(), '加载更早的对话');
   assert.ok(await log.evaluate(e => e.scrollHeight - e.scrollTop - e.clientHeight < 2), 'newest page opens at the bottom');
   assert.equal(requests.length, 1);
 
@@ -109,7 +109,7 @@ export async function chatPagesSmoke(page, { session, closeChat }) {
   release(); hold = null;
   await user(6).waitFor();
   assert.ok(Math.abs(await top(user(13)) - anchor) <= 1, 'prepending must not move the visible messages');
-  assert.equal(await bar.innerText(), '加载更早的对话');
+  assert.equal((await bar.innerText()).trimEnd(), '加载更早的对话');
   const joined = await page.evaluate(() => {
    const answer = text => [...document.querySelectorAll('#chat-log .msg.agent')].find(n => n.textContent.startsWith(text));
    const first = answer('回答 12.0'), last = answer('回答 12.5'), turn = first?.closest('.turn');

@@ -140,7 +140,7 @@ export async function chatOutlineSmoke(page, { session, send }) {
   await page.mouse.move(b.x, b.y, {steps:4});
   await page.mouse.down(); await page.mouse.up();
   await tip.and(page.locator('.pending')).waitFor();
-  assert.equal(await tip.locator('.outline-tip-loading').innerText(), '正在加载…');
+  assert.equal((await tip.locator('.outline-tip-loading').innerText()).trimEnd(), '正在加载…');
   assert.equal(await tick(far).evaluate(e => e.classList.contains('loading')), true, 'the tick pulses while loading');
   await page.mouse.move(b.x + 400, b.y);
   await page.waitForTimeout(200);

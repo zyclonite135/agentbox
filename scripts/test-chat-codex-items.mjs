@@ -188,7 +188,7 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  const progress = page.locator('#chat-log .chat-image-progress');
  generationEvent('item.started', {type:'image_generation', id:'g1'});
  await progress.waitFor();
- assert.equal(await progress.innerText(), '正在生成图片…');
+ assert.equal(await progress.locator(':scope > span').textContent(), '正在生成图片…');
  const indicator = progress.locator('svg');
  assert.equal(await indicator.evaluate(node => getComputedStyle(node).animationName), 'none');
  await page.emulateMedia({reducedMotion:'no-preference'});

@@ -467,6 +467,18 @@ details.think[open] > summary::after, .fold-open > .fold-head::after, details.fo
 .tc-results a:hover { color: var(--amber); }
 .tc-domain { flex: none; font-size: 11px; color: var(--muted); }
 .chat-tool-image-link { display: inline-block; max-width: 100%; vertical-align: top; }
+.chat-image-progress {
+  display: grid; place-content: center; justify-items: center; gap: 12px;
+  width: min(100%, 280px); min-height: 150px; padding: 16px;
+  border: 1px solid var(--line); border-radius: calc(12px * var(--radius-scale));
+  background: var(--panel-2); color: var(--muted);
+}
+.chat-image-progress svg { color: var(--amber); }
+@media (prefers-reduced-motion: no-preference) {
+  .chat-image-progress svg { animation: work-breathe 1.8s ease-in-out infinite; }
+  .chat-image-reveal { animation: chat-image-in var(--dur-slow) var(--ease-out) both; }
+}
+@keyframes chat-image-in { from { opacity: 0; } }
 .tc-image {
   display: block;
   max-width: min(100%, 360px); max-height: 260px; object-fit: contain;

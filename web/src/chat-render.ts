@@ -1016,7 +1016,7 @@ function eventNodes(ev: AgentEvent | undefined, opts: { live?: boolean }) {
     return out; // 同 Claude init：会话就绪属 system 信息，不展示
   }
   if (ev.item && (ev.type === "item.started" || ev.type === "item.completed" || ev.type === "item.updated")) {
-    const tools = codexItemNodes(ev); // 命令、改动、MCP、网页搜索等（features/chat/codex-items.ts）
+    const tools = codexItemNodes(ev, opts.live); // 命令、改动、MCP、网页搜索等（features/chat/codex-items.ts）
     if (tools) return tools;
   }
   if (ev.type === "item.completed" && ev.item) {

@@ -123,10 +123,11 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
   await route.fulfill({contentType:'image/png', body:png});
  };
  await page.route('**/chat/image?*', serveGenerated);
- const generatedItem = {type:'image_generation', saved_path:generated, status:'completed'};
+ const generatedItem = {type:'image_generation', id:'g1', saved_path:generated, status:'completed'};
  const viewItem = {type:'image_view', path:'file://' + generated};
  setHistory([
   {kind:'user', ts, text:'画一张图', turn:turn('t3')},
+  ev('item.started', {type:'image_generation', id:'g1'}),
   ev('item.completed', generatedItem),
   ev('item.completed', viewItem),
   ev('item.completed', {type:'agent_message', text:'图片已生成。'}),
@@ -158,9 +159,32 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await page.locator('#dlg-img').waitFor({state:'hidden'});
  await page.setViewportSize({width:1280, height:900});
  send({type:'user_message', text:'再看一下', turn:turn('t4'), ts});
- send({type:'agent_event', event:{type:'item.completed', item:viewItem}});
+ send({type:'status', state:'running'});
+ const generationEvent = (type, item) => send({type:'agent_event', event:{type, item}});
+ const progress = page.locator('#chat-log .chat-image-progress');
+ generationEvent('item.started', {type:'image_generation', id:'g1'});
+ await progress.waitFor();
+ assert.equal(await progress.innerText(), '正在生成图片…');
+ const indicator = progress.locator('svg');
+ assert.equal(await indicator.evaluate(node => getComputedStyle(node).animationName), 'none');
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ await until(async () => await indicator.evaluate(node => getComputedStyle(node).animationName) === 'work-breathe', 'the generation icon pulses');
+ generationEvent('item.completed', generatedItem);
+ await progress.waitFor({state:'hidden'});
  await until(async () => await images.count() === 2, 'the same image is visible in a later live turn');
  await until(() => images.last().evaluate(img => img.naturalWidth > 0), 'live image loads inline');
+ await until(() => images.last().evaluate(img => img.classList.contains('chat-image-reveal')), 'image fades in after loading');
+ await page.emulateMedia({reducedMotion:'reduce'});
+ generationEvent('item.started', {type:'image_generation', id:'g2'});
+ await progress.waitFor();
+ generationEvent('item.completed', {type:'image_generation', id:'g2', status:'failed'});
+ await progress.waitFor({state:'hidden'});
+ assert.equal(await page.locator('#chat-log .tool-call[data-status="failed"] .tc-badge.err').last().innerText(), '✗ 失败');
+ generationEvent('item.started', {type:'image_generation', id:'g3'});
+ await progress.waitFor();
+ send({type:'status', state:'idle'});
+ await progress.waitFor({state:'hidden'});
+ assert.equal(await page.locator('#chat-log .tool-call[data-status="unfinished"] .tc-badge').last().innerText(), '未完成');
  await page.unroute('**/chat/image?*', serveGenerated);
 
  // Leave the workspace as Codex, as the tasks suite does: later suites expect it.

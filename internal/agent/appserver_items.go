@@ -416,6 +416,12 @@ func (c *appServerConn) richItem(completed bool, typ string, it rawItem) map[str
 		return c.webSearchEvent(it, completed)
 	case "collabAgentToolCall":
 		return c.collabEvent(it, completed)
+	case "imageGeneration":
+		if !completed {
+			ev := map[string]any{"type": "image_generation"}
+			set(ev, "id", it.str("id"))
+			return ev
+		}
 	}
 	if !completed {
 		return nil

@@ -2634,6 +2634,7 @@ export default {
   "搜索中…": "Searching…",
   "{p0} 条结果": "{p0} results",
   "图片已不在原位置": "The image is no longer at this path",
+  "正在生成图片…": "Generating image…",
   "{p0} 个 Agent": "{p0} agents",
   "✗ 额度已用完": "✗ usage limit reached",
   "子 Agent 已启动": "Sub-agent started",

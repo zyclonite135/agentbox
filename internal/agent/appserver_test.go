@@ -380,6 +380,8 @@ func TestRunCodexTurnRichItems(t *testing.T) {
 {"method":"item/completed","params":{"item":{"type":"mcpToolCall","id":"m1","server":"docs","tool":"search","status":"failed","arguments":{"q":"hi"},"durationMs":20,"error":{"message":"boom"},"result":{"content":[{"type":"text","text":"partial"},{"type":"image","data":"…"}]}}}}
 {"method":"item/completed","params":{"item":{"type":"webSearch","id":"w1","query":"codex cli","action":{"type":"search","queries":["codex cli","codex tui"]},"results":[{"title":"Codex","url":"https://example.com","domain":"example.com","snippet":"x"}]}}}
 {"method":"item/completed","params":{"item":{"type":"imageView","id":"i1","path":"file:///shared/.images/a.png"}}}
+{"method":"item/started","params":{"item":{"type":"imageGeneration","id":"g1","status":"inProgress"}}}
+{"method":"item/completed","params":{"item":{"type":"imageGeneration","id":"g1","status":"completed","savedPath":"/home/agent/.codex/generated_images/a.png"}}}
 {"method":"item/completed","params":{"item":{"type":"userMessage","id":"u1","content":[]}}}
 {"method":"warning","params":{"message":"heads up"}}
 {"method":"model/rerouted","params":{"fromModel":"a","toModel":"b","reason":"highRiskCyberActivity","threadId":"T1","turnId":"U1"}}
@@ -415,6 +417,12 @@ func TestRunCodexTurnRichItems(t *testing.T) {
 	}
 
 	started := find("item.started", "command_execution")
+	imageStarted := find("item.started", "image_generation")
+	imageCompleted := find("item.completed", "image_generation")
+	if imageStarted["id"] != "g1" || imageCompleted["id"] != "g1" ||
+		imageCompleted["saved_path"] != "/home/agent/.codex/generated_images/a.png" {
+		t.Fatalf("image generation: started %v, completed %v", imageStarted, imageCompleted)
+	}
 	if started["id"] != "c1" || started["cwd"] != "/workspace" || started["status"] != nil {
 		t.Fatalf("started 命令: %v", started)
 	}

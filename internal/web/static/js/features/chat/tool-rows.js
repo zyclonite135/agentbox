@@ -165,7 +165,7 @@ function fileURL(path) {
         path.startsWith("/shared/") ? [path.slice(8), "&scope=shared"] : ["", ""];
     return rel ? `${session}/file?path=${encodeURIComponent(rel)}${token}${scope}` : "";
 }
-export function chatToolImage(containerPath) {
+export function chatToolImage(containerPath, reveal = false) {
     const path = containerPath.replace(/^file:\/\//, "");
     const url = fileURL(path);
     if (!url)
@@ -177,6 +177,8 @@ export function chatToolImage(containerPath) {
     const img = el("img", "tc-image");
     img.alt = base(path);
     img.loading = "lazy";
+    if (reveal)
+        img.addEventListener("load", () => img.classList.add("chat-image-reveal"), { once: true });
     link.addEventListener("click", e => {
         e.preventDefault();
         openLightbox(url, path);

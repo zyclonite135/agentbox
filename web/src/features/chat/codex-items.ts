@@ -12,7 +12,7 @@ import { svgIcon, type IconSlot } from "../../icons.js";
 import { setText, setTextRender, t as i18nText } from "../../i18n.js";
 import {
   badge, base, chatToolImage, clean, clipLabel, clipOutput, diffBlock, diffStat, el, fillRow, newRow, num, oneLine,
-  outputBlocks, pendingRow, shortDuration, statusBadge, str, takeRow, textBlock, trackRow, type Row,
+  onSettle, outputBlocks, pendingRow, shortDuration, statusBadge, str, takeRow, textBlock, trackRow, type Row,
 } from "./tool-rows.js";
 
 type Item = NonNullable<AgentEvent["item"]>;
@@ -218,15 +218,6 @@ function simpleNodes(it: Item): HTMLElement[] {
       fillRow(wrap, { name: "ViewImage", icon: "chat.tool-image", sum: path }, false);
       return [wrap, ...chatToolImage(path)];
     }
-    case "image_generation": {
-      const saved = str(it.saved_path), failed = str(it.status) === "failed" || !!str(it.failure);
-      const wrap = el("div", "tool-call");
-      const meta = failed ? [badge(str(it.failure) === "usage_limit_exceeded" ? i18nText("✗ 额度已用完") : i18nText("✗ 失败"), "err")] : [];
-      const prompt = str(it.revised_prompt);
-      const body = prompt ? [textBlock(prompt, "tc-cmd mono")] : [];
-      fillRow(wrap, { name: "ImageGen", icon: "chat.tool-image-gen", sum: saved || oneLine(str(it.revised_prompt)).slice(0, 160), meta, body }, false);
-      return failed ? [wrap] : [wrap, ...chatToolImage(saved)];
-    }
     case "context_compaction":
       return [noteChip("chat.compact", () => i18nText("已压缩上下文"), "compact")];
     case "sub_agent_activity": {
@@ -247,6 +238,36 @@ function simpleNodes(it: Item): HTMLElement[] {
   return [];
 }
 
+function imageGenerationNodes(it: Item, completed: boolean, live: boolean): HTMLElement[] {
+  const key = itemKey(it);
+  const summary = { name: "ImageGen", icon: "chat.tool-image-gen", sum: "" } as const;
+  if (!completed) {
+    if (!key || pendingRow(key)) return [];
+    const wrap = el("div", "tool-call");
+    wrap.dataset.status = "running";
+    const card = el("div", "chat-image-progress");
+    const label = el("span", "");
+    setText(label, "正在生成图片…");
+    card.setAttribute("role", "status");
+    card.append(svgIcon(summary.icon, 24), label);
+    wrap.append(card);
+    trackRow(key, wrap);
+    onSettle(wrap, () => fillRow(wrap, { ...summary, meta: [badge(i18nText("未完成"), "warn")] }, false));
+    return [wrap];
+  }
+
+  const running = takeRow(key);
+  const wrap = running ?? el("div", "tool-call");
+  const saved = str(it.saved_path), prompt = str(it.revised_prompt);
+  const failed = str(it.status) === "failed" || !!str(it.failure);
+  const meta = failed ? [badge(str(it.failure) === "usage_limit_exceeded" ? i18nText("✗ 额度已用完") : i18nText("✗ 失败"), "err")] : [];
+  wrap.dataset.status = str(it.status);
+  fillRow(wrap, { ...summary, sum: saved || oneLine(prompt).slice(0, 160), meta,
+    body: prompt ? [textBlock(prompt, "tc-cmd mono")] : [] }, false);
+  const images = failed ? [] : chatToolImage(saved, live && !!running);
+  return running ? images : [wrap, ...images];
+}
+
 function rowFor(it: Item, completed: boolean): Row[] {
   switch (it.type) {
     case "command_execution": return [commandRow(it, completed)];
@@ -260,12 +281,13 @@ function rowFor(it: Item, completed: boolean): Row[] {
 
 /** Codex 的工具条目 → 节点；不归这里管的条目（文字、思考、计划表…）返回 undefined。
  * 完成事件若对上了进行中的那一行，原地更新并返回空数组。 */
-export function codexItemNodes(ev: AgentEvent): HTMLElement[] | undefined {
+export function codexItemNodes(ev: AgentEvent, live = false): HTMLElement[] | undefined {
   const it = ev.item;
   if (!it || !TYPES.has(str(it.type))) return undefined;
   if (ev.type === "item.updated") return [];
   const completed = ev.type === "item.completed";
   if (!completed && ev.type !== "item.started") return [];
+  if (it.type === "image_generation") return imageGenerationNodes(it, completed, live);
   if (completed && !rowFor(it, true).length) return simpleNodes(it);
   const key = itemKey(it);
   if (completed) {
@@ -291,6 +313,7 @@ export function codexWorkLabel(ev: AgentEvent): (() => string) | undefined {
   const it = ev.item;
   if (ev.type !== "item.started" || !it) return undefined;
   switch (it.type) {
+    case "image_generation": return () => i18nText("正在生成图片…");
     case "command_execution": return commandView(it).label;
     case "mcp_tool_call": case "dynamic_tool_call": {
       const name = [str(it.server) || str(it.namespace), str(it.tool)].filter(Boolean).join(".");

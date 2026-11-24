@@ -24,14 +24,20 @@ EXTRACTOR = INSTALLER.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 
 
 class DockerRepository(unittest.TestCase):
-    def run_setup(self, distro, os_release, arch, current_docker=False, fail_key=False):
+    def run_setup(self, distro, os_release, arch, engine='absent', fail_key=False, fail_update=False):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'os-release').write_text(os_release)
             script, _ = INSTALLER.rsplit('\nmain "$@"', 1)
             script = script.replace('. /etc/os-release', '. "$staging/os-release"') + r'''
-staging=$1 language=en test_arch=$3 test_presence=$4 test_key=$5
-command() { if [[ $* == '-v docker' ]]; then [[ $test_presence == present ]]; else builtin command "$@"; fi; }
+staging=$1 language=en test_arch=$3 test_presence=$4 test_key=$5 test_update=$6
+command() {
+  case "$*" in
+    '-v docker') [[ $test_presence != absent || -f "$staging/packages-installed" ]] ;;
+    '-v dockerd') [[ $test_presence == ready || $test_presence == stopped || -f "$staging/packages-installed" ]] ;;
+    *) builtin command "$@" ;;
+  esac
+}
 dpkg() { printf '%s\n' "$test_arch"; }
 curl() {
   printf '%s\n' "${@: -3:1}" >> "$staging/calls"
@@ -43,21 +49,33 @@ install() {
   mkdir -p "${dest%/*}"
   builtin command install "${@:1:$#-1}" "$dest"
 }
-apt-get() { printf '%s\n' "$*" >> "$staging/calls"; }
+apt-get() {
+  printf '%s\n' "$*" >> "$staging/calls"
+  case "$1" in
+    update) [[ $* != *--error-on=any || $test_update == ok ]] ;;
+    install) touch "$staging/packages-installed" ;;
+    *) return 1 ;;
+  esac
+}
 docker() {
   [[ $* == info && $DOCKER_HOST == unix:///var/run/docker.sock && ! ${DOCKER_CONTEXT+x} ]] &&
-    [[ $test_presence == present || -f "$staging/docker-started" ]]
+    [[ $test_presence == ready || -f "$staging/docker-started" ]]
 }
 systemctl() {
-  [[ $* == 'enable --now docker.service' ]] || return 1
-  printf '%s\n' "$*" >> "$staging/calls"
-  touch "$staging/docker-started"
+  case "$*" in
+    'show docker.service --property=LoadState --value')
+      if [[ $test_presence == custom-unit ]]; then printf 'loaded\n'; else printf 'not-found\n'; fi ;;
+    'enable --now docker.service')
+      printf '%s\n' "$*" >> "$staging/calls"
+      if command -v dockerd || [[ $test_presence == custom-unit ]]; then touch "$staging/docker-started"; else return 1; fi ;;
+    *) return 1 ;;
+  esac
 }
 export DOCKER_CONTEXT=remote
 ensure_docker "$2" "$staging"
 '''
-            result = subprocess.run(['bash', '-c', script, 'docker-fixture', tmp, distro, arch,
-                                     'present' if current_docker else 'absent', 'fail' if fail_key else 'ok'],
+            result = subprocess.run(['bash', '-c', script, 'docker-fixture', tmp, distro, arch, engine,
+                                     'fail' if fail_key else 'ok', 'fail' if fail_update else 'ok'],
                                     capture_output=True, encoding='utf-8')
             files = {path.relative_to(root).as_posix(): path.read_text()
                      for path in root.rglob('*') if path.is_file() and path.name != 'os-release'}
@@ -79,15 +97,33 @@ ensure_docker "$2" "$staging"
                     f'Architectures: {arch}', 'Signed-By: /etc/apt/keyrings/docker.asc',
                 ])
                 self.assertEqual(files['calls'].splitlines(), [
-                    f'{repo}/gpg', 'update',
+                    f'{repo}/gpg', 'update --error-on=any',
                     'install -y --no-remove docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin',
                     'enable --now docker.service',
                 ])
 
     def test_existing_docker_skips_repository_changes(self):
-        result, files = self.run_setup('debian', '', 'amd64', current_docker=True)
+        result, files = self.run_setup('debian', '', 'amd64', engine='ready')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(files)
+
+    def test_existing_stopped_docker_is_started_without_apt(self):
+        for engine in ('stopped', 'custom-unit'):
+            with self.subTest(engine=engine):
+                result, files = self.run_setup('debian', '', 'amd64', engine=engine)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(files, {'calls': 'enable --now docker.service\n', 'docker-started': ''})
+
+    def test_installation_can_resume_with_only_docker_cli_present(self):
+        result, files = self.run_setup('debian', 'VERSION_CODENAME=trixie\n', 'amd64', engine='cli')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('packages-installed', files)
+
+    def test_failed_index_refresh_stops_before_package_install(self):
+        result, files = self.run_setup('debian', 'VERSION_CODENAME=trixie\n', 'amd64', fail_update=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Could not refresh APT package indexes', result.stderr)
+        self.assertNotIn('packages-installed', files)
 
     def test_key_download_failure_stops_before_install(self):
         result, files = self.run_setup('debian', 'VERSION_CODENAME=trixie\n', 'amd64', fail_key=True)

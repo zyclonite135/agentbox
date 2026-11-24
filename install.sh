@@ -49,7 +49,10 @@ ensure_docker() {
   local distro=$1 staging=$2 docker_suite docker_arch docker_repo
   unset DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH
   export DOCKER_HOST=unix:///var/run/docker.sock
-  if ! command -v docker >/dev/null; then
+  if docker info >/dev/null 2>&1; then return; fi
+  # The CLI may already be present after an interrupted installation.
+  if ! command -v dockerd >/dev/null &&
+      [[ $(systemctl show docker.service --property=LoadState --value) == not-found ]]; then
     case "$distro" in
       ubuntu|debian) docker_repo="https://download.docker.com/linux/$distro" ;;
       *) fail 'Install a local Docker Engine first, then run this installer again' \
@@ -84,7 +87,9 @@ Architectures: $docker_arch
 Signed-By: /etc/apt/keyrings/docker.asc
 EOF
     install -m 0644 "$staging/docker.sources" /etc/apt/sources.list.d/docker.sources
-    apt-get update
+    apt-get update --error-on=any || \
+      fail 'Could not refresh APT package indexes. Check the repository errors above and retry.' \
+           'Не удалось обновить индексы APT. Проверьте ошибки репозиториев выше и повторите установку.'
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove \
       docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   fi

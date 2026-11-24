@@ -1,8 +1,86 @@
-import {launchBrowser} from './playwright-launch.mjs';
+import {browserEngine, clipboardPermissions, launchBrowser, readClipboard} from './playwright-launch.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 let raw=''; for await (const chunk of process.stdin) raw+=chunk;
 const {base,password,session,token}=JSON.parse(raw);
+async function setLocalClipboard(page, text) {
+ const scratch = await page.evaluateHandle(value => {
+  const field = document.createElement('textarea');
+  field.style.cssText = 'position:fixed;left:0;top:0;opacity:0';
+  field.value = value;
+  document.body.append(field);
+  field.select();
+  return field;
+ }, text);
+ try { await page.keyboard.press('ControlOrMeta+C'); }
+ finally { await scratch.evaluate(field => field.remove()); await scratch.dispose(); }
+}
+
+async function expectRemoteInput(page, text) {
+ for (let attempt = 0; attempt < 50; attempt++) {
+  const response = await page.request.get(`${base}/api/sessions/${session}/file?path=browser-hits`,
+   {headers:{Authorization:'Bearer '+token}});
+  if ((await response.text()).includes('/typed?value='+encodeURIComponent(text)+' ')) return;
+  await page.waitForTimeout(100);
+ }
+ throw new Error('Clipboard text did not reach the remote input');
+}
+
+async function checkClipboardShortcuts(page, canvas) {
+ const fromDevice = 'Местный буфер — 中文 ✓';
+ await setLocalClipboard(page, fromDevice);
+ await canvas.focus();
+ await page.keyboard.press('Control+a');
+ await page.keyboard.press('ControlOrMeta+V');
+ await expectRemoteInput(page, fromDevice);
+
+ const current = await page.request.get(`${base}/api/sessions/${session}/browser/clipboard?revision=1`,
+  {headers:{Authorization:'Bearer '+token}});
+ assert.equal(typeof (await current.json()).revision, 'number');
+ await setLocalClipboard(page, 'sentinel');
+ await canvas.focus();
+ await page.keyboard.press('Control+a');
+ await page.keyboard.press('ControlOrMeta+C');
+ await page.waitForFunction(text => window.acceptedClipboardWrites[0] === text, fromDevice);
+ // Windows Playwright WebKit resolves writes but its OS pasteboard is empty
+ // even for a direct writeText() probe. Check its accepted payload instead.
+ if (browserEngine() !== 'webkit') assert.equal(await readClipboard(page), fromDevice);
+
+ const markerY = await chromeFrameHeight(page, 40, 220);
+ const position = {x:105, y:markerY+214};
+ async function openNativeMenu() {
+  await Promise.all([
+   page.waitForResponse(r => r.url().endsWith('/browser/clipboard?revision=1') && r.ok()),
+   canvas.click({button:'right',position}),
+  ]);
+  // The dark Copy label appears over a previously blank part of the textarea.
+  await page.waitForFunction(({x,y}) => {
+   const canvas = document.querySelector('#browser-screen canvas');
+   const pixels = canvas.getContext('2d').getImageData(x+42,y+35,30,16).data;
+   return pixels.some((value, index) => index % 4 === 0 && value < 96);
+  }, position, {timeout:5000});
+ }
+ // Chrome for Testing's native editable-field menu begins with Cut, Copy, Paste.
+ await setLocalClipboard(page, 'context sentinel');
+ await canvas.focus();
+ await openNativeMenu();
+ await canvas.click({position:{x:position.x+60,y:position.y+44}});
+ await page.waitForFunction(text => window.acceptedClipboardWrites[1] === text, fromDevice);
+ if (browserEngine() !== 'webkit') assert.equal(await readClipboard(page), fromDevice);
+
+ const staged = 'Меню Paste — 中文 ✓';
+ await page.locator('#browser-clipboard').fill(staged);
+ await Promise.all([
+  page.waitForResponse(r => r.url().endsWith('/browser/clipboard') && r.request().method() === 'POST' && r.ok()),
+  page.locator('#browser-stage-clipboard').click(),
+ ]);
+ await canvas.focus();
+ await page.keyboard.press('Control+a');
+ await openNativeMenu();
+ await canvas.click({position:{x:position.x+60,y:position.y+72}});
+ await expectRemoteInput(page, staged);
+ console.log('Bidirectional UTF-8 keyboard clipboard, Chrome native Copy and prepared Paste passed');
+}
 async function waitForFittedDesktop(page, fillPortrait = false) {
  await page.waitForFunction(fillPortrait => {
   const screen = document.querySelector('#browser-screen');
@@ -125,7 +203,18 @@ async function checkFaviconBatches(page, picker) {
 
 const browser=await launchBrowser();
 try {
- const page=await browser.newPage({locale:'en-US',viewport:{width:1600,height:1100}});
+ const checkClipboard = process.env.AGENTBOX_REQUIRE_BROWSER_CLIPBOARD === '1';
+ const page=await browser.newPage({locale:'en-US',viewport:{width:1600,height:1100},permissions:checkClipboard?clipboardPermissions():[]});
+ if (checkClipboard) await page.addInitScript(() => {
+  const clipboard = navigator.clipboard;
+  if (!clipboard?.write) return;
+  window.acceptedClipboardWrites = [];
+  const write = clipboard.write.bind(clipboard);
+  clipboard.write = async items => {
+   await write(items);
+   window.acceptedClipboardWrites.push(await (await items[0].getType('text/plain')).text());
+  };
+ });
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(`${base}/#/sessions/${session}/browser`);
  await page.locator('#login-user').fill('boxadmin');
@@ -146,12 +235,8 @@ try {
  await waitForFittedDesktop(page);
  await page.locator('#browser-clipboard').fill('真实远程桌面 ✓');
  await Promise.all([page.waitForResponse(r=>r.url().endsWith('/browser/clipboard')&&r.request().method()==='POST'),page.locator('#browser-paste').click()]);
- for(let i=0;i<50;i++){
-  const response=await page.request.get(`${base}/api/sessions/${session}/file?path=browser-hits`,{headers:{Authorization:'Bearer '+token}});
-  if((await response.text()).includes('/typed?value='+encodeURIComponent('真实远程桌面 ✓')))break;
-  if(i===49)throw new Error('UTF-8 clipboard did not reach the real browser input');
-  await page.waitForTimeout(100);
- }
+ await expectRemoteInput(page, '真实远程桌面 ✓');
+ if (checkClipboard) await checkClipboardShortcuts(page, canvas);
  await page.waitForTimeout(300);
  await mkdir('output/playwright',{recursive:true});
  await page.screenshot({path:'output/playwright/remote-browser-live.png'});

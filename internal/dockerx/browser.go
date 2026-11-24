@@ -107,23 +107,39 @@ func browserContainerOptions(cc *container.Config, hc *container.HostConfig, lab
 	hc.ShmSize = 256 << 20
 }
 
-func (m *Manager) BrowserClipboard(ctx context.Context, id string, write bool, text string) (string, error) {
-	payload, _ := json.Marshal(map[string]any{"write": write, "text": text})
+type BrowserClipboardRequest struct {
+	Write    bool    `json:"write,omitempty"`
+	Text     string  `json:"text,omitempty"`
+	Revision bool    `json:"revision,omitempty"`
+	After    *uint64 `json:"after,omitempty"`
+}
+
+type BrowserClipboard struct {
+	Text     string  `json:"text"`
+	Revision *uint64 `json:"revision,omitempty"`
+}
+
+func (m *Manager) BrowserClipboard(ctx context.Context, id string, req BrowserClipboardRequest) (BrowserClipboard, error) {
+	payload, _ := json.Marshal(req)
 	out, err := m.ExecCapture(ctx, id, []string{"python3", "-I", "/opt/agentbox/browser.py", "clipboard"}, nil, string(payload))
 	if err != nil {
-		return "", err
+		return BrowserClipboard{}, err
 	}
 	var result struct {
-		Text  string `json:"text"`
+		BrowserClipboard
 		Error string `json:"error"`
 	}
 	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		return "", err
+		return BrowserClipboard{}, err
 	}
 	if result.Error != "" {
-		return "", browserHelperError(result.Error, "剪贴板操作失败")
+		return BrowserClipboard{}, browserHelperError(result.Error, "剪贴板操作失败")
 	}
-	return result.Text, nil
+	if (req.Revision || req.After != nil) && result.Revision == nil {
+		// Older images respond with the current text even for a revision probe.
+		result.Text = ""
+	}
+	return result.BrowserClipboard, nil
 }
 
 // Only forward fixed messages authored by the bundled browser helper. Arbitrary

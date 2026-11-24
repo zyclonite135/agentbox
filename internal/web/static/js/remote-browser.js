@@ -4,6 +4,7 @@ import { S, bus } from "./state.js";
 import { api, wsURL } from "./api.js";
 import { enhanceSelects, setSelectValue } from "./select.js";
 import { closeMenu, openMenu } from "./menu.js";
+import { setupBrowserClipboard } from "./browser-clipboard.js";
 import { $, toast } from "./util.js";
 let desktop = null;
 let generation = 0;
@@ -178,6 +179,7 @@ function controls() {
     }
     $("browser-paste").disabled = !connected;
     $("browser-copy").disabled = !connected;
+    $("browser-stage-clipboard").disabled = !connected;
     renderNavigation();
 }
 function resetDesktop(closeTransport = false) {
@@ -336,6 +338,12 @@ export function initRemoteBrowser() {
     controller?.abort();
     controller = new AbortController();
     const { signal } = controller;
+    const clipboardActions = setupBrowserClipboard($("browser-screen"), () => {
+        const view = desktop, id = S.current?.id, ticket = generation;
+        const active = () => connected && desktop === view && S.current?.id === id && S.tab === "browser"
+            && ticket === generation && !document.hidden && document.hasFocus();
+        return view && id && active() ? { id, view, current: active } : null;
+    }, signal);
     renderAddressHint();
     compactLayout.addEventListener("change", renderAddressHint, { signal });
     for (const button of document.querySelectorAll("[data-browser-brand]")) {
@@ -491,44 +499,13 @@ export function initRemoteBrowser() {
                 },
             })),
             { label: i18nText(document.fullscreenElement ? "退出全屏" : "全屏"), icon: "expand", sep: true, run: fullscreen },
+            { label: i18nText("从本机粘贴"), icon: "paste", run: () => void clipboardActions.fromDevice() },
             { label: i18nText("剪贴板"), icon: "paste", run: () => {
                     clipboard.open = !clipboard.open;
                     (clipboard.open ? clipboard.querySelector("summary") : more)?.focus({ preventScroll: true });
                 } },
             { label: i18nText("关闭浏览器"), icon: "close", danger: true, run: stop },
         ]);
-    }, { signal });
-    $("browser-copy").addEventListener("click", async () => {
-        const id = S.current?.id, ticket = generation;
-        if (!id || !connected)
-            return;
-        try {
-            const result = await api(`/sessions/${id}/browser/clipboard`);
-            if (ticket === generation)
-                $("browser-clipboard").value = result.text;
-        }
-        catch (e) {
-            toast(e.message, true);
-        }
-    }, { signal });
-    $("browser-paste").addEventListener("click", async () => {
-        const view = desktop, id = S.current?.id;
-        if (!view || !connected || !id)
-            return;
-        try {
-            await api(`/sessions/${id}/browser/clipboard`, { method: "POST", body: JSON.stringify({ text: $("browser-clipboard").value }) });
-        }
-        catch (e) {
-            toast(e.message, true);
-            return;
-        }
-        if (desktop !== view)
-            return;
-        view.focus();
-        // Deliberate click only: never read the local clipboard automatically.
-        view.sendKey(0xffe3, "ControlLeft", true);
-        view.sendKey(0x76, "KeyV");
-        view.sendKey(0xffe3, "ControlLeft", false);
     }, { signal });
     return () => { controller?.abort(); controller = null; browserDisconnect(); $("browser-clipboard").value = ""; };
 }

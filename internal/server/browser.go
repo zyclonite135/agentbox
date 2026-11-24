@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -248,20 +249,31 @@ func (s *Server) handleBrowserClipboard(w http.ResponseWriter, r *http.Request, 
 		writeErr(w, 403, err.Error())
 		return
 	}
-	var req struct {
+	var body struct {
 		Text string `json:"text"`
 	}
+	var req dockerx.BrowserClipboardRequest
 	if r.Method == http.MethodPost {
 		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 300000))
 		dec.DisallowUnknownFields()
-		if dec.Decode(&req) != nil || dec.Decode(&struct{}{}) != io.EOF || len(req.Text) > 48<<10 {
+		if dec.Decode(&body) != nil || dec.Decode(&struct{}{}) != io.EOF || len(body.Text) > 48<<10 {
 			writeErr(w, 400, "剪贴板最多支持 48 KiB 的文字")
 			return
 		}
+		req.Write, req.Text = true, body.Text
+	} else if x := r.URL.Query().Get("after"); x != "" {
+		revision, err := strconv.ParseUint(x, 10, 53)
+		if err != nil {
+			writeErr(w, 400, "剪贴板操作失败")
+			return
+		}
+		req.After = &revision
+	} else {
+		req.Revision = r.URL.Query().Get("revision") == "1"
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	var text string
+	var result dockerx.BrowserClipboard
 	err = s.workspaces().UseRunning(ctx, sess.ID, func(cur store.Session) error {
 		state, err := s.dock.BrowserCommand(ctx, cur.ContainerID, "status", "", nil)
 		if err != nil {
@@ -270,7 +282,7 @@ func (s *Server) handleBrowserClipboard(w http.ResponseWriter, r *http.Request, 
 		if !state.Running || state.NetworkKey != key {
 			return errors.New("请先连接浏览器")
 		}
-		text, err = s.dock.BrowserClipboard(ctx, cur.ContainerID, r.Method == http.MethodPost, req.Text)
+		result, err = s.dock.BrowserClipboard(ctx, cur.ContainerID, req)
 		return err
 	})
 	if err != nil {
@@ -278,7 +290,7 @@ func (s *Server) handleBrowserClipboard(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	writeJSON(w, 200, map[string]string{"text": text})
+	writeJSON(w, 200, result)
 }
 
 func validNavigationRequest(req dockerx.BrowserNavigationRequest) bool {

@@ -3,6 +3,7 @@
 Control and VNC relay run as the workspace UID; that UID is the trust boundary.
 """
 import base64
+import ctypes
 import fcntl
 import hashlib
 import json
@@ -43,6 +44,63 @@ def safe_url(value):
     if p.scheme not in ('http', 'https') or not p.hostname or p.username or p.password:
         raise ValueError('仅支持不含用户名密码的 HTTP / HTTPS 地址')
     return value
+
+
+class ClipboardSelection:
+    """Count changes to CLIPBOARD without reading its contents."""
+    def __init__(self, display):
+        x11 = ctypes.CDLL('libX11.so.6')
+        fixes = ctypes.CDLL('libXfixes.so.3')
+        pointer = ctypes.c_void_p
+        xid = ctypes.c_ulong
+        x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+        x11.XOpenDisplay.restype = pointer
+        x11.XDefaultRootWindow.argtypes = [pointer]
+        x11.XDefaultRootWindow.restype = xid
+        x11.XInternAtom.argtypes = [pointer, ctypes.c_char_p, ctypes.c_int]
+        x11.XInternAtom.restype = xid
+        x11.XPending.argtypes = [pointer]
+        x11.XNextEvent.argtypes = [pointer, pointer]
+        x11.XSync.argtypes = [pointer, ctypes.c_int]
+        x11.XCloseDisplay.argtypes = [pointer]
+        fixes.XFixesSelectSelectionInput.argtypes = [pointer, xid, xid, xid]
+        self.x11 = x11
+        self.display = x11.XOpenDisplay(display.encode())
+        if not self.display:
+            raise OSError('Clipboard display unavailable')
+        self.serial = 0
+        # XEvent uses a 24-long ABI padding member on both 32- and 64-bit X11.
+        self.event = (ctypes.c_long * 24)()
+        root = x11.XDefaultRootWindow(self.display)
+        clipboard = x11.XInternAtom(self.display, b'CLIPBOARD', 0)
+        fixes.XFixesSelectSelectionInput(self.display, root, clipboard, 7)
+        x11.XSync(self.display, 0)
+
+    def revision(self):
+        while self.x11.XPending(self.display):
+            self.x11.XNextEvent(self.display, ctypes.byref(self.event))
+            self.serial += 1
+        return self.serial
+
+    def close(self):
+        self.x11.XCloseDisplay(self.display)
+
+
+def read_clipboard(env):
+    proc = subprocess.Popen(['xclip', '-selection', 'clipboard', '-out'], env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    timer = threading.Timer(3, proc.kill)
+    timer.start()
+    try:
+        raw = proc.stdout.read(65537)
+        if len(raw) > 65536:
+            raise ValueError('剪贴板内容过长')
+        return raw.decode('utf-8', errors='replace')
+    finally:
+        timer.cancel()
+        proc.kill()
+        proc.wait()
+        proc.stdout.close()
 
 
 class Navigation:
@@ -352,6 +410,7 @@ def serve():
     children = []
     chrome = None
     navigation = None
+    clipboard_selection = None
     proxy = None
     control = socket.socket(socket.AF_UNIX)
     stopping = threading.Event()
@@ -383,6 +442,10 @@ def serve():
         if not number.isdigit():
             raise RuntimeError('显示服务启动失败')
         env['DISPLAY'] = ':' + number
+        try:
+            clipboard_selection = ClipboardSelection(env['DISPLAY'])
+        except OSError:
+            pass  # Manual clipboard operations remain available.
         launch(['openbox'])
         flags = ['--user-data-dir=' + str(PROFILE / 'profile'), '--no-first-run',
                  '--no-default-browser-check', '--restore-last-session',
@@ -447,21 +510,13 @@ def serve():
                                            input=text.encode(), env=env, stdout=subprocess.DEVNULL,
                                            stderr=subprocess.DEVNULL, timeout=3, check=True)
                             response = {'text': text}
+                        elif data.get('revision') or data.get('after') is not None:
+                            revision = clipboard_selection.revision() if clipboard_selection else None
+                            response = {'revision': revision}
+                            if revision is not None and data.get('after') is not None and revision != data['after']:
+                                response['text'] = read_clipboard(env)
                         else:
-                            proc = subprocess.Popen(['xclip', '-selection', 'clipboard', '-out'],
-                                                    env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-                            timer = threading.Timer(3, proc.kill)
-                            timer.start()
-                            try:
-                                raw = proc.stdout.read(65537)
-                                proc.kill()
-                                proc.wait()
-                                if len(raw) > 65536:
-                                    raise ValueError('剪贴板内容过长')
-                                response = {'text': raw.decode('utf-8', errors='replace')}
-                            finally:
-                                timer.cancel()
-                                proc.stdout.close()
+                            response = {'text': read_clipboard(env)}
                     elif data['action'] == 'stop':
                         stopping.set()
                     elif data['action'] == 'navigation':
@@ -488,6 +543,8 @@ def serve():
         (RUNTIME / 'error').write_text(str(exc))
     finally:
         control.close()
+        if clipboard_selection and vnc.poll() is None:
+            clipboard_selection.close()
         # Close Chrome windows through the window manager before terminating X
         # or the browser's network process: killing the entire process group
         # immediately can discard recently written cookies.

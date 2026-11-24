@@ -55,12 +55,15 @@ function renderAddressHint() {
 function renderNavigation() {
  const available = connected && !!navigationId;
  $("browser-nav").hidden = !available;
+ const addressDisabled = pending() || navigationBusy;
+ $<HTMLButtonElement>("browser-open").disabled = addressDisabled;
+ for (const button of $("tab-browser").querySelectorAll<HTMLButtonElement>("[data-browser-url]")) button.disabled = addressDisabled;
  const disabled = navigationBusy || !navigation;
  $<HTMLButtonElement>("browser-back").disabled = disabled || !navigation?.back;
  $<HTMLButtonElement>("browser-forward").disabled = disabled || !navigation?.forward;
  $<HTMLButtonElement>("browser-reload").disabled = disabled || !navigation?.active;
  $<HTMLButtonElement>("browser-tabs").disabled = disabled;
- if (!available || !navigation || editingAddress) return;
+ if (!available || !navigation || navigationBusy || editingAddress) return;
  const url = navigation.tabs.find(tab => tab.id === navigation?.active)?.url ?? "";
  $<HTMLInputElement>("browser-url").value = /^https?:\/\//.test(url) ? url : "";
 }
@@ -70,8 +73,10 @@ async function updateNavigation(command?: NavigationCommand) {
  if (!id || !connected || navigationBusy || (!command && navigationReading)) return;
  const currentGeneration = generation;
  const ticket = ++navigationVersion;
- if (command) navigationBusy = true;
- else navigationReading = true;
+ if (command) {
+  navigationBusy = true;
+  if (["navigate", "select", "new", "close"].includes(command.operation)) editingAddress = false;
+ } else navigationReading = true;
  renderNavigation();
  try {
   const request = command ? {method:"POST", body:JSON.stringify(command)} : undefined;
@@ -143,10 +148,9 @@ function controls() {
  // 同一时刻只露一个：没连上时「启动浏览器」，连上后「关闭浏览器」
  $("browser-start").classList.toggle("hidden", connected);
  $("browser-stop").classList.toggle("hidden", !connected);
- for (const id of ["browser-stop", "browser-start", "browser-launch", "browser-open"]) {
+ for (const id of ["browser-stop", "browser-start", "browser-launch"]) {
   $<HTMLButtonElement>(id).disabled = pending();
  }
- for (const button of pane.querySelectorAll<HTMLButtonElement>("[data-browser-url]")) button.disabled = pending();
  $<HTMLButtonElement>("browser-paste").disabled = !connected;
  $<HTMLButtonElement>("browser-copy").disabled = !connected;
  renderNavigation();
@@ -299,11 +303,11 @@ export function initRemoteBrowser() {
    ...navigation.tabs.map(tab => ({
     label: tab.title || tab.url || i18nText("新建标签页"),
     icon: tab.id === navigation?.active ? "check" as const : "globe" as const,
-    run: () => { editingAddress = false; void updateNavigation({operation:"select", tab:tab.id}); },
+    run: () => void updateNavigation({operation:"select", tab:tab.id}),
    })),
-   {label:i18nText("新建标签页"), icon:"plus", sep:true, run:() => { editingAddress = false; void updateNavigation({operation:"new"}); }},
+   {label:i18nText("新建标签页"), icon:"plus", sep:true, run:() => void updateNavigation({operation:"new"})},
    {label:i18nText("关闭当前标签页"), icon:"close", disabled:navigation.tabs.length < 2 || !active,
-    run:() => { editingAddress = false; void updateNavigation({operation:"close", tab:active}); }},
+    run:() => void updateNavigation({operation:"close", tab:active})},
   ]);
  }, {signal});
  $("browser-address").addEventListener("submit", e => {
@@ -316,17 +320,13 @@ export function initRemoteBrowser() {
    const parsed = new URL(url);
    if (!["http:","https:"].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error();
   } catch { toast(i18nText("请输入有效的 HTTP / HTTPS 地址"), true); return; }
-  if (navigationId) {
-   editingAddress = false;
-   void updateNavigation({operation:"navigate", url});
-  } else void startBrowser(url);
+  if (navigationId) void updateNavigation({operation:"navigate", url});
+  else void startBrowser(url);
  }, {signal});
  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-browser-url]")) {
   button.addEventListener("click", () => {
-   if (navigationId) {
-    editingAddress = false;
-    void updateNavigation({operation:"new",url:button.dataset.browserUrl});
-   } else void startBrowser(button.dataset.browserUrl);
+   if (navigationId) void updateNavigation({operation:"new",url:button.dataset.browserUrl});
+   else void startBrowser(button.dataset.browserUrl);
   }, {signal});
  }
  const stop = async () => {

@@ -6,6 +6,7 @@ import socket
 import socketserver
 import threading
 import unittest
+from unittest.mock import Mock
 from urllib.parse import urlsplit
 
 spec=importlib.util.spec_from_file_location('browser',Path(__file__).resolve().parent.parent/'images/browser/browser.py')
@@ -17,6 +18,42 @@ class RuntimeTest(unittest.TestCase):
         self.assertEqual(browser.safe_url('https://claude.ai/'),'https://claude.ai/')
         for url in ['file:///etc/passwd','javascript:alert(1)','https://u:p@host','https://host\n','--no-sandbox']:
             with self.assertRaises(ValueError):browser.safe_url(url)
+
+    def test_fullscreen_moves_to_surviving_window(self):
+        navigation = browser.Navigation.__new__(browser.Navigation)
+        navigation.active = 'popup'
+        navigation.restore = (41, 'maximized')
+        windows = {42: 'maximized'}
+
+        def chrome(method, params):
+            if method == 'Browser.getWindowForTarget':
+                return {'windowId': 42, 'bounds': {'windowState': windows[42]}}
+            window = params['windowId']
+            if window not in windows:
+                raise ValueError('Chrome navigation command failed')
+            if method == 'Browser.getWindowBounds':
+                return {'bounds': {'windowState': windows[window]}}
+            self.assertEqual(method, 'Browser.setWindowBounds')
+            windows[window] = params['bounds']['windowState']
+
+        navigation.call = chrome
+        navigation.fullscreen(True)
+        self.assertEqual(windows[42], 'fullscreen')
+        navigation.fullscreen(False)
+        self.assertEqual(windows[42], 'maximized')
+        self.assertIsNone(navigation.restore)
+
+    def test_fullscreen_preserves_existing_chrome_fullscreen(self):
+        navigation = browser.Navigation.__new__(browser.Navigation)
+        navigation.active = 'tab'
+        navigation.restore = None
+        navigation.call = Mock(return_value={'windowId': 41, 'bounds': {'windowState': 'fullscreen'}})
+
+        navigation.fullscreen(True)
+        navigation.fullscreen(False)
+
+        navigation.call.assert_called_once_with('Browser.getWindowForTarget', {'targetId': 'tab'})
+        self.assertIsNone(navigation.restore)
 
     def test_proxy_http_connect_and_websocket(self):
         captured=[]

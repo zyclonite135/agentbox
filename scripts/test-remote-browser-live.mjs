@@ -88,8 +88,33 @@ try {
  let beforeFullscreen;
  if (navigationSupported) {
   await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/check'));
+  const navigationRoute = '**/api/sessions/*/browser/navigation';
+  let releaseNavigation;
+  const heldNavigation = new Promise(resolve => { releaseNavigation = resolve; });
+  await page.route(navigationRoute, async route => {
+   if (route.request().method() === 'POST') await heldNavigation;
+   await route.continue();
+  });
   await address.fill('http://127.0.0.1:8765/navigated');
-  await address.press('Enter');
+  try {
+   await Promise.all([
+    page.waitForRequest(request => request.method() === 'POST' && request.url().endsWith('/browser/navigation')),
+    address.press('Enter'),
+   ]);
+   const draft = 'http://127.0.0.1:8765/next';
+   await address.fill(draft);
+   await address.press('Enter');
+   await address.evaluate(el => el.form.dispatchEvent(new Event('submit', {cancelable:true, bubbles:true})));
+   assert.equal(await page.locator('#browser-open').isDisabled(), true);
+   releaseNavigation();
+   await page.waitForFunction(() => !document.querySelector('#browser-back').disabled);
+   assert.equal(await address.inputValue(), draft, 'A pending navigation must preserve the next draft');
+   await address.press('Escape');
+   assert.equal(await address.inputValue(), 'http://127.0.0.1:8765/navigated');
+  } finally {
+   releaseNavigation();
+   await page.unroute(navigationRoute);
+  }
   await page.waitForFunction(() => !document.querySelector('#browser-back').disabled);
   await page.locator('#browser-back').click();
   await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/check'));
@@ -114,6 +139,11 @@ try {
  await page.waitForFunction(() => !document.fullscreenElement);
  await waitForFittedDesktop(page);
  if (navigationSupported) {
+  await chromeFrameHeight(page, 40, 220);
+  await page.locator('#browser-fullscreen').click();
+  await chromeFrameHeight(page, 0, beforeFullscreen - 40);
+  await page.evaluate(() => document.exitFullscreen());
+  await waitForFittedDesktop(page);
   await chromeFrameHeight(page, 40, 220);
   console.log('Real Chrome navigation, tabs and native toolbar visibility on fullscreen enter/exit passed');
  }

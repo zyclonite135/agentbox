@@ -132,12 +132,22 @@ class Navigation:
 
     def fullscreen(self, enabled):
         if not enabled:
-            if self.restore:
-                window, previous = self.restore
-                self.call('Browser.setWindowBounds', {'windowId': window, 'bounds': {'windowState': 'normal'}})
-                if previous == 'maximized':
-                    self.call('Browser.setWindowBounds', {'windowId': window, 'bounds': {'windowState': previous}})
+            if not self.restore:
+                return
+            window, previous = self.restore
+            if previous == 'fullscreen':
                 self.restore = None
+                return
+            try:
+                self.call('Browser.getWindowBounds', {'windowId': window})
+            except ValueError:
+                # The original window can close while another window stays open.
+                self.restore = None
+                return
+            self.call('Browser.setWindowBounds', {'windowId': window, 'bounds': {'windowState': 'normal'}})
+            if previous != 'normal':
+                self.call('Browser.setWindowBounds', {'windowId': window, 'bounds': {'windowState': previous}})
+            self.restore = None
             return
         bounds = self.call('Browser.getWindowForTarget', {'targetId': self.active})
         window = bounds['windowId']
@@ -145,8 +155,9 @@ class Navigation:
             return
         self.fullscreen(False)
         previous = bounds['bounds'].get('windowState', 'normal')
-        self.call('Browser.setWindowBounds', {'windowId': window, 'bounds': {'windowState': 'fullscreen'}})
-        self.restore = (window, previous if previous in ('normal', 'maximized') else 'normal')
+        if previous != 'fullscreen':
+            self.call('Browser.setWindowBounds', {'windowId': window, 'bounds': {'windowState': 'fullscreen'}})
+        self.restore = (window, previous)
 
     def handle(self, data):
         action = data['operation']

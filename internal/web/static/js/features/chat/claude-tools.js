@@ -2,6 +2,7 @@ import { buttonLabel, svgIcon } from "../../icons.js";
 import { setTip } from "../../tip.js";
 import { setTextRender, t as i18nText } from "../../i18n.js";
 import { clean, clipLabel, base, el, onSettle, pendingRow, str, num, takeRow, trackRow } from "./tool-rows.js";
+import { markActivity } from "./activity.js";
 const KEY = "cc:";
 const tools = new WeakMap();
 const AGENT_TOOLS = new Set(["Agent", "Task"]);
@@ -147,7 +148,7 @@ function groupContinues(g) {
     if (!g)
         return false;
     for (let n = g.el.nextElementSibling; n; n = n.nextElementSibling) {
-        if (n.classList.contains("think") || n.classList.contains("fold-think") || n.classList.contains("answer-footer"))
+        if (n.classList.contains("think") || n.classList.contains("answer-footer"))
             continue;
         return false;
     }
@@ -526,7 +527,7 @@ function htmlPath(t) {
 /** 折叠组与子 Agent 里的一条只有标题一行，点开才是详细视图（全文）；单独的一行平时是摘要，
  * 有详细视图的点开看全文 */
 function renderTool(t) {
-    const item = !!t.group || !!t.parent;
+    const item = !!t.group || !!t.parent || !!t.inActivity;
     const view = viewOf(t, item);
     const detail = view.full ?? view.compact;
     const expandable = item ? detail.length > 0 : !!view.full;
@@ -584,7 +585,7 @@ function refresh(t) {
 }
 /** assistant 事件里的一个 tool_use → 要放进对话流的节点；续进折叠组、子 Agent 里的调用
  * 与不显示的工具返回 null。不归这里管（任务、提问、委派等）的由调用方先挑走。 */
-export function claudeToolUse(block, ev, live = false) {
+export function claudeToolUse(block, ev, { live, activity }) {
     const id = str(block.id), name = str(block.name);
     if (!name || HIDDEN.has(name))
         return null;
@@ -605,7 +606,13 @@ export function claudeToolUse(block, ev, live = false) {
         refresh(t);
         return null;
     }
-    if (groupKind(t)) {
+    const kind = groupKind(t);
+    if (activity && !AGENT_TOOLS.has(name) && !(name === "Bash" && t.input.run_in_background === true)) {
+        t.inActivity = true;
+        markActivity(t.el, kind === "bash" ? "command" : kind ||
+            (["Write", "Edit", "MultiEdit", "NotebookEdit"].includes(name) ? "edit" : name === "WebSearch" ? "search" : "tool"));
+    }
+    else if (kind) {
         if (!groupContinues(openGroup))
             openGroup = null;
         const g = openGroup || newGroup();

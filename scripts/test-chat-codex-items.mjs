@@ -49,7 +49,15 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  ]);
  await reload();
  const rows = page.locator('#chat-log .tool-call');
- await rows.first().waitFor();
+ await rows.first().waitFor({state:'attached'});
+ const activity = page.locator('#chat-log .fold-activity');
+ const activityHead = activity.first().locator(':scope > summary');
+ assert.equal(await activity.count(), 1);
+ assert.equal(await activityHead.textContent(),
+  '工作过程 · 推理摘要 1 段, 读文件 1 次, 命令 2 条, 文件变更 1 项, 搜索次数 1, 工具调用 1 次');
+ assert.equal(await rows.first().isVisible(), false, 'history starts with technical steps collapsed');
+ assert.equal(await page.getByText('看完了。',{exact:true}).isVisible(), true, 'the reply is visible outside the summary');
+ await activityHead.press('Enter');
  const names = () => rows.evaluateAll(list => list.map(r => [r.querySelector('.name').textContent, r.querySelector('.sum')?.textContent || '']));
  assert.deepEqual(await names(), [
   ['Read', 'app.ts'], ['Shell', 'npm run lint'], ['Edit', '/workspace/src/app.ts'],
@@ -81,6 +89,29 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await rows.nth(4).locator('summary').click();
  assert.equal(await rows.nth(4).locator('.tc-out.err').innerText(), 'boom');
 
+ // A command can span pages even with a visible message between its start and result.
+ const joined = await page.evaluate(async () => {
+  const {TurnWriter, replayHistory, joinTurn} = await import('/_v/{{BUILD}}/js/features/chat/turns.js');
+  const {settleToolRows} = await import('/_v/{{BUILD}}/js/features/chat/tool-rows.js');
+  const older = document.createElement('div'), newer = document.createElement('div');
+  const entry = (type, item) => ({kind:'event', event:{type, item}});
+  const command = {type:'command_execution', id:'page-split-command', command:'fixture-page-split'};
+  for (const [box, history] of [
+   [older, [entry('item.started', command), entry('item.completed', {type:'agent_message', text:'Between pages'})]],
+   [newer, [entry('item.completed', {...command, status:'completed', exit_code:0}),
+    entry('item.completed', {type:'reasoning', text:'Next step'})]],
+  ]) {
+   const writer = new TurnWriter(() => box, () => 'codex');
+   replayHistory(writer, history, {}, node => writer.place(node));
+   settleToolRows(box);
+  }
+  joinTurn(older.firstElementChild, newer.firstElementChild);
+  return [...newer.querySelector('.turn-body').children].slice(0,3).map(node =>
+   [node.className, node.querySelector('.tool-call')?.dataset.status || '']);
+ });
+ assert.deepEqual(joined, [['fold fold-activity','completed'], ['msg agent',''], ['fold fold-activity','']],
+  'pagination reconciles a command result at its original position without crossing the message boundary');
+
  // Live: a running command shows a spinner, the working line names it, its
  // output streams underneath, and completion updates the same row.
  const count = await rows.count();
@@ -90,6 +121,10 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  send({type:'agent_event', event:{type:'item.started', item:test}});
  const live = rows.nth(count);
  await until(async () => await rows.count() === count + 1, 'running row appears');
+ const runningGroup = activity.last();
+ assert.equal(await runningGroup.locator(':scope > summary').textContent(), '执行命令…');
+ assert.equal(await live.isVisible(), false);
+ await runningGroup.locator(':scope > summary').click();
  assert.equal(await live.getAttribute('data-status'), 'running');
  assert.equal(await live.locator('.tc-spin').count(), 1);
  await until(async () => await page.locator('.turn.working .work-label').textContent() === '执行 npm test…', 'working line names the command');
@@ -101,10 +136,26 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  send({type:'agent_event', event:{type:'item.completed', item:{...test, status:'completed', exit_code:0, duration_ms:6840, output_lines:0}}});
  await until(async () => await live.getAttribute('data-status') === 'completed', 'completion updates the row in place');
  assert.equal(await rows.count(), count + 1);
+ assert.equal(await runningGroup.locator(':scope > summary').textContent(), '工作过程 · 命令 1 条');
+ assert.equal(await runningGroup.getAttribute('open'), '', 'completion keeps the group open');
  assert.equal(await live.locator('.tc-live, .tc-spin').count(), 0);
  assert.equal(await live.locator('.tc-meta').innerText(), '6.8s');
  await live.locator('summary').click();
  assert.equal(await live.locator('.tc-note').innerText(), '（无输出）');
+ const stream = event => send({type:'agent_event', event:{type:'stream_event', event}});
+ stream({type:'content_block_start', content_block:{type:'thinking'}});
+ stream({type:'content_block_delta', delta:{type:'thinking_delta', thinking:'Checking test results.'}});
+ await until(async () => await runningGroup.locator(':scope > summary').textContent() === '推理中…', 'reasoning updates the same heading');
+ stream({type:'content_block_stop'});
+ send({type:'agent_event', event:{type:'item.completed', item:{type:'reasoning', text:'Checked test results.'}}});
+ await until(async () => await runningGroup.locator(':scope > summary').textContent() === '工作过程 · 命令 1 条, 推理摘要 1 段',
+  'the reasoning result replaces its streamed draft');
+ assert.equal(await runningGroup.locator('details.think').count(), 1);
+ assert.equal(await runningGroup.getAttribute('open'), '', 'the open group survives reasoning replacement');
+ send({type:'agent_event', event:{type:'item.completed', item:{type:'reasoning', text:'Exec fallback summary.'}}});
+ await until(async () => await runningGroup.locator('.think-peek').last().textContent() === 'Exec fallback summary.',
+  'reasoning without streaming deltas gets the same step title after playback');
+ assert.equal(await runningGroup.locator('details.think').count(), 2);
  // A command still running when the turn ends stops spinning.
  send({type:'agent_event', event:{type:'item.started', item:{type:'command_execution', id:'c6', command:'sleep 5'}}});
  await until(async () => await rows.count() === count + 2, 'second running row');

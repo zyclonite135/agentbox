@@ -23,6 +23,7 @@ import { codexItemNodes } from "./features/chat/codex-items.js";
 import { resultFilesCard, splitResultFiles } from "./features/chat/result-files.js";
 import { breakClaudeGroup, claudeTaskProgress, claudeToolResults, claudeToolTitle, claudeToolUse, subAgentKnown, useMarkdown } from "./features/chat/claude-tools.js";
 import { heartbeatNode } from "./features/chat/folds.js";
+import { markActivity } from "./features/chat/activity.js";
 
 export const USER_ATTACH_RE = /\[(图片|附件)#(\d+) (\/shared\/\.(?:images|file)\/[A-Za-z0-9._-]+)\]/g;
 
@@ -811,7 +812,7 @@ function preservedUUIDs(meta: { preserved_messages?: { uuids?: unknown; all_uuid
 export function renderEntry(raw: HistoryEntry | null | undefined) {
   if (!raw || typeof raw !== "object") return [];
   if (raw.kind === "user") { compactReplays.clear(); breakClaudeGroup(); return [renderUserTurn(raw.text, raw.ts)]; }
-  if (raw.kind === "event") return raw.state === "interrupted" ? [] : renderEvent(raw.event);
+  if (raw.kind === "event") return raw.state === "interrupted" ? [] : renderEvent(raw.event, { activity: true });
   if (raw.kind === "steer") return renderSteer(raw.event as unknown as SteerView);
   if (raw.kind === "divider") return [divider(raw.ts ? i18nText("新对话 · ") + fmtTime(raw.ts) : "")];
   if (raw.kind === "status" && raw.state === "error") return [problemChip(raw)];
@@ -851,13 +852,12 @@ function taskToolChip(name: string | undefined, input: unknown): HTMLElement | n
 }
 
 /* 流式生成中的临时节点：body 由 chat.ts 的打字机填充（text 走 Markdown
- * 重渲染，thinking 纯文本），完整事件到达后整体移除交给正式渲染。
- * thinking 生成中默认展开。 */
+ * 重渲染，thinking 纯文本），完整事件到达后整体移除交给正式渲染。 */
 export function liveNode(kind: string): LiveNode {
   if (kind === "thinking") {
     const det = document.createElement("details");
     det.className = "think";
-    det.open = true;
+    markActivity(det, "reasoning");
     const sum = document.createElement("summary");
     const label = document.createElement("span");
     label.className = "think-label";
@@ -874,17 +874,20 @@ export function liveNode(kind: string): LiveNode {
 }
 
 /* peek：Codex 的推理摘要常是一句话（CLI 直接显示在对话里），折叠时把第一行带在标题后面 */
-function thinkBlock(text: string, peek = false) {
-  const { el, body } = liveNode("thinking");
-  (el as HTMLDetailsElement).open = false;
-  body.textContent = text.trim(); // 思考摘要常以空行结尾，pre-wrap 会把它画成一行空白
-  const first = peek ? text.trim().split("\n")[0].replace(/^\*\*(.+?)\*\*$/, "$1").trim() : "";
+export function addReasoningPeek(node: HTMLElement, text: string) {
+  const first = text.trim().split("\n")[0].replace(/^\*\*(.+?)\*\*$/, "$1").trim();
   if (first) {
     const s = document.createElement("span");
     s.className = "think-peek";
     s.textContent = first;
-    el.querySelector("summary")!.append(s);
+    node.querySelector("summary")!.append(s);
   }
+}
+
+function thinkBlock(text: string, peek = false) {
+  const { el, body } = liveNode("thinking");
+  body.textContent = text.trim(); // 思考摘要常以空行结尾，pre-wrap 会把它画成一行空白
+  if (peek) addReasoningPeek(el, text);
   return el;
 }
 
@@ -921,14 +924,14 @@ function rateLimitChip(info: RateLimitInfo | undefined) {
 
 /* 渲染一条 agent 事件（Claude stream-json / Codex --json），返回节点数组。
  * live：实时到达（不是历史回放），进行中的工具行据此走秒。 */
-export function renderEvent(ev: AgentEvent | undefined, opts: { live?: boolean } = {}) {
+export function renderEvent(ev: AgentEvent | undefined, opts: { live?: boolean; activity?: boolean } = {}) {
   const out = eventNodes(ev, opts);
   // 文字、提示行、卡片……任何别的内容都结束 Claude 工具的折叠组（思考块除外）
   if (ev?.type !== "assistant" && out.some(n => !n.classList.contains("think"))) breakClaudeGroup();
   return out;
 }
 
-function eventNodes(ev: AgentEvent | undefined, opts: { live?: boolean }) {
+function eventNodes(ev: AgentEvent | undefined, opts: { live?: boolean; activity?: boolean }) {
   if (!ev || typeof ev !== "object") return [];
   const out: HTMLElement[] = [];
 
@@ -983,11 +986,11 @@ function eventNodes(ev: AgentEvent | undefined, opts: { live?: boolean }) {
         const input = (block.input || {}) as Record<string, unknown>;
         // 计划模式给出的方案：与 CLI 一样把计划正文整段显示出来
         if (block.name === "ExitPlanMode" && typeof input.plan === "string" && input.plan) { breakClaudeGroup(); out.push(planBlock(input.plan)); continue; }
-        const node = claudeToolUse(block, ev, opts.live); // 工具行：features/chat/claude-tools.ts
+        const node = claudeToolUse(block, ev, opts); // 工具行：features/chat/claude-tools.ts
         if (node) out.push(node);
       }
       // 子 Agent 自己的文字与思考收在它的工具行里（回复在结果里），不进主对话流
-      else if (block.type === "thinking" && block.thinking && !sub) out.push(thinkBlock(block.thinking));
+      else if (block.type === "thinking" && block.thinking && !sub) out.push(thinkBlock(block.thinking, opts.activity));
     }
     return out;
   }
@@ -1069,9 +1072,9 @@ function eventNodes(ev: AgentEvent | undefined, opts: { live?: boolean }) {
   const m = (ev.msg || ev) as NonNullable<AgentEvent["msg"]>;
   if (m && typeof m === "object" && typeof m.type === "string") {
     if (m.type === "agent_message" && m.message) { out.push(agentText(m.message)); return out; }
-    if (m.type === "agent_reasoning" && m.text) { out.push(thinkBlock(m.text)); return out; }
+    if (m.type === "agent_reasoning" && m.text) { out.push(thinkBlock(m.text, opts.activity)); return out; }
     if (m.type.startsWith("exec_command_begin")) {
-      out.push(toolChip("exec", Array.isArray(m.command) ? m.command.join(" ") : m.command || ""));
+      out.push(markActivity(toolChip("exec", Array.isArray(m.command) ? m.command.join(" ") : m.command || ""), "command"));
       return out;
     }
     if (m.type === "task_complete") { out.push(chip(i18nText("✓ 回合完成"), "result")); return out; }

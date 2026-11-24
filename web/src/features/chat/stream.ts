@@ -1,10 +1,9 @@
 import type {AgentEvent,StreamEvent,LiveNode} from "../../types.js";
-import {liveNode,renderEvent,renderAnswerContents} from "../../chat-render.js";
+import {addReasoningPeek,liveNode,renderEvent,renderAnswerContents} from "../../chat-render.js";
 import {t as i18nText} from "../../i18n.js";
 import {codexStreamEvent,codexWorkLabel} from "./codex-items.js";
 import {resetToolRows,settleToolRow} from "./tool-rows.js";
 import {claudeWorkLabel} from "./claude-tools.js";
-import {foldThink} from "./folds.js";
 
 export function createChatStream(hooks: {
  append: (node: HTMLElement) => void;
@@ -66,7 +65,10 @@ function streamSettle() {
   for (const job of replayQueue) if (job.node) settleToolRow(job.node);
   if (liveBlock && liveBlock.replay) return; // codex 回放自行收尾，不被回合结束截断
   liveDrain();
-  for (const el of liveEls) el.classList.remove("streaming");
+  for (const el of liveEls) {
+    el.classList.remove("streaming");
+    delete el.dataset.status;
+  }
   liveEls = [];
   liveBlock = null;
   hooks.footer()?.update();
@@ -85,7 +87,7 @@ function handleAgentEvent(ev: AgentEvent | undefined) {
   if (ev && ev.type === "assistant") liveClear();
   workLabelFromEvent(ev);
   if (replayFeed(ev)) return; // codex 整段文本 → 打字机回放
-  for (const node of renderEvent(ev, {live: true})) replayAppend(node);
+  for (const node of renderEvent(ev, { live: true, activity: true })) replayAppend(node);
 }
 
 /** 回放队列项：带 node 的是排在动画之后补上的成品节点，否则是待打字的文本任务 */
@@ -138,6 +140,7 @@ function replayPump() {
       attached: true, replay: true, rate: Math.max(140, job.text!.length / 3),
     };
     liveBlock.el.classList.add("streaming");
+    if (job.kind === "thinking") liveBlock.el.dataset.status = "running";
     hooks.append(liveBlock.el);
     liveFeed(job.text!);
     return;
@@ -151,7 +154,10 @@ function replayFinish() {
   if (b.raf) cancelAnimationFrame(b.raf);
   b.el.classList.remove("streaming", "live-text");
   if (b.kind === "text") renderAnswerContents(b.body, b.shown);
-  if (b.kind === "thinking") { (b.el as HTMLDetailsElement).open = false; foldThink(b.el); } // 与正式渲染一致：思考默认折叠，连着的收成一组
+  if (b.kind === "thinking") {
+    delete b.el.dataset.status;
+    addReasoningPeek(b.el, b.shown);
+  }
   liveBlock = null;
   hooks.footer()?.update();
   replayPump();
@@ -215,6 +221,7 @@ function handleStreamEvent(e: StreamEvent | undefined) {
         hooks.working(() => t === "thinking" ? i18nText("思考中…") : i18nText("生成回复…"));
         liveBlock = { ...liveNode(t), kind: t, shown: "", buf: "", carry: 0, tick: 0, raf: 0 };
         liveBlock.el.classList.add("streaming");
+        if (t === "thinking") liveBlock.el.dataset.status = "running";
         // 思考块可能自始至终没有文字（Claude 未要摘要时只有空增量和签名，
         // codex 没有推理摘要时 reasoning 项为空），等到真有字再插入，
         // 免得留下空的「思考过程」框；正文块照旧立刻插入亮起光标。
@@ -237,6 +244,7 @@ function handleStreamEvent(e: StreamEvent | undefined) {
       if (liveBlock) {
         liveDrain();
         liveBlock.el.classList.remove("streaming");
+        delete liveBlock.el.dataset.status;
       }
       liveBlock = null;
       break;

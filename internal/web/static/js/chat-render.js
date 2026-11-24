@@ -18,6 +18,7 @@ import { codexItemNodes } from "./features/chat/codex-items.js";
 import { resultFilesCard, splitResultFiles } from "./features/chat/result-files.js";
 import { breakClaudeGroup, claudeTaskProgress, claudeToolResults, claudeToolTitle, claudeToolUse, subAgentKnown, useMarkdown } from "./features/chat/claude-tools.js";
 import { heartbeatNode } from "./features/chat/folds.js";
+import { markActivity } from "./features/chat/activity.js";
 export const USER_ATTACH_RE = /\[(图片|附件)#(\d+) (\/shared\/\.(?:images|file)\/[A-Za-z0-9._-]+)\]/g;
 /* 复制到剪贴板：clipboard API 优先，非安全上下文回退 execCommand */
 export async function copyText(text) {
@@ -836,7 +837,7 @@ export function renderEntry(raw) {
         return [renderUserTurn(raw.text, raw.ts)];
     }
     if (raw.kind === "event")
-        return raw.state === "interrupted" ? [] : renderEvent(raw.event);
+        return raw.state === "interrupted" ? [] : renderEvent(raw.event, { activity: true });
     if (raw.kind === "steer")
         return renderSteer(raw.event);
     if (raw.kind === "divider")
@@ -879,13 +880,12 @@ function taskToolChip(name, input) {
     return undefined;
 }
 /* 流式生成中的临时节点：body 由 chat.ts 的打字机填充（text 走 Markdown
- * 重渲染，thinking 纯文本），完整事件到达后整体移除交给正式渲染。
- * thinking 生成中默认展开。 */
+ * 重渲染，thinking 纯文本），完整事件到达后整体移除交给正式渲染。 */
 export function liveNode(kind) {
     if (kind === "thinking") {
         const det = document.createElement("details");
         det.className = "think";
-        det.open = true;
+        markActivity(det, "reasoning");
         const sum = document.createElement("summary");
         const label = document.createElement("span");
         label.className = "think-label";
@@ -901,17 +901,20 @@ export function liveNode(kind) {
     return { el: d, body: d };
 }
 /* peek：Codex 的推理摘要常是一句话（CLI 直接显示在对话里），折叠时把第一行带在标题后面 */
-function thinkBlock(text, peek = false) {
-    const { el, body } = liveNode("thinking");
-    el.open = false;
-    body.textContent = text.trim(); // 思考摘要常以空行结尾，pre-wrap 会把它画成一行空白
-    const first = peek ? text.trim().split("\n")[0].replace(/^\*\*(.+?)\*\*$/, "$1").trim() : "";
+export function addReasoningPeek(node, text) {
+    const first = text.trim().split("\n")[0].replace(/^\*\*(.+?)\*\*$/, "$1").trim();
     if (first) {
         const s = document.createElement("span");
         s.className = "think-peek";
         s.textContent = first;
-        el.querySelector("summary").append(s);
+        node.querySelector("summary").append(s);
     }
+}
+function thinkBlock(text, peek = false) {
+    const { el, body } = liveNode("thinking");
+    body.textContent = text.trim(); // 思考摘要常以空行结尾，pre-wrap 会把它画成一行空白
+    if (peek)
+        addReasoningPeek(el, text);
     return el;
 }
 /* rateLimitType → 额度名称，对齐原生 Claude Code 的 session/weekly limit 措辞 */
@@ -1035,13 +1038,13 @@ function eventNodes(ev, opts) {
                     out.push(planBlock(input.plan));
                     continue;
                 }
-                const node = claudeToolUse(block, ev, opts.live); // 工具行：features/chat/claude-tools.ts
+                const node = claudeToolUse(block, ev, opts); // 工具行：features/chat/claude-tools.ts
                 if (node)
                     out.push(node);
             }
             // 子 Agent 自己的文字与思考收在它的工具行里（回复在结果里），不进主对话流
             else if (block.type === "thinking" && block.thinking && !sub)
-                out.push(thinkBlock(block.thinking));
+                out.push(thinkBlock(block.thinking, opts.activity));
         }
         return out;
     }
@@ -1136,11 +1139,11 @@ function eventNodes(ev, opts) {
             return out;
         }
         if (m.type === "agent_reasoning" && m.text) {
-            out.push(thinkBlock(m.text));
+            out.push(thinkBlock(m.text, opts.activity));
             return out;
         }
         if (m.type.startsWith("exec_command_begin")) {
-            out.push(toolChip("exec", Array.isArray(m.command) ? m.command.join(" ") : m.command || ""));
+            out.push(markActivity(toolChip("exec", Array.isArray(m.command) ? m.command.join(" ") : m.command || ""), "command"));
             return out;
         }
         if (m.type === "task_complete") {

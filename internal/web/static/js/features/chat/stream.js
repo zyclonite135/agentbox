@@ -1,9 +1,8 @@
-import { liveNode, renderEvent, renderAnswerContents } from "../../chat-render.js";
+import { addReasoningPeek, liveNode, renderEvent, renderAnswerContents } from "../../chat-render.js";
 import { t as i18nText } from "../../i18n.js";
 import { codexStreamEvent, codexWorkLabel } from "./codex-items.js";
 import { resetToolRows, settleToolRow } from "./tool-rows.js";
 import { claudeWorkLabel } from "./claude-tools.js";
-import { foldThink } from "./folds.js";
 export function createChatStream(hooks) {
     /* ---------------- 流式增量渲染 ----------------
      * Claude：--include-partial-messages 下，完整 assistant 事件之前会先收到
@@ -35,8 +34,10 @@ export function createChatStream(hooks) {
         if (liveBlock && liveBlock.replay)
             return; // codex 回放自行收尾，不被回合结束截断
         liveDrain();
-        for (const el of liveEls)
+        for (const el of liveEls) {
             el.classList.remove("streaming");
+            delete el.dataset.status;
+        }
         liveEls = [];
         liveBlock = null;
         hooks.footer()?.update();
@@ -60,7 +61,7 @@ export function createChatStream(hooks) {
         workLabelFromEvent(ev);
         if (replayFeed(ev))
             return; // codex 整段文本 → 打字机回放
-        for (const node of renderEvent(ev, { live: true }))
+        for (const node of renderEvent(ev, { live: true, activity: true }))
             replayAppend(node);
     }
     /* ---- codex 整段回放队列 ---- */
@@ -125,6 +126,8 @@ export function createChatStream(hooks) {
                 attached: true, replay: true, rate: Math.max(140, job.text.length / 3),
             };
             liveBlock.el.classList.add("streaming");
+            if (job.kind === "thinking")
+                liveBlock.el.dataset.status = "running";
             hooks.append(liveBlock.el);
             liveFeed(job.text);
             return;
@@ -141,9 +144,9 @@ export function createChatStream(hooks) {
         if (b.kind === "text")
             renderAnswerContents(b.body, b.shown);
         if (b.kind === "thinking") {
-            b.el.open = false;
-            foldThink(b.el);
-        } // 与正式渲染一致：思考默认折叠，连着的收成一组
+            delete b.el.dataset.status;
+            addReasoningPeek(b.el, b.shown);
+        }
         liveBlock = null;
         hooks.footer()?.update();
         replayPump();
@@ -222,6 +225,8 @@ export function createChatStream(hooks) {
                     hooks.working(() => t === "thinking" ? i18nText("思考中…") : i18nText("生成回复…"));
                     liveBlock = { ...liveNode(t), kind: t, shown: "", buf: "", carry: 0, tick: 0, raf: 0 };
                     liveBlock.el.classList.add("streaming");
+                    if (t === "thinking")
+                        liveBlock.el.dataset.status = "running";
                     // 思考块可能自始至终没有文字（Claude 未要摘要时只有空增量和签名，
                     // codex 没有推理摘要时 reasoning 项为空），等到真有字再插入，
                     // 免得留下空的「思考过程」框；正文块照旧立刻插入亮起光标。
@@ -253,6 +258,7 @@ export function createChatStream(hooks) {
                 if (liveBlock) {
                     liveDrain();
                     liveBlock.el.classList.remove("streaming");
+                    delete liveBlock.el.dataset.status;
                 }
                 liveBlock = null;
                 break;

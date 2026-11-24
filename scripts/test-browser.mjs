@@ -5,7 +5,7 @@ import {diagnosticsSmoke} from './test-diagnostics-browser.mjs';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
-import { resolve, extname } from 'node:path';
+import { resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {loginProblemsSmoke, problemsSmoke} from './test-problems-browser.mjs';
 import { responsiveSmoke } from './test-responsive.mjs';
@@ -61,7 +61,7 @@ export async function smoke(page) {
    }
    const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/_v\/[^/]+/, '');
    const path = resolve(root, '.' + (rel === '/' ? '/index.html' : rel));
-   if (!path.startsWith(root + '/')) {res.writeHead(403).end();return;}
+   if (!path.startsWith(root + sep)) {res.writeHead(403).end();return;}
    const data = await readFile(path);
    res.setHeader('Content-Type', ({'.js':'text/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml'})[extname(path)] || 'application/octet-stream');
    res.end(data);

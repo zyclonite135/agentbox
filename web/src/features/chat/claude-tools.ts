@@ -18,6 +18,7 @@ import { buttonLabel, svgIcon, type IconSlot } from "../../icons.js";
 import { setTip } from "../../tip.js";
 import { setTextRender, t as i18nText } from "../../i18n.js";
 import { clean, clipLabel, base, el, onSettle, pendingRow, str, num, takeRow, trackRow } from "./tool-rows.js";
+import { markActivity } from "./activity.js";
 
 type Input = Record<string, unknown>;
 type Kind = "read" | "search" | "list" | "bash";
@@ -32,6 +33,7 @@ interface Tool {
   /** 实时到达时的开始时间，用来走秒；历史回放没有 */
   since?: number;
   group?: Group;
+  inActivity?: boolean;
   parent?: Tool;
   /** 子 Agent：它自己的工具调用与 task_progress 的进度描述 */
   children?: Tool[];
@@ -177,7 +179,7 @@ export function breakClaudeGroup() { openGroup = null; }
 function groupContinues(g: Group | null): g is Group {
   if (!g) return false;
   for (let n = g.el.nextElementSibling; n; n = n.nextElementSibling) {
-    if (n.classList.contains("think") || n.classList.contains("fold-think") || n.classList.contains("answer-footer")) continue;
+    if (n.classList.contains("think") || n.classList.contains("answer-footer")) continue;
     return false;
   }
   return true;
@@ -531,7 +533,7 @@ function htmlPath(t: Tool) {
 /** 折叠组与子 Agent 里的一条只有标题一行，点开才是详细视图（全文）；单独的一行平时是摘要，
  * 有详细视图的点开看全文 */
 function renderTool(t: Tool) {
-  const item = !!t.group || !!t.parent;
+  const item = !!t.group || !!t.parent || !!t.inActivity;
   const view = viewOf(t, item);
   const detail = view.full ?? view.compact;
   const expandable = item ? detail.length > 0 : !!view.full;
@@ -584,7 +586,7 @@ function refresh(t: Tool): void {
 
 /** assistant 事件里的一个 tool_use → 要放进对话流的节点；续进折叠组、子 Agent 里的调用
  * 与不显示的工具返回 null。不归这里管（任务、提问、委派等）的由调用方先挑走。 */
-export function claudeToolUse(block: ContentBlock, ev: AgentEvent, live = false): HTMLElement | null {
+export function claudeToolUse(block: ContentBlock, ev: AgentEvent, { live, activity }: { live?: boolean; activity?: boolean }): HTMLElement | null {
   const id = str(block.id), name = str(block.name);
   if (!name || HIDDEN.has(name)) return null;
   const t: Tool = { id, name, input: obj(block.input) || {}, el: el("div", "tool-call cc-tool"), status: "running", open: false, since: live ? Date.now() : undefined };
@@ -602,7 +604,12 @@ export function claudeToolUse(block: ContentBlock, ev: AgentEvent, live = false)
     refresh(t);
     return null;
   }
-  if (groupKind(t)) {
+  const kind = groupKind(t);
+  if (activity && !AGENT_TOOLS.has(name) && !(name === "Bash" && t.input.run_in_background === true)) {
+    t.inActivity = true;
+    markActivity(t.el, kind === "bash" ? "command" : kind ||
+      (["Write", "Edit", "MultiEdit", "NotebookEdit"].includes(name) ? "edit" : name === "WebSearch" ? "search" : "tool"));
+  } else if (kind) {
     if (!groupContinues(openGroup)) openGroup = null;
     const g = openGroup || newGroup();
     t.group = g;

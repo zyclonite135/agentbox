@@ -5,6 +5,7 @@ import { renderEntry } from "../../chat-render.js";
 import { agentIcon } from "../../brand.js";
 import { foldInto } from "./folds.js";
 import { mergeChatImagePrompt } from "./tool-rows.js";
+import { activityNode, joinActivity } from "./activity.js";
 const footers = new WeakMap();
 /* Agent 回合分组：两条用户消息之间的 agent 输出（文字/工具行/思考…）
  * 归入同一个 .turn 容器，左侧挂品牌头像（OpenWebUI 式对话流）。
@@ -66,8 +67,12 @@ export class TurnWriter {
         }
         if (node.classList.contains("result") && body.querySelector(".msg.agent"))
             footer.setReceipt(node);
-        else if (!foldInto(footer.el.previousElementSibling, node))
-            body.insertBefore(node, footer.el);
+        else {
+            const previous = footer.el.previousElementSibling;
+            const display = activityNode(previous, node);
+            if (display && !foldInto(previous, display))
+                body.insertBefore(display, footer.el);
+        }
         this.touch(footer);
     }
     turnBody() {
@@ -146,8 +151,10 @@ export function joinTurn(older, newer) {
         return;
     const skip = footers.get(from)?.el, footer = footers.get(to);
     const finishedImages = new Set(Array.from(to.querySelectorAll(":scope > [data-image-generation-id]:not([data-status=running], [data-status=unfinished])"), node => node.dataset.imageGenerationId));
-    to.prepend(...[...from.children].filter(node => node !== skip &&
-        !(node instanceof HTMLElement && node.dataset.status === "unfinished" && finishedImages.has(node.dataset.imageGenerationId))));
+    const olderNodes = [...from.children].filter(node => node !== skip &&
+        !(node instanceof HTMLElement && node.dataset.status === "unfinished" && finishedImages.has(node.dataset.imageGenerationId)));
+    joinActivity(olderNodes, to);
+    to.prepend(...olderNodes.filter(node => node.parentElement === from));
     const images = new Map();
     for (const image of to.querySelectorAll(":scope > [data-chat-image-path]")) {
         const path = image.dataset.chatImagePath;

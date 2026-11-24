@@ -7,6 +7,7 @@ import { renderEntry } from "../../chat-render.js";
 import { agentIcon } from "../../brand.js";
 import { foldInto } from "./folds.js";
 import { mergeChatImagePrompt } from "./tool-rows.js";
+import { activityNode, joinActivity } from "./activity.js";
 
 type Footer = ReturnType<typeof answerFooter>;
 const footers = new WeakMap<HTMLElement, Footer>();
@@ -64,7 +65,11 @@ export class TurnWriter {
       return;
     }
     if (node.classList.contains("result") && body.querySelector(".msg.agent")) footer.setReceipt(node);
-    else if (!foldInto(footer.el.previousElementSibling, node)) body.insertBefore(node, footer.el);
+    else {
+      const previous = footer.el.previousElementSibling;
+      const display = activityNode(previous, node);
+      if (display && !foldInto(previous, display)) body.insertBefore(display, footer.el);
+    }
     this.touch(footer);
   }
 
@@ -138,8 +143,10 @@ export function joinTurn(older: Element | null, newer: Element | null) {
     to.querySelectorAll<HTMLElement>(":scope > [data-image-generation-id]:not([data-status=running], [data-status=unfinished])"),
     node => node.dataset.imageGenerationId,
   ));
-  to.prepend(...[...from.children].filter(node => node !== skip &&
-    !(node instanceof HTMLElement && node.dataset.status === "unfinished" && finishedImages.has(node.dataset.imageGenerationId))));
+  const olderNodes = [...from.children].filter(node => node !== skip &&
+    !(node instanceof HTMLElement && node.dataset.status === "unfinished" && finishedImages.has(node.dataset.imageGenerationId)));
+  joinActivity(olderNodes, to);
+  to.prepend(...olderNodes.filter(node => node.parentElement === from));
   const images = new Map<string, HTMLElement>();
   for (const image of to.querySelectorAll<HTMLElement>(":scope > [data-chat-image-path]")) {
     const path = image.dataset.chatImagePath!;

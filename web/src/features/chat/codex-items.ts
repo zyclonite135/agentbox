@@ -10,6 +10,7 @@
 import type { AgentEvent } from "../../types.js";
 import { svgIcon, type IconSlot } from "../../icons.js";
 import { setText, setTextRender, t as i18nText } from "../../i18n.js";
+import { markActivity } from "./activity.js";
 import {
   badge, base, chatToolImage, clean, clipLabel, clipOutput, diffBlock, diffStat, el, fillRow, newRow, num, oneLine,
   onSettle, outputBlocks, pendingRow, shortDuration, statusBadge, str, takeRow, textBlock, trackRow, type Row,
@@ -284,6 +285,20 @@ function rowFor(it: Item, completed: boolean): Row[] {
   return [];
 }
 
+function activityRow(node: HTMLElement, it: Item, row: Row) {
+  const key = str(it.id);
+  switch (it.type) {
+    case "command_execution": {
+      const kind = row.name === "Read" ? "read" : row.name === "List" ? "list" : row.name === "Search" ? "search" : "command";
+      return markActivity(node, kind, key);
+    }
+    case "file_change": return markActivity(node, "edit", key ? key + ":" + row.sum : "");
+    case "web_search": return markActivity(node, "search", key);
+    case "mcp_tool_call": case "dynamic_tool_call": return markActivity(node, "tool", key);
+  }
+  return node;
+}
+
 /** Codex 的工具条目 → 节点；不归这里管的条目（文字、思考、计划表…）返回 undefined。
  * 完成事件若对上了进行中的那一行，原地更新并返回空数组。 */
 export function codexItemNodes(ev: AgentEvent, live = false): HTMLElement[] | undefined {
@@ -293,24 +308,26 @@ export function codexItemNodes(ev: AgentEvent, live = false): HTMLElement[] | un
   const completed = ev.type === "item.completed";
   if (!completed && ev.type !== "item.started") return [];
   if (it.type === "image_generation") return imageGenerationNodes(it, completed, live);
-  if (completed && !rowFor(it, true).length) return simpleNodes(it);
+  const rows = rowFor(it, completed);
+  if (completed && !rows.length) return simpleNodes(it);
   const key = itemKey(it);
   if (completed) {
     const open = takeRow(key);
-    const rows = rowFor(it, true);
-    if (open && rows.length === 1) {
+    if (open) {
       delete open.dataset.status;
-      fillRow(open, rows[0], false);
+      const first = rows.shift()!;
+      fillRow(open, first, false);
       open.dataset.status = str(it.status);
-      return [];
+      activityRow(open, it, first);
     }
-    return rows.map(r => newRow(r, false, str(it.status)));
+    const rest = rows.map(row => activityRow(newRow(row, false, str(it.status)), it, row));
+    if (open?.parentElement) { open.after(...rest); return []; }
+    return rest;
   }
-  const rows = rowFor(it, false);
   if (rows.length !== 1) return [];
   const wrap = newRow(rows[0], true);
   if (key) trackRow(key, wrap);
-  return [wrap];
+  return [activityRow(wrap, it, rows[0])];
 }
 
 /** 进行中条目对应的执行指示文案 */

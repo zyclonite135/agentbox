@@ -2,8 +2,8 @@ import { svgIcon } from "../../icons.js";
 import { setText, setTextRender, t as i18nText } from "../../i18n.js";
 import { el } from "./tool-rows.js";
 const labels = new WeakMap();
-function newFold(kind, icon, text) {
-    const wrap = el("div", "fold fold-" + kind);
+function newFold(icon, text) {
+    const wrap = el("div", "fold fold-beat");
     const head = el("div", "fold-head");
     head.tabIndex = 0;
     head.setAttribute("role", "button");
@@ -32,46 +32,12 @@ function recount(fold) {
     if (label && text)
         setTextRender(label, () => text(n));
 }
-/* ---------------- 思考过程 ---------------- */
-const isThink = (n) => !!n && n.matches("details.think:not(.streaming)");
-/* 列表里每段用它的第一行当标题，点开看全文 */
-function asItem(think) {
-    think.open = false;
-    const sum = think.querySelector(":scope > summary");
-    if (sum && !sum.querySelector(".think-peek")) {
-        const first = (think.querySelector(".think-body")?.textContent || "").trim().split("\n")[0].replace(/^\*\*(.+?)\*\*$/, "$1").trim();
-        if (first)
-            sum.append(el("span", "think-peek", first));
-    }
-    return think;
-}
-function thinkFold(first) {
-    const fold = newFold("think", "chat.thinking", n => i18nText("思考过程 · {p0} 段", { p0: String(n) }));
-    first.replaceWith(fold);
-    fold.querySelector(".fold-items").append(asItem(first));
-    recount(fold);
-    return fold;
-}
-/** 回放放完的思考块：前面紧挨着思考就并进去 */
-export function foldThink(node) {
-    if (!isThink(node))
-        return;
-    const prev = node.previousElementSibling;
-    if (isThink(prev))
-        thinkFold(prev);
-    const group = node.previousElementSibling;
-    if (group?.classList.contains("fold-think")) {
-        group.querySelector(".fold-items").append(asItem(node));
-        relabel(group);
-    }
-}
-/* ---------------- 工具心跳 ---------------- */
 function secs(s) {
     return s < 60 ? s + "s" : Math.floor(s / 60) + "m " + (s % 60) + "s";
 }
 /** tool_progress → 只有一条的心跳组；紧跟在另一个心跳组后面时由 foldInto 并进去 */
 export function heartbeatNode(ev, title) {
-    const fold = newFold("beat", "heart-pulse", n => i18nText("心跳检查 · {p0} 次", { p0: String(n) }));
+    const fold = newFold("heart-pulse", n => i18nText("心跳检查 · {p0} 次", { p0: String(n) }));
     const item = document.createElement("details");
     item.className = "fold-item beat";
     const sum = document.createElement("summary");
@@ -91,8 +57,6 @@ export function heartbeatNode(ev, title) {
 /* 心跳组标题后跟最近一次的已运行时长 */
 function relabel(fold) {
     recount(fold);
-    if (!fold.classList.contains("fold-beat"))
-        return;
     const head = fold.querySelector(":scope > .fold-head");
     const last = fold.querySelector(":scope > .fold-items > .fold-item:last-child");
     const elapsed = Number(last?.dataset.elapsed || NaN);
@@ -111,20 +75,9 @@ function relabel(fold) {
 /* ---------------- 入口 ---------------- */
 /** 新节点能并进紧挨着的前一个节点就并进去，返回 true（调用方不再插入它） */
 export function foldInto(prev, node) {
-    if (!prev)
+    if (!prev?.classList.contains("fold-beat") || !node.classList.contains("fold-beat"))
         return false;
-    if (node.classList.contains("fold-beat") && prev.classList.contains("fold-beat")) {
-        prev.querySelector(".fold-items").append(...node.querySelector(".fold-items").children);
-        relabel(prev);
-        return true;
-    }
-    if (!isThink(node))
-        return false;
-    if (isThink(prev))
-        prev = thinkFold(prev);
-    if (!prev.classList.contains("fold-think"))
-        return false;
-    prev.querySelector(".fold-items").append(asItem(node));
+    prev.querySelector(".fold-items").append(...node.querySelector(".fold-items").children);
     relabel(prev);
     return true;
 }

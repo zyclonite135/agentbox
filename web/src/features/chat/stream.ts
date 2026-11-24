@@ -62,7 +62,9 @@ let liveBlock: LiveBlock | null = null; // 当前追加目标
 /* 回合结束收尾：缓冲余量上屏，临时节点保留在页面上（中断时留住
  * 已生成的部分），只是不再跟踪、去掉光标 */
 function streamSettle() {
-  for (const job of replayQueue) if (job.node) settleToolRow(job.node);
+  for (const job of replayQueue) {
+    if ("nodes" in job) for (const node of job.nodes.children) settleToolRow(node as HTMLElement);
+  }
   if (liveBlock && liveBlock.replay) return; // codex 回放自行收尾，不被回合结束截断
   liveDrain();
   for (const el of liveEls) {
@@ -90,12 +92,8 @@ function handleAgentEvent(ev: AgentEvent | undefined) {
   for (const node of renderEvent(ev, { live: true, activity: true })) replayAppend(node);
 }
 
-/** 回放队列项：带 node 的是排在动画之后补上的成品节点，否则是待打字的文本任务 */
-interface ReplayJob {
-  node?: HTMLElement;
-  kind?: string;
-  text?: string;
-}
+/** 保留工具行的父节点，完成事件可以把同一项的额外行插回原位置。 */
+type ReplayJob = { nodes: DocumentFragment } | { kind: string; text: string };
 
 /* ---- codex 整段回放队列 ---- */
 
@@ -125,24 +123,29 @@ function replayFeed(ev: AgentEvent | undefined) {
 
 /* 回放进行中时后续事件的节点排队，保持时间线顺序；空闲时直接上屏 */
 function replayAppend(node: HTMLElement) {
-  if (replayActive()) replayQueue.push({ node });
-  else hooks.append(node);
+  if (!replayActive()) { hooks.append(node); return; }
+  const nodes = document.createDocumentFragment();
+  nodes.append(node);
+  replayQueue.push({ nodes });
 }
 
 function replayPump() {
   if (liveBlock) return; // 已有动画在放
   while (replayQueue.length) {
     const job = replayQueue.shift()!;
-    if (job.node) { hooks.append(job.node); continue; }
+    if ("nodes" in job) {
+      for (const node of [...job.nodes.children]) hooks.append(node as HTMLElement);
+      continue;
+    }
     hooks.working(() => job.kind === "thinking" ? i18nText("推理中…") : i18nText("生成回复…"));
     liveBlock = {
-      ...liveNode(job.kind!), kind: job.kind!, shown: "", buf: "", carry: 0, tick: 0, raf: 0,
-      attached: true, replay: true, rate: Math.max(140, job.text!.length / 3),
+      ...liveNode(job.kind), kind: job.kind, shown: "", buf: "", carry: 0, tick: 0, raf: 0,
+      attached: true, replay: true, rate: Math.max(140, job.text.length / 3),
     };
     liveBlock.el.classList.add("streaming");
     if (job.kind === "thinking") liveBlock.el.dataset.status = "running";
     hooks.append(liveBlock.el);
-    liveFeed(job.text!);
+    liveFeed(job.text);
     return;
   }
 }

@@ -11,11 +11,11 @@ const captions = {
   reasoning: ["推理摘要 {p0} 段", "推理中…"],
 } as const;
 type ActivityKind = keyof typeof captions;
-const steps = new WeakMap<Element, { kind: ActivityKind; key: string }>();
+const steps = new WeakMap<Element, { kind: ActivityKind; key: string; legacyCommand: string }>();
 const groups = new WeakMap<Element, { fold: HTMLDetailsElement; items: HTMLElement }>();
 
-export function markActivity(node: HTMLElement, kind: ActivityKind, key = "") {
-  steps.set(node, { kind, key });
+export function markActivity(node: HTMLElement, kind: ActivityKind, key = "", legacyCommand = "") {
+  steps.set(node, { kind, key, legacyCommand });
   return node;
 }
 
@@ -65,6 +65,8 @@ export function activityNode(prev: Element | null, node: HTMLElement): HTMLEleme
   return fold;
 }
 
+const settled = (node: Element) => !node.matches('[data-status="running"],[data-status="unfinished"]');
+
 /** Rejoin an activity split across history pages, keeping completed tools at their original positions. */
 export function joinActivity(older: Element[], newer: HTMLElement) {
   const pending = new Map<string, Element>();
@@ -82,7 +84,7 @@ export function joinActivity(older: Element[], newer: HTMLElement) {
     for (const step of [...group.items.children]) {
       const key = steps.get(step)?.key;
       const start = key && pending.get(key);
-      if (!start || step.matches('[data-status="running"],[data-status="unfinished"]')) continue;
+      if (!start || !settled(step)) continue;
       const earlier = start.parentElement?.parentElement;
       if (earlier instanceof HTMLDetailsElement) earlier.open ||= group.fold.open;
       start.replaceWith(step);
@@ -94,6 +96,11 @@ export function joinActivity(older: Element[], newer: HTMLElement) {
   const last = older.at(-1), first = newer.firstElementChild;
   const from = last && groups.get(last), to = first && groups.get(first);
   if (from && to) {
+    // Old Codex logs put an ID-less command's start and completion next to each other.
+    const start = from.items.lastElementChild, end = to.items.firstElementChild;
+    const command = start && steps.get(start)?.legacyCommand;
+    if (start && end && command && start.matches('[data-status="unfinished"]') &&
+      command === steps.get(end)?.legacyCommand && settled(end)) start.replaceWith(end);
     to.items.prepend(...from.items.children);
     to.fold.open ||= from.fold.open;
     from.fold.remove();

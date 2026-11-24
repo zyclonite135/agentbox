@@ -28,9 +28,11 @@ export function createChatStream(hooks) {
     /* 回合结束收尾：缓冲余量上屏，临时节点保留在页面上（中断时留住
      * 已生成的部分），只是不再跟踪、去掉光标 */
     function streamSettle() {
-        for (const job of replayQueue)
-            if (job.node)
-                settleToolRow(job.node);
+        for (const job of replayQueue) {
+            if ("nodes" in job)
+                for (const node of job.nodes.children)
+                    settleToolRow(node);
+        }
         if (liveBlock && liveBlock.replay)
             return; // codex 回放自行收尾，不被回合结束截断
         liveDrain();
@@ -106,18 +108,22 @@ export function createChatStream(hooks) {
     }
     /* 回放进行中时后续事件的节点排队，保持时间线顺序；空闲时直接上屏 */
     function replayAppend(node) {
-        if (replayActive())
-            replayQueue.push({ node });
-        else
+        if (!replayActive()) {
             hooks.append(node);
+            return;
+        }
+        const nodes = document.createDocumentFragment();
+        nodes.append(node);
+        replayQueue.push({ nodes });
     }
     function replayPump() {
         if (liveBlock)
             return; // 已有动画在放
         while (replayQueue.length) {
             const job = replayQueue.shift();
-            if (job.node) {
-                hooks.append(job.node);
+            if ("nodes" in job) {
+                for (const node of [...job.nodes.children])
+                    hooks.append(node);
                 continue;
             }
             hooks.working(() => job.kind === "thinking" ? i18nText("推理中…") : i18nText("生成回复…"));

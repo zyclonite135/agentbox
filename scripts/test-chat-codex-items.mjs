@@ -112,6 +112,63 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  assert.deepEqual(joined, [['fold fold-activity','completed'], ['msg agent',''], ['fold fold-activity','']],
   'pagination reconciles a command result at its original position without crossing the message boundary');
 
+ const edgeCases = await page.evaluate(async () => {
+  const {TurnWriter, replayHistory, joinTurn} = await import('/_v/{{BUILD}}/js/features/chat/turns.js');
+  const {createChatStream} = await import('/_v/{{BUILD}}/js/features/chat/stream.js');
+  const {settleToolRows} = await import('/_v/{{BUILD}}/js/features/chat/tool-rows.js');
+  const entry = (type, item) => ({kind:'event', event:{type, item}});
+  const change = path => ({path, kind:'update', diff:'+change'});
+  const edit = {type:'file_change', id:'queued-file-change', changes:[change('a.txt')]};
+  const log = document.createElement('div');
+  const writer = new TurnWriter(() => log, () => 'codex');
+  const stream = createChatStream({
+   append: node => writer.place(node), working: () => {}, state: () => 'running',
+   footer: () => writer.footer, log: () => log, nearBottom: () => false,
+  });
+  stream.event(entry('item.completed', {type:'reasoning', text:'Considering changes.'}).event);
+  stream.event(entry('item.started', edit).event);
+  stream.event(entry('item.completed', {type:'agent_message', text:'Boundary text.'}).event);
+  stream.event(entry('item.completed', {...edit, changes:[change('a.txt'), change('b.txt')], status:'completed'}).event);
+  stream.flush();
+  const order = [...writer.body.children].slice(0,-1).map(node => node.matches('.fold-activity')
+   ? [...node.querySelectorAll('.tool-call .sum')].map(step => step.textContent)
+   : node.textContent);
+
+  function pageOf(entries, settle = true) {
+   const box = document.createElement('div');
+   const writer = new TurnWriter(() => box, () => 'codex');
+   replayHistory(writer, entries, {}, node => writer.place(node));
+   if (settle) settleToolRows(box);
+   return box;
+  }
+  const incompleteEdit = pageOf([
+   entry('item.started', edit),
+   entry('item.completed', {...edit, changes:[], status:'failed'}),
+  ], false);
+  const legacy = {type:'command_execution', command:'fixture-legacy-page-split'};
+  const start = entry('item.started', legacy);
+  const finish = entry('item.completed', {...legacy, status:'completed', exit_code:0});
+  const statesAfterJoin = entries => {
+   const older = pageOf([start]), newer = pageOf(entries);
+   joinTurn(older.firstElementChild, newer.firstElementChild);
+   return [...newer.querySelectorAll('.tool-call')].map(row => row.dataset.status);
+  };
+  return {
+   order,
+   failedEdit: incompleteEdit.querySelector('.tool-call').dataset.status,
+   failureVisibleInStep: !!incompleteEdit.querySelector('.tc-badge.err'),
+   splitCommand: statesAfterJoin([finish]),
+   repeatedCommand: statesAfterJoin([start, finish]),
+  };
+ });
+ assert.deepEqual(edgeCases, {
+  order: [['a.txt','b.txt'], 'Boundary text.'],
+  failedEdit: 'failed',
+  failureVisibleInStep: true,
+  splitCommand: ['completed'],
+  repeatedCommand: ['unfinished','completed'],
+ }, 'queued edits keep their place, incomplete completion payloads settle, and legacy joins preserve separate calls');
+
  // Live: a running command shows a spinner, the working line names it, its
  // output streams underneath, and completion updates the same row.
  const count = await rows.count();

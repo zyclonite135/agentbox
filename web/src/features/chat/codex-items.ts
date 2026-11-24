@@ -26,6 +26,7 @@ const TYPES = new Set(["command_execution", "file_change", "mcp_tool_call", "dyn
 
 /* 实时输出缓冲（只留末尾），随行元素回收 */
 const liveText = new WeakMap<HTMLElement, string>();
+const startedFileChanges = new WeakMap<HTMLElement, NonNullable<Item["changes"]>>();
 const LIVE_KEEP = 4096, LIVE_LINES = 4;
 
 function itemKey(it: Item) {
@@ -285,12 +286,13 @@ function rowFor(it: Item, completed: boolean): Row[] {
   return [];
 }
 
-function activityRow(node: HTMLElement, it: Item, row: Row) {
+function activityRow(node: HTMLElement, it: Item, row: Row, paired = false) {
   const key = str(it.id);
   switch (it.type) {
     case "command_execution": {
       const kind = row.name === "Read" ? "read" : row.name === "List" ? "list" : row.name === "Search" ? "search" : "command";
-      return markActivity(node, kind, key);
+      const legacyCommand = key || paired ? "" : str(it.command);
+      return markActivity(node, kind, key, legacyCommand);
     }
     case "file_change": return markActivity(node, "edit", key ? key + ":" + row.sum : "");
     case "web_search": return markActivity(node, "search", key);
@@ -308,24 +310,28 @@ export function codexItemNodes(ev: AgentEvent, live = false): HTMLElement[] | un
   const completed = ev.type === "item.completed";
   if (!completed && ev.type !== "item.started") return [];
   if (it.type === "image_generation") return imageGenerationNodes(it, completed, live);
-  const rows = rowFor(it, completed);
-  if (completed && !rows.length) return simpleNodes(it);
   const key = itemKey(it);
+  const open = completed ? takeRow(key) : undefined;
+  const previousChanges = open && it.type === "file_change" && (!Array.isArray(it.changes) || !it.changes.length)
+    ? startedFileChanges.get(open) : undefined;
+  const rows = rowFor(previousChanges ? { ...it, changes: previousChanges } : it, completed);
   if (completed) {
-    const open = takeRow(key);
+    if (!rows.length) return simpleNodes(it);
     if (open) {
+      startedFileChanges.delete(open);
       delete open.dataset.status;
       const first = rows.shift()!;
       fillRow(open, first, false);
       open.dataset.status = str(it.status);
-      activityRow(open, it, first);
+      activityRow(open, it, first, true);
     }
     const rest = rows.map(row => activityRow(newRow(row, false, str(it.status)), it, row));
-    if (open?.parentElement) { open.after(...rest); return []; }
+    if (open?.parentNode) { open.after(...rest); return []; }
     return rest;
   }
   if (rows.length !== 1) return [];
   const wrap = newRow(rows[0], true);
+  if (it.type === "file_change" && it.changes) startedFileChanges.set(wrap, it.changes);
   if (key) trackRow(key, wrap);
   return [activityRow(wrap, it, rows[0])];
 }

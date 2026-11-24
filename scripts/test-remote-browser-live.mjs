@@ -7,9 +7,24 @@ async function waitForFittedDesktop(page) {
  await page.waitForFunction(() => {
   const screen = document.querySelector('#browser-screen');
   const canvas = screen.querySelector('canvas');
+  if (!canvas) return false;
   const bounds = screen.getBoundingClientRect();
-  return canvas && Math.abs(canvas.width - bounds.width) <= 1 && Math.abs(canvas.height - bounds.height) <= 1;
+  const image = canvas.getBoundingClientRect();
+  return canvas.width === Math.max(512, Math.floor(bounds.width)) && canvas.height === Math.floor(bounds.height) &&
+   image.left >= bounds.left - 1 && image.right <= bounds.right + 1 &&
+   image.top >= bounds.top - 1 && image.bottom <= bounds.bottom + 1;
  }, null, {timeout:10000});
+}
+
+async function waitForRemotePageWidth(page, canvas) {
+ const expectedWidth = await canvas.evaluate(el => el.width);
+ for (let attempt = 0; attempt < 50; attempt++) {
+  const response = await page.request.get(`${base}/api/sessions/${session}/file?path=browser-hits`, {headers:{Authorization:'Bearer '+token}});
+  const widths = Array.from((await response.text()).matchAll(/\/viewport\?width=(\d+) /g), match => Number(match[1]));
+  if (widths.some(width => width <= expectedWidth && width >= expectedWidth - 16)) return;
+  await page.waitForTimeout(100);
+ }
+ throw new Error(`The remote page did not fit the ${expectedWidth}px framebuffer`);
 }
 
 const browser=await launchBrowser();
@@ -47,14 +62,7 @@ try {
  await page.locator('.browser-clipboard summary').click();
  await page.setViewportSize({width:2120,height:920});
  await waitForFittedDesktop(page);
- const expectedWidth = await canvas.evaluate(el => el.width);
- for(let i=0;i<50;i++){
-  const response=await page.request.get(`${base}/api/sessions/${session}/file?path=browser-hits`,{headers:{Authorization:'Bearer '+token}});
-  const widths = Array.from((await response.text()).matchAll(/\/viewport\?width=(\d+) /g), match => Number(match[1]));
-  if(widths.some(width => Math.abs(width - expectedWidth) <= 16))break;
-  if(i===49)throw new Error('The remote page did not reflow at the new browser width');
-  await page.waitForTimeout(100);
- }
+ await waitForRemotePageWidth(page, canvas);
  await page.locator('#browser-fullscreen').click();
  await page.waitForFunction(() => document.fullscreenElement?.id === 'tab-browser');
  await waitForFittedDesktop(page);
@@ -66,6 +74,7 @@ try {
  if(await page.locator('#sidebar.open').count())await page.locator('#btn-sidebar-close').click();
  await page.waitForFunction(()=>!document.querySelector('#sidebar').classList.contains('open'));
  await waitForFittedDesktop(page);
+ await waitForRemotePageWidth(page, canvas);
  await page.screenshot({path:'output/playwright/remote-browser-live-mobile.png'});
  assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
  assert.deepEqual(errors,[]);

@@ -89,7 +89,8 @@ async function connect(id, ticket, info) {
     const { default: RFB } = await import("../vendor/novnc/core/rfb.js");
     if (ticket !== generation || S.current?.id !== id || S.tab !== "browser")
         return;
-    const view = new RFB($("browser-screen"), wsURL(`/sessions/${id}/browser/desktop`));
+    // Chrome keeps a minimum window width even on a narrower X screen.
+    const view = new RFB($("browser-screen"), wsURL(`/sessions/${id}/browser/desktop`), { minRemoteWidth: 512 });
     desktop = view;
     controls();
     view.scaleViewport = true;

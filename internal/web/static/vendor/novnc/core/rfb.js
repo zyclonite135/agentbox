@@ -119,6 +119,8 @@ export default class RFB extends EventTargetMixin {
         this._shared = 'shared' in options ? !!options.shared : true;
         this._repeaterID = options.repeaterID || '';
         this._wsProtocols = options.wsProtocols || [];
+        // AgentBox: the remote Chrome window can be wider than a phone viewport.
+        this._minRemoteWidth = options.minRemoteWidth ?? 0;
 
         // Internal state
         this._rfbConnectionState = '';
@@ -815,20 +817,22 @@ export default class RFB extends EventTargetMixin {
         this._resizeTimeout = null;
 
         const size = this._screenSize();
+        const width = Math.max(this._minRemoteWidth, Math.floor(size.w));
+        const height = Math.floor(size.h);
 
         // Do we actually change anything?
-        if (size.w === this._fbWidth && size.h === this._fbHeight) {
+        if (size.w < 1 || height < 1 || (width === this._fbWidth && height === this._fbHeight)) {
             return;
         }
 
         this._pendingRemoteResize = true;
         this._lastResize = Date.now();
         RFB.messages.setDesktopSize(this._sock,
-                                    Math.floor(size.w), Math.floor(size.h),
+                                    width, height,
                                     this._screenID, this._screenFlags);
 
         Log.Debug('Requested new desktop size: ' +
-                   size.w + 'x' + size.h);
+                   width + 'x' + height);
     }
 
     // Gets the the size of the available screen

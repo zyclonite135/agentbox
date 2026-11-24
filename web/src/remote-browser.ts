@@ -90,7 +90,8 @@ async function connect(id: string, ticket: number, info: BrowserInfo) {
  // Keep native module imports so noVNC assets share Agentbox's content hash.
  const { default: RFB } = await import("../vendor/novnc/core/rfb.js");
  if (ticket !== generation || S.current?.id !== id || S.tab !== "browser") return;
- const view: Desktop = new RFB($("browser-screen"), wsURL(`/sessions/${id}/browser/desktop`));
+ // Chrome keeps a minimum window width even on a narrower X screen.
+ const view: Desktop = new RFB($("browser-screen"), wsURL(`/sessions/${id}/browser/desktop`), {minRemoteWidth: 512});
  desktop = view;
  controls();
  view.scaleViewport = true;

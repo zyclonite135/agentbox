@@ -93,7 +93,8 @@ async function connect(id, ticket, info) {
     desktop = view;
     controls();
     view.scaleViewport = true;
-    view.resizeSession = false;
+    // Older browser images keep proportional scaling if they cannot resize.
+    view.resizeSession = true;
     applyQuality(view);
     view.addEventListener("connect", () => {
         if (desktop !== view)

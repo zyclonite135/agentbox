@@ -1,11 +1,18 @@
-import {reduceMotion} from './playwright-launch.mjs';
+import {launchBrowser} from './playwright-launch.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
 let raw=''; for await (const chunk of process.stdin) raw+=chunk;
 const {base,password,session,token}=JSON.parse(raw);
-const {chromium}=await import(process.env.AGENTBOX_PLAYWRIGHT_MODULE ? pathToFileURL(process.env.AGENTBOX_PLAYWRIGHT_MODULE).href : 'playwright');
-const browser=reduceMotion(await chromium.launch({headless:true}));
+async function waitForFittedDesktop(page) {
+ await page.waitForFunction(() => {
+  const screen = document.querySelector('#browser-screen');
+  const canvas = screen.querySelector('canvas');
+  const bounds = screen.getBoundingClientRect();
+  return canvas && Math.abs(canvas.width - bounds.width) <= 1 && Math.abs(canvas.height - bounds.height) <= 1;
+ }, null, {timeout:10000});
+}
+
+const browser=await launchBrowser();
 try {
  const page=await browser.newPage({viewport:{width:1600,height:1100}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -13,8 +20,8 @@ try {
  await page.locator('#login-user').fill('boxadmin');
  await page.locator('#login-pass').fill(password);
  await page.locator('#login-btn').click();
- await page.locator('#browser-state').filter({hasText:'已连接'}).waitFor({timeout:30000});
- await page.waitForFunction(()=>document.querySelector('#browser-screen canvas')?.width>1000);
+ await page.locator('#tab-browser[data-connected]').waitFor({timeout:30000});
+ await waitForFittedDesktop(page);
  // Allow the initial full framebuffer to arrive before checking its pixels.
  await page.waitForFunction(()=>{
   const canvas=document.querySelector('#browser-screen canvas');
@@ -25,6 +32,7 @@ try {
  const rect=await canvas.boundingBox();
  await canvas.click({position:{x:rect.width*.25,y:rect.height*.38}});
  await page.locator('.browser-clipboard summary').click();
+ await waitForFittedDesktop(page);
  await page.locator('#browser-clipboard').fill('真实远程桌面 ✓');
  await Promise.all([page.waitForResponse(r=>r.url().endsWith('/browser/clipboard')&&r.request().method()==='POST'),page.locator('#browser-paste').click()]);
  for(let i=0;i<50;i++){
@@ -36,13 +44,30 @@ try {
  await page.waitForTimeout(300);
  await mkdir('output/playwright',{recursive:true});
  await page.screenshot({path:'output/playwright/remote-browser-live.png'});
+ await page.locator('.browser-clipboard summary').click();
+ await page.setViewportSize({width:2120,height:920});
+ await waitForFittedDesktop(page);
+ const expectedWidth = await canvas.evaluate(el => el.width);
+ for(let i=0;i<50;i++){
+  const response=await page.request.get(`${base}/api/sessions/${session}/file?path=browser-hits`,{headers:{Authorization:'Bearer '+token}});
+  const widths = Array.from((await response.text()).matchAll(/\/viewport\?width=(\d+) /g), match => Number(match[1]));
+  if(widths.some(width => Math.abs(width - expectedWidth) <= 16))break;
+  if(i===49)throw new Error('The remote page did not reflow at the new browser width');
+  await page.waitForTimeout(100);
+ }
+ await page.locator('#browser-fullscreen').click();
+ await page.waitForFunction(() => document.fullscreenElement?.id === 'tab-browser');
+ await waitForFittedDesktop(page);
+ await page.locator('#browser-fullscreen').click();
+ await page.waitForFunction(() => !document.fullscreenElement);
+ await waitForFittedDesktop(page);
  await page.setViewportSize({width:390,height:900});
  await page.waitForTimeout(200);
  if(await page.locator('#sidebar.open').count())await page.locator('#btn-sidebar-close').click();
  await page.waitForFunction(()=>!document.querySelector('#sidebar').classList.contains('open'));
- await page.waitForTimeout(300);
+ await waitForFittedDesktop(page);
  await page.screenshot({path:'output/playwright/remote-browser-live-mobile.png'});
  assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
  assert.deepEqual(errors,[]);
- console.log('Real noVNC: authenticated canvas, desktop/mobile layout, clipboard controls passed');
+ console.log('Real noVNC: resized framebuffer and remote page, mobile layout and clipboard controls passed');
 } finally {await browser.close();}

@@ -8,7 +8,7 @@ ARG CHROME_VERSION=154.0.8037.57
 # use Debian Chromium, with the same VNC/control path (reported to the UI).
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources
 RUN apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
-      xvfb x11vnc openbox x11-utils xclip fonts-noto-cjk fonts-liberation \
+      tigervnc-standalone-server openbox x11-utils xclip fonts-noto-cjk fonts-liberation \
       libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 libasound2 \
       libgtk-3-0 libxss1 libu2f-udev \
     && if [ "$(dpkg --print-architecture)" = amd64 ]; then \

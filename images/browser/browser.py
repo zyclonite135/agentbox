@@ -136,12 +136,17 @@ def serve():
     try:
         # Allocate an unused X display, avoiding stale :99 locks after a crash.
         readfd, writefd = os.pipe()
-        xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(writefd), '-screen', '0', '1440x900x24', '-nolisten', 'tcp'],
-                                pass_fds=(writefd,), stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)
-        children.append(xvfb)
-        os.close(writefd)
         with os.fdopen(readfd, 'rb') as display:
+            try:
+                # Xvnc can resize the X screen itself on a VNC client's request.
+                # Clipboard traffic still uses the explicit UTF-8 control API.
+                vnc = launch(['Xtigervnc', '-displayfd', str(writefd), '-geometry', '1440x900',
+                              '-depth', '24', '-nolisten', 'tcp', '-rfbport', str(VNC_PORT),
+                              '-localhost', '-SecurityTypes', 'None', '-AlwaysShared',
+                              '-AcceptSetDesktopSize=1', '-AcceptCutText=0', '-SendCutText=0'],
+                             pass_fds=(writefd,))
+            finally:
+                os.close(writefd)
             if not select.select([display], [], [], 10)[0]:
                 raise RuntimeError('显示服务启动超时')
             number = display.readline(16).decode().strip()
@@ -153,7 +158,7 @@ def serve():
                  '--no-default-browser-check', '--restore-last-session',
                  '--disable-session-crashed-bubble', '--password-store=basic',
                  '--disable-quic', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',
-                 '--window-size=1440,860', '--start-maximized']
+                 '--start-maximized']
         upstream = os.environ.get('AGENTBOX_BROWSER_PROXY', '')
         if upstream:
             parsed = urlsplit(upstream)
@@ -170,9 +175,6 @@ def serve():
             (PROFILE / 'profile' / name).unlink(missing_ok=True)
         command = ['/usr/local/bin/agentbox-browser', *flags]
         chrome = launch([*command, 'about:blank'])
-        vnc = launch(['x11vnc', '-display', env['DISPLAY'], '-rfbport', str(VNC_PORT),
-                      '-localhost', '-nopw', '-forever', '-shared', '-xkb',
-                      '-wait', '20', '-defer', '20', '-quiet'])
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             if chrome.poll() is not None or vnc.poll() is not None:

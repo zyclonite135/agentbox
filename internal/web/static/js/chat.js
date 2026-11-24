@@ -95,12 +95,18 @@ function renderMobileChatConnection() {
     bar.classList.toggle("has-retry", canRetry);
     $("mobile-chat-reconnect").classList.toggle("hidden", !canRetry);
     const reference = chatConnectionID;
-    setTextRender($("mobile-chat-connection-reason"), () => reference
-        ? formatProblem({ code: "websocket_failed", operation_id: reference }, i18nText)
-        : i18nText(offline ? "请检查设备的网络连接。"
-            : unreachable ? "与服务器的连接已断开，正在重连…"
-                : chatConnState === "waking" ? "工作空间已休眠，正在唤醒…"
-                    : chatConnState === "closed" ? "对话连接不可用" : title));
+    const networkReason = offline ? "请检查设备的网络连接。"
+        : unreachable ? "与服务器的连接已断开，正在重连…" : "";
+    setTextRender($("mobile-chat-connection-reason"), () => {
+        if (networkReason) {
+            const operation = reference ? ` ${i18nText("操作编号：{id}", { id: reference })}` : "";
+            return i18nText(networkReason) + operation;
+        }
+        if (reference)
+            return formatProblem({ code: "websocket_failed", operation_id: reference }, i18nText);
+        return i18nText(chatConnState === "waking" ? "工作空间已休眠，正在唤醒…"
+            : chatConnState === "closed" ? "对话连接不可用" : title);
+    });
     $("mobile-chat-copy-reference").classList.toggle("hidden", !reference);
 }
 function setChatConn(state) {
@@ -1669,9 +1675,14 @@ export function initChat() {
     };
     $("chat-reconnect").addEventListener("click", reconnectChat, { signal: lifetime.signal });
     $("mobile-chat-reconnect").addEventListener("click", () => {
-        if (networkUnavailable())
+        if (!S.current || !navigator.onLine)
+            return;
+        if (serverUnreachable())
             void probeServer();
-        reconnectChat();
+        if (chatConnState === "closed")
+            reconnectChat();
+        else
+            connection.probe();
     }, { signal: lifetime.signal });
     $("mobile-chat-copy-reference").addEventListener("click", async () => {
         if (!chatConnectionID)

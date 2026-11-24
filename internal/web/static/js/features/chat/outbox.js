@@ -382,7 +382,9 @@ export function initChatOutbox(hooks) {
         const waiting = items.filter(r => r.state === "queued").length;
         const other = (row) => row.thread !== context?.thread ? " · " + t("另一对话的消息") : "";
         const highlighted = items.find(r => r.state === "unconfirmed" || r.state === "uncertain") || items.find(r => receiptActive(r.state)) || items.find(r => r.state !== "completed") || items[0];
-        const compactQueryFailure = isMobile() && notice === queryFailureNotice && !noticeTranslated && !storage.error && !scopeChanged;
+        const queryNotice = notice === queryFailureNotice && !noticeTranslated;
+        const storageIssue = storage.error && (!notice || queryNotice);
+        const compactQueryFailure = isMobile() && queryNotice && !storageIssue && !scopeChanged;
         const savedText = compactQueryFailure && storage.enabled && items.some(row => (row.state === "unconfirmed" || row.state === "uncertain") && Boolean(row.draft?.text || row.input?.text));
         const coveredByConnection = compactQueryFailure && !items.some(row => row.state !== "completed") && hooks.networkUnavailable();
         root.classList.toggle("delivery-query-failure", compactQueryFailure);
@@ -399,7 +401,23 @@ export function initChatOutbox(hooks) {
         const view = highlighted && look(highlighted.state, code(highlighted), merged(highlighted), hooks.paused());
         root.dataset.tone = pageIssue && noticeError || queryFailed || unsupported || scopeChanged || storage.error ? "attention" : loading ? "busy" : view?.tone || "quiet";
         // Status precedence: a page/protocol problem, then this row's own story.
-        const headline = () => unsupported ? t("当前网页不支持此服务端的消息协议，请刷新页面或升级客户端。") : !enabled ? t("此服务端使用旧发送方式，无法按消息编号确认接收结果。") : !scope || scopeChanged ? t("消息所属的实例或登录身份已变化") : compactQueryFailure ? t(savedText ? "文本已保存" : "无法查询消息状态") : notice ? (noticeTranslated ? notice : t(notice)) : storage.error ? t("本机待确认副本保存失败，请保留本页并检查存储设置。") : loading ? t("正在查询消息接收状态…") : view ? t(view.title) + other(highlighted) : t("消息确认与恢复");
+        const headline = () => {
+            if (unsupported)
+                return t("当前网页不支持此服务端的消息协议，请刷新页面或升级客户端。");
+            if (!enabled)
+                return t("此服务端使用旧发送方式，无法按消息编号确认接收结果。");
+            if (!scope || scopeChanged)
+                return t("消息所属的实例或登录身份已变化");
+            if (storageIssue)
+                return t("本机待确认副本保存失败，请保留本页并检查存储设置。");
+            if (compactQueryFailure)
+                return t(savedText ? "文本已保存" : "无法查询消息状态");
+            if (notice)
+                return noticeTranslated ? notice : t(notice);
+            if (loading)
+                return t("正在查询消息接收状态…");
+            return view ? t(view.title) + other(highlighted) : t("消息确认与恢复");
+        };
         const detail = () => pageIssue || loading || !view ? "" : highlighted.state === "unconfirmed" && !storage.enabled ? t("本机保存已关闭；待确认内容仅保留在当前页面。") : receiptActive(highlighted.state) && waiting ? t("后面还有 {n} 条排队", { n: waiting }) : view.reason ? t(view.reason) : "";
         setTextRender(status, headline);
         setTextRender(reason, detail);

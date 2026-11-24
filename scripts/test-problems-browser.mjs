@@ -41,6 +41,19 @@ async function mobileDeliverySmoke(page) {
     },{scope,thread,id});
     await status.filter({hasText:'Message saved'}).waitFor();
     await delivery.getByRole('button',{name:'Check status'}).waitFor();
+    await page.evaluate(()=>{
+      const getItem=Storage.prototype.getItem;
+      Storage.prototype.getItem=function(key) {
+        if (key.startsWith('agentbox.chat-draft.v1.') && key.endsWith('.enabled')) {
+          throw new DOMException('Synthetic storage failure','SecurityError');
+        }
+        return getItem.call(this,key);
+      };
+      try { window.dispatchEvent(new Event('offline')); }
+      finally { Storage.prototype.getItem=getItem; }
+    });
+    await status.filter({hasText:en['本机待确认副本保存失败，请保留本页并检查存储设置。']}).waitFor();
+    assert.ok(await delivery.isVisible(),'connection status must not hide a local storage error');
   } finally {
     await page.evaluate(({scope,id})=>{
       Reflect.deleteProperty(navigator,'onLine');
@@ -150,12 +163,13 @@ export async function problemsSmoke(page, base, socket, history) {
     await mobileConnection.locator('summary').click();
     const serverUnreachable=route=>route.fulfill({status:503});
     const pingPath=/\/api\/ping(?:\?|$)/;
+    const probeAgentBox=()=>page.evaluate(async()=>{
+      const {probeServer}=await import('/_v/{{BUILD}}/js/ping.js');
+      await probeServer(); await probeServer();
+    });
     await page.route(pingPath,serverUnreachable);
     try {
-      await page.evaluate(async()=>{
-        const {probeServer}=await import('/_v/{{BUILD}}/js/ping.js');
-        await probeServer(); await probeServer();
-      });
+      await probeAgentBox();
       await mobileStatus.filter({hasText:'Cannot reach AgentBox'}).waitFor();
       assert.ok(await offlineBanner.isHidden(),'global banner duplicates the mobile status');
       await page.evaluate(()=>{
@@ -164,6 +178,10 @@ export async function problemsSmoke(page, base, socket, history) {
       });
       await mobileStatus.filter({hasText:'No internet'}).waitFor();
       assert.ok(await page.locator('#mobile-chat-reconnect').isHidden());
+      await mobileConnection.locator('summary').click();
+      await reason.filter({hasText:'Check this device’s network connection.'}).waitFor();
+      assert.ok((await reason.innerText()).includes(reference));
+      await mobileConnection.locator('summary').click();
       await page.evaluate(()=>{
         Reflect.deleteProperty(navigator,'onLine');
         window.dispatchEvent(new Event('online'));
@@ -182,6 +200,17 @@ export async function problemsSmoke(page, base, socket, history) {
     await page.screenshot({path:'output/playwright/problems-english-mobile.png',animations:'disabled'});
     await page.locator('#mobile-chat-reconnect').click();
     await mobileConnection.waitFor({state:'hidden'});
+    const healthySocketID=new URL(socket().url()).searchParams.get('connection_id');
+    await page.route(pingPath,serverUnreachable);
+    try {
+      await probeAgentBox();
+      await mobileStatus.filter({hasText:'Cannot reach AgentBox'}).waitFor();
+    } finally {
+      await page.unroute(pingPath,serverUnreachable);
+    }
+    await page.locator('#mobile-chat-reconnect').click();
+    await mobileConnection.waitFor({state:'hidden'});
+    assert.equal(new URL(socket().url()).searchParams.get('connection_id'),healthySocketID,'HTTP retry replaced a healthy chat socket');
     await mobileDeliverySmoke(page);
     console.log('Problems browser: error localization, redaction, mobile connection, details, reconnect, message status and desktop layout passed');
   } finally {

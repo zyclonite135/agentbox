@@ -26,6 +26,68 @@ async function expectRemoteInput(page, text) {
  throw new Error('Clipboard text did not reach the remote input');
 }
 
+async function checkDelayedDevicePaste(page, canvas, position, pasteButton) {
+ await page.evaluate(() => {
+  window.heldClipboardReads = 0;
+  navigator.clipboard.readText = () => {
+   window.heldClipboardReads++;
+   return new Promise(resolve => { window.releaseClipboardRead = resolve; });
+  };
+  const fetch = window.fetch;
+  window.devicePasteRequests = 0;
+  window.fetch = (url, options) => {
+   if (String(url).endsWith('/browser/clipboard') && options?.method === 'POST') window.devicePasteRequests++;
+   return fetch(url, options);
+  };
+  window.removeClipboardProbe = () => {
+   delete navigator.clipboard.readText;
+   window.fetch = fetch;
+  };
+ });
+ try {
+  await pasteButton.click();
+  await pasteButton.click();
+  assert.equal(await page.evaluate(() => window.heldClipboardReads), 1, 'Repeated clicks must share one clipboard read');
+  await page.locator('#browser-url').click();
+  const writes = await page.evaluate(async () => {
+   window.releaseClipboardRead('late clipboard read');
+   await new Promise(requestAnimationFrame);
+   return window.devicePasteRequests;
+  });
+  assert.equal(writes, 0, 'Switching to another field must cancel the pending clipboard read');
+ } finally {
+  await page.evaluate(() => window.removeClipboardProbe());
+ }
+
+ const delayedText = 'late clipboard upload';
+ await page.evaluate(text => { navigator.clipboard.readText = async () => text; }, delayedText);
+ const routeName = '**/api/sessions/*/browser/clipboard';
+ let releaseUpload;
+ const holdUpload = new Promise(resolve => { releaseUpload = resolve; });
+ await page.route(routeName, async route => {
+  if (route.request().method() === 'POST') await holdUpload;
+  await route.continue();
+ });
+ try {
+  const isPaste = request => request.method() === 'POST' && request.url().endsWith('/browser/clipboard');
+  const result = page.waitForResponse(response => isPaste(response.request()) && response.ok());
+  await Promise.all([page.waitForRequest(isPaste), pasteButton.click()]);
+  // Another click in the same canvas moves Chrome's caret without changing the
+  // local element focused by noVNC.
+  await canvas.click({position});
+  releaseUpload();
+  await result;
+  await page.waitForTimeout(400);
+  const url = `${base}/api/sessions/${session}/file?path=browser-hits`;
+  const hits = await page.request.get(url, {headers:{Authorization:'Bearer '+token}});
+  assert.ok(!(await hits.text()).includes(encodeURIComponent(delayedText)), 'A late response must not paste at the new caret');
+ } finally {
+  releaseUpload();
+  await page.unroute(routeName);
+  await page.evaluate(() => { delete navigator.clipboard.readText; });
+ }
+}
+
 async function checkClipboardShortcuts(page, canvas) {
  const fromDevice = 'Местный буфер — 中文 ✓';
  await setLocalClipboard(page, fromDevice);
@@ -78,12 +140,14 @@ async function checkClipboardShortcuts(page, canvas) {
   // Clipboard API. Substitute only that read; its native paste ran above.
   await page.evaluate(text => { navigator.clipboard.readText = async () => text; }, fresh);
  }
+ const pasteButton = page.getByRole('button', {name:'Paste from device', exact:true});
  const [response] = await Promise.all([
   page.waitForResponse(r => r.url().endsWith('/browser/clipboard') && r.request().method() === 'POST' && r.ok()),
-  page.getByRole('button', {name:'Paste from device', exact:true}).click(),
+  pasteButton.click(),
  ]);
  assert.deepEqual(response.request().postDataJSON(), {text:fresh});
  await expectRemoteInput(page, fresh);
+ await checkDelayedDevicePaste(page, canvas, position, pasteButton);
  await page.evaluate(() => {
   navigator.clipboard.readText = async () => { throw new DOMException('Denied', 'NotAllowedError'); };
  });
@@ -93,7 +157,7 @@ async function checkClipboardShortcuts(page, canvas) {
  };
  page.on('request', countClipboardWrite);
  try {
-  await page.getByRole('button', {name:'Paste from device', exact:true}).click();
+  await pasteButton.click();
   await page.locator('.toast').filter({hasText:'Cannot read the clipboard.'}).waitFor();
   assert.equal(writesOnDenial, 0);
  } finally {

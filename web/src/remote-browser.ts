@@ -294,8 +294,9 @@ export function initRemoteBrowser() {
  const {signal} = controller;
  const clipboardActions = setupBrowserClipboard($("browser-screen"), () => {
   const view = desktop, id = S.current?.id, ticket = generation;
+  const tab = navigation?.active;
   const active = () => connected && desktop === view && S.current?.id === id && S.tab === "browser"
-   && ticket === generation && !document.hidden && document.hasFocus();
+   && ticket === generation && (!tab || tab === navigation?.active) && !document.hidden && document.hasFocus();
   return view && id && active() ? {id, view, current:active} : null;
  }, signal);
  renderAddressHint();

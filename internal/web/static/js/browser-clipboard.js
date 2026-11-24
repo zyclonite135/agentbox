@@ -10,7 +10,7 @@ function sendShortcut(view, key) {
 export function setupBrowserClipboard(screen, getTarget, signal) {
     const textarea = $("browser-clipboard");
     let contextCopy;
-    let pasteInProgress = false;
+    let pendingPaste = null;
     const available = (target) => !signal.aborted && target.current();
     const revisionOf = (target) => api(path(target) + "?revision=1", { signal })
         .then(result => result.revision, () => undefined);
@@ -65,37 +65,69 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
             }
         }
     }
-    async function pasteRemote(target, text, keepScreenFocus = false) {
-        if (!text || pasteInProgress || !available(target))
+    function cancelPaste() {
+        if (!pendingPaste)
             return;
-        pasteInProgress = true;
+        pendingPaste.cancelled = true;
+        if (!pendingPaste.uploading)
+            pendingPaste = null;
+    }
+    function cancelOnInteraction(event) {
+        if (!pendingPaste || !event.isTrusted)
+            return;
+        if (event instanceof KeyboardEvent && (event.repeat || ["Control", "Meta", "Shift", "Alt"].includes(event.key)))
+            return;
+        if ((event.type === "pointerdown" || (event instanceof KeyboardEvent && ["Enter", " "].includes(event.key)))
+            && event.target instanceof Node && pendingPaste.source?.contains(event.target))
+            return;
+        cancelPaste();
+    }
+    document.addEventListener("pointerdown", cancelOnInteraction, { capture: true, signal });
+    document.addEventListener("keydown", cancelOnInteraction, { capture: true, signal });
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden)
+            cancelPaste();
+    }, { signal });
+    async function pasteRemote(target, getText, source) {
+        if (pendingPaste || !available(target))
+            return;
+        const paste = { source, cancelled: false, uploading: false };
+        const screenFocused = screen.contains(document.activeElement);
+        const canPaste = () => !paste.cancelled && available(target) &&
+            (!screenFocused || screen.contains(document.activeElement));
+        pendingPaste = paste;
         try {
+            const text = await getText();
+            if (!text || !canPaste())
+                return;
+            paste.uploading = true;
             await api(path(target), { method: "POST", body: JSON.stringify({ text }), signal });
-            if (!available(target) || (keepScreenFocus && !screen.contains(document.activeElement)))
+            if (!canPaste())
                 return;
             target.view.focus();
             sendShortcut(target.view, "v");
         }
         catch (error) {
-            if (available(target))
+            if (canPaste())
                 toast(error.message, true);
         }
         finally {
-            pasteInProgress = false;
+            if (pendingPaste === paste)
+                pendingPaste = null;
         }
     }
-    async function fromDevice() {
+    function fromDevice(source) {
         const target = getTarget();
         if (!target)
             return;
-        try {
-            const text = await navigator.clipboard.readText();
-            await pasteRemote(target, text);
-        }
-        catch {
-            if (available(target))
-                toast(t("没能读取剪贴板：请允许浏览器访问剪贴板后再试"), true);
-        }
+        return pasteRemote(target, async () => {
+            try {
+                return await navigator.clipboard.readText();
+            }
+            catch {
+                throw new Error(t("没能读取剪贴板：请允许浏览器访问剪贴板后再试"));
+            }
+        }, source);
     }
     screen.addEventListener("keydown", event => {
         const target = getTarget();
@@ -127,7 +159,7 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
         if (!target || !text || !screen.contains(document.activeElement))
             return;
         event.preventDefault();
-        void pasteRemote(target, text, true);
+        void pasteRemote(target, () => text);
     }, { capture: true, signal });
     screen.addEventListener("mousedown", event => {
         const target = getTarget();
@@ -155,11 +187,13 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
         if (target)
             void copyToDevice(target, api(path(target), { signal }).then(reply => reply.text));
     }, { signal });
-    $("browser-paste").addEventListener("click", () => {
+    const pasteButton = $("browser-paste");
+    pasteButton.addEventListener("click", () => {
         const target = getTarget();
         if (target)
-            void pasteRemote(target, textarea.value);
+            void pasteRemote(target, () => textarea.value, pasteButton);
     }, { signal });
-    $("browser-paste-device").addEventListener("click", () => void fromDevice(), { signal });
+    const deviceButton = $("browser-paste-device");
+    deviceButton.addEventListener("click", () => void fromDevice(deviceButton), { signal });
     return { fromDevice };
 }

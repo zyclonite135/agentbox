@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Public bootstrap: curl -fsSL <repository>/main/install.sh | sudo bash
+# Public bootstrap: curl -fsSL <repository>/feature/my-change/install.sh | sudo bash
 # Keep execution in main so a truncated download cannot run a partial installer.
 set -euo pipefail
 
@@ -13,7 +13,8 @@ usage() {
 Установщик скачивает и проверяет релиз, собирает образ рабочего пространства
 с заданными версиями компонентов и запускает службу agentbox.service.
 Релизы с v0.1.1 включают пять клиентов abox-link. Go и Node.js на сервере не нужны.
-На Ubuntu и Debian недостающие зависимости и Docker устанавливаются через apt.
+На Ubuntu и Debian недостающие зависимости устанавливаются через apt.
+Если Docker отсутствует, установщик добавляет официальный репозиторий Docker CE.
 На других дистрибутивах с systemd заранее установите Python 3.9+, Git, curl,
 сертификаты CA, tzdata и локальный Docker Engine. Поддерживаются x86_64 и arm64.
 Для обновления существующей установки используйте deploy/release.py.
@@ -28,7 +29,8 @@ Usage: sudo bash install.sh [--version vX.Y.Z] [--listen 0.0.0.0:8180] [--lang e
 Downloads a verified release, builds the pinned workspace image, and starts
 agentbox.service. v0.1.1+ also installs all five bundled abox-link clients.
 No Go or Node required on the host.
-Ubuntu/Debian: missing dependencies and Docker are installed with apt.
+Ubuntu/Debian: missing dependencies are installed with apt. A fresh Docker
+installation uses the official Docker CE repository.
 Other systemd Linux distributions: install Python 3.9+, Git, curl, CA certificates,
 tzdata and a local Docker Engine first. Supports x86_64 and arm64.
 Existing installations are preserved; use deploy/release.py for upgrades.
@@ -42,6 +44,55 @@ message() {
 }
 
 fail() { message "agentbox: $1" "agentbox: $2" >&2; exit 1; }
+
+ensure_docker() {
+  local distro=$1 staging=$2 docker_suite docker_arch docker_repo
+  unset DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH
+  export DOCKER_HOST=unix:///var/run/docker.sock
+  if ! command -v docker >/dev/null; then
+    case "$distro" in
+      ubuntu|debian) docker_repo="https://download.docker.com/linux/$distro" ;;
+      *) fail 'Install a local Docker Engine first, then run this installer again' \
+              'Установите локальный Docker Engine, затем запустите установщик ещё раз' ;;
+    esac
+    docker_suite=$(
+      . /etc/os-release
+      if [[ $distro == ubuntu ]]; then
+        printf '%s' "${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
+      else
+        printf '%s' "${VERSION_CODENAME:-}"
+      fi
+    )
+    [[ $docker_suite =~ ^[a-z0-9][a-z0-9-]*$ ]] || \
+      fail 'Could not determine the Linux release codename for the Docker repository' \
+           'Не удалось определить кодовое имя выпуска Linux для репозитория Docker'
+    docker_arch=$(dpkg --print-architecture)
+    message 'Installing Docker Engine from the official Docker repository...' \
+            'Установка Docker Engine из официального репозитория Docker…'
+    curl --proto '=https' --proto-redir '=https' -fsSL --retry 3 --connect-timeout 15 --max-time 60 \
+      "$docker_repo/gpg" -o "$staging/docker.asc" || \
+      fail 'Could not download the Docker repository signing key' \
+           'Не удалось скачать ключ подписи репозитория Docker'
+    install -d -m 0755 /etc/apt/keyrings
+    install -m 0644 "$staging/docker.asc" /etc/apt/keyrings/docker.asc
+    cat > "$staging/docker.sources" <<EOF
+Types: deb
+URIs: $docker_repo
+Suites: $docker_suite
+Components: stable
+Architectures: $docker_arch
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+    install -m 0644 "$staging/docker.sources" /etc/apt/sources.list.d/docker.sources
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove \
+      docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  fi
+  if ! docker info >/dev/null 2>&1; then
+    systemctl enable --now docker.service
+  fi
+  docker info >/dev/null || fail 'Local Docker Engine is unavailable' 'Локальный Docker Engine недоступен'
+}
 
 main() {
   local repository='zyclonite135/agentbox'
@@ -185,22 +236,7 @@ PY
     fail 'This release predates the one-command installer; select a newer release' \
          'Этот релиз не поддерживает установку одной командой. Выберите более новый релиз.'
   # Pin every Docker operation to the same local daemon used by systemd.
-  unset DOCKER_CONTEXT DOCKER_TLS_VERIFY DOCKER_CERT_PATH
-  export DOCKER_HOST=unix:///var/run/docker.sock
-  if ! command -v docker >/dev/null; then
-    case "$distro" in
-      ubuntu|debian)
-        message 'Installing Docker Engine from the distribution packages...' 'Установка Docker Engine из пакетов дистрибутива…'
-        apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io ;;
-      *) fail 'Install a local Docker Engine first, then run this installer again' \
-              'Установите локальный Docker Engine, затем запустите установщик ещё раз' ;;
-    esac
-  fi
-  if ! docker info >/dev/null 2>&1; then
-    systemctl enable --now docker.service
-  fi
-  docker info >/dev/null || fail 'Local Docker Engine is unavailable' 'Локальный Docker Engine недоступен'
+  ensure_docker "$distro" "$task_tmp"
   # Older packages ignore the language selector but still need UTF-8.
   AGENTBOX_INSTALL_LANG="$language" PYTHONUTF8=1 PYTHONIOENCODING=utf-8 \
     python3 "$package/deploy/bootstrap.py" --package "$package" --listen "$listen"

@@ -19,7 +19,81 @@ spec = importlib.util.spec_from_file_location('bootstrap', ROOT / 'deploy/bootst
 bootstrap = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = bootstrap
 spec.loader.exec_module(bootstrap)
-EXTRACTOR = (ROOT / 'install.sh').read_text(encoding='utf-8').split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
+INSTALLER = (ROOT / 'install.sh').read_text(encoding='utf-8')
+EXTRACTOR = INSTALLER.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
+
+
+class DockerRepository(unittest.TestCase):
+    def run_setup(self, distro, os_release, arch, current_docker=False, fail_key=False):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'os-release').write_text(os_release)
+            script, _ = INSTALLER.rsplit('\nmain "$@"', 1)
+            script = script.replace('. /etc/os-release', '. "$staging/os-release"') + r'''
+staging=$1 language=en test_arch=$3 test_presence=$4 test_key=$5
+command() { if [[ $* == '-v docker' ]]; then [[ $test_presence == present ]]; else builtin command "$@"; fi; }
+dpkg() { printf '%s\n' "$test_arch"; }
+curl() {
+  printf '%s\n' "${@: -3:1}" >> "$staging/calls"
+  [[ $test_key == ok ]] || return 1
+  printf 'synthetic key\n' > "${@: -1}"
+}
+install() {
+  local dest="$staging${@: -1}"
+  mkdir -p "${dest%/*}"
+  builtin command install "${@:1:$#-1}" "$dest"
+}
+apt-get() { printf '%s\n' "$*" >> "$staging/calls"; }
+docker() {
+  [[ $* == info && $DOCKER_HOST == unix:///var/run/docker.sock && ! ${DOCKER_CONTEXT+x} ]] &&
+    [[ $test_presence == present || -f "$staging/docker-started" ]]
+}
+systemctl() {
+  [[ $* == 'enable --now docker.service' ]] || return 1
+  printf '%s\n' "$*" >> "$staging/calls"
+  touch "$staging/docker-started"
+}
+export DOCKER_CONTEXT=remote
+ensure_docker "$2" "$staging"
+'''
+            result = subprocess.run(['bash', '-c', script, 'docker-fixture', tmp, distro, arch,
+                                     'present' if current_docker else 'absent', 'fail' if fail_key else 'ok'],
+                                    capture_output=True, encoding='utf-8')
+            files = {path.relative_to(root).as_posix(): path.read_text()
+                     for path in root.rglob('*') if path.is_file() and path.name != 'os-release'}
+            return result, files
+
+    def test_clean_hosts_use_official_docker_repo(self):
+        for distro, os_release, suite, arch in [
+            ('debian', 'VERSION_CODENAME=trixie\n', 'trixie', 'amd64'),
+            ('ubuntu', 'UBUNTU_CODENAME=noble\nVERSION_CODENAME=other\n', 'noble', 'arm64'),
+            ('ubuntu', 'VERSION_CODENAME=jammy\n', 'jammy', 'amd64'),
+        ]:
+            with self.subTest(distro=distro, suite=suite):
+                result, files = self.run_setup(distro, os_release, arch)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                repo = f'https://download.docker.com/linux/{distro}'
+                self.assertEqual(files['etc/apt/keyrings/docker.asc'], 'synthetic key\n')
+                self.assertEqual(files['etc/apt/sources.list.d/docker.sources'].splitlines(), [
+                    'Types: deb', f'URIs: {repo}', f'Suites: {suite}', 'Components: stable',
+                    f'Architectures: {arch}', 'Signed-By: /etc/apt/keyrings/docker.asc',
+                ])
+                self.assertEqual(files['calls'].splitlines(), [
+                    f'{repo}/gpg', 'update',
+                    'install -y --no-remove docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin',
+                    'enable --now docker.service',
+                ])
+
+    def test_existing_docker_skips_repository_changes(self):
+        result, files = self.run_setup('debian', '', 'amd64', current_docker=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(files)
+
+    def test_key_download_failure_stops_before_install(self):
+        result, files = self.run_setup('debian', 'VERSION_CODENAME=trixie\n', 'amd64', fail_key=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Could not download the Docker repository signing key', result.stderr)
+        self.assertEqual(files, {'calls': 'https://download.docker.com/linux/debian/gpg\n'})
 
 
 class Archives(unittest.TestCase):

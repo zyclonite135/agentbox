@@ -44,7 +44,7 @@ export async function fileActionSmoke(page) {
       assert.equal(await page.locator('#upload-clear').count(), 0);
       assert.match(await page.locator('#btn-download').getAttribute('data-tip'), new RegExp(label + '.*ZIP'));
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-      await assertActionIcons(page);
+      await assertActionIcons(page, '#tab-files');
     }
   }
   await page.setViewportSize({width:1280, height:900});
@@ -72,7 +72,40 @@ export async function fileActionSmoke(page) {
   await page.locator('#tip.show').filter({hasText:'上传文件或代码包到当前目录'}).waitFor();
   assert.equal(await page.locator('#btn-upload').evaluate(el => getComputedStyle(el).outlineStyle), 'solid');
   await page.keyboard.press('Escape');
+  await fileLayoutSmoke(page);
   await uploadRecoverySmoke(page);
+}
+
+async function fileLayoutSmoke(page) {
+  const setLanguage = language => page.evaluate(async language => {
+    const entry = document.querySelector('script[src$="/js/main.js"]');
+    const {i18n} = await import(new URL('./i18n.js', entry.src).href);
+    i18n.setLanguage(language);
+  }, language);
+  const help = page.locator('.files-left .help');
+  const tip = help.locator('.help-tip');
+  const withinViewport = async (selector, width) => {
+    const box = await page.locator(selector).boundingBox();
+    assert.ok(box && box.x >= 0 && box.x + box.width <= width + 0.5, `${selector} fits at ${width}px: ${JSON.stringify(box)}`);
+  };
+  await setLanguage('ru');
+  try {
+    assert.match(await page.locator('#scope-ws').innerText(), /Файлы рабочего пространства/);
+    for (const width of [320, 390, 760]) {
+      await page.setViewportSize({width, height:740});
+      for (const selector of ['#scope-ws', '#scope-shared', '.files-left .help', '#btn-upload']) {
+        await withinViewport(selector, width);
+      }
+      await help.focus();
+      await tip.waitFor();
+      await withinViewport('.files-left .help-tip', width);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      await help.blur();
+    }
+  } finally {
+    await setLanguage('zh-CN');
+    await page.setViewportSize({width:1280, height:900});
+  }
 }
 
 // Model a proxy losing the response before the staged archive reaches /workspace.

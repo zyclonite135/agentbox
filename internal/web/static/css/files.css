@@ -335,10 +335,22 @@
 
 /* ---- 窄屏：工具条两行化、面包屑横滚、行高加大、列只留名称+大小、预览全屏 ---- */
 @media (max-width: 760px) {
-  .files-bar { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
-  .files-left { flex-wrap: nowrap; gap: 10px; }
+  .files-bar {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+    gap: 8px; padding: 10px 12px;
+  }
+  .files-left { display: contents; }
+  .files-left .scope-switch { position: relative; grid-column: 1 / -1; justify-self: start; min-width: 0; }
+  .files-left .scope-btn {
+    min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; line-height: 1.35;
+  }
+  .files-left .help { position: static; flex: none; width: 24px; height: 24px; margin-inline: 2px; }
+  .files-left .help-tip {
+    inset: calc(100% + 6px) 0 auto auto;
+    width: min(340px, 100%); overflow-wrap: anywhere;
+  }
   .files-crumb {
-    flex: 1; min-width: 0;
+    min-width: 0;
     overflow-x: auto; white-space: nowrap;
     scrollbar-width: none;
   }

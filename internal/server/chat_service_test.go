@@ -36,7 +36,12 @@ func TestChatServicePanicSettlesBeforeUncertainReceiptAndRoomRelease(t *testing.
 	func() {
 		defer room.end()
 		service := chat.Service{Runtime: panicChatHistory{chatRuntime{room}}, Usage: f.s.usageService()}
-		service.Run(context.Background(), chat.Input{SessionID: f.sess.ID, Text: f.input.Text, Model: f.input.Model}, observer)
+		service.Run(context.Background(), chat.Input{
+			SessionID: f.sess.ID,
+			Text:      f.input.Text,
+			Model:     f.input.Model,
+			Preface:   chatFileResultsHint,
+		}, observer)
 	}()
 	result, err := f.s.store.ChatRequest(f.u, f.sess.ID, row.RequestID)
 	if err != nil || result.State != store.ChatUncertain || result.ErrorCode != "execution_incomplete" {

@@ -288,7 +288,9 @@ function agentText(text: string) {
 
 export function renderAnswerContents(node: HTMLElement, message: string, streaming = false) {
   const { text, result } = splitResultFiles(message, streaming);
-  node.replaceChildren(formatText(text));
+  const content = formatText(text);
+  if (!streaming) highlightAnswerCode(content);
+  node.replaceChildren(content);
   const card = !streaming && result ? resultFilesCard(result) : null;
   if (card) node.append(card);
   answerSources.set(node, text);
@@ -380,6 +382,44 @@ export function formatText(text: string, opts: { img?: MdImgResolver } = {}) {
 
 useMarkdown(text => formatText(text)); // 子 Agent 的回复（claude-tools.ts 不反向 import 这里）
 
+type CodePiece = string | { type: string; content: CodePiece | CodePiece[]; alias?: string | string[] };
+declare const Prism: {
+  languages: Record<string, object | undefined>;
+  tokenize(source: string, grammar: object): CodePiece[];
+};
+
+function appendCodeTokens(parent: Node, pieces: CodePiece[]) {
+  for (const piece of pieces) {
+    if (typeof piece === "string") {
+      parent.appendChild(document.createTextNode(piece));
+      continue;
+    }
+    const token = document.createElement("span");
+    const aliases = Array.isArray(piece.alias) ? piece.alias : [piece.alias];
+    token.className = ["token", piece.type, ...aliases].filter(Boolean).join(" ");
+    appendCodeTokens(token, Array.isArray(piece.content) ? piece.content : [piece.content]);
+    parent.appendChild(token);
+  }
+}
+
+/** Keep streaming updates cheap and render settled, explicitly labeled code as text tokens. */
+export function highlightAnswerCode(root: ParentNode) {
+  if (typeof Prism === "undefined") return;
+  for (const code of root.querySelectorAll<HTMLElement>(".codeblock code[data-code-language]")) {
+    const language = code.dataset.codeLanguage!.toLowerCase();
+    const name = language === "c++" ? "cpp" : language;
+    const source = code.textContent || "";
+    if (!source || source.length > 100_000 || !Object.hasOwn(Prism.languages, name)) continue;
+    const grammar = Prism.languages[name];
+    if (!grammar || typeof grammar !== "object") continue;
+    try {
+      const content = document.createDocumentFragment();
+      appendCodeTokens(content, Prism.tokenize(source, grammar));
+      code.replaceChildren(content);
+    } catch { /* Keep the original text if tokenization fails. */ }
+  }
+}
+
 function codeBlock(lang: string, body: string) {
   const lines = String(body).split("\n");
   const box = document.createElement("div");
@@ -433,6 +473,7 @@ function codeBlock(lang: string, body: string) {
   gutter.textContent = lines.map((_, i) => i + 1).join("\n");
   const pre = document.createElement("pre");
   const code = document.createElement("code");
+  if (lang) code.dataset.codeLanguage = lang;
   code.textContent = body;
   pre.appendChild(code);
   wrap.append(gutter, pre);

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Chat Markdown rendering (formatText) in a real browser with the vendored KaTeX; static files only, no API, Docker or provider.
+// Chat Markdown and fenced code rendering with the bundled KaTeX and Prism; static files only.
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
-import {resolve,extname} from 'node:path';
+import {resolve,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {launchBrowser} from './playwright-launch.mjs';
 
@@ -11,7 +11,7 @@ const root=resolve(fileURLToPath(new URL('../internal/web/static/',import.meta.u
 const server=createServer(async(req,res)=>{
  try{
   const rel=new URL(req.url,'http://fixture').pathname.replace(/^\/_v\/[^/]+/,'');
-  const file=resolve(root,'.'+(rel==='/'?'/index.html':rel));if(!file.startsWith(root+'/')){res.writeHead(403).end();return;}
+  const file=resolve(root,'.'+(rel==='/'?'/index.html':rel));if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}
   let data=await readFile(file);
   // chat-render.js needs the page's dialogs and KaTeX, not the app: drop main.js so nothing calls the API.
   if(rel==='/')data=data.toString().replace(/<script type="module" src="[^"]*\/js\/main.js"><\/script>/,'');
@@ -99,6 +99,66 @@ try{
  assert.deepEqual(r.map(b=>b.cls),['md-p','math-display','md-p']);
  assert.equal(r[1].katex,true);
 
+ const code = 'const html = "<b>& x\u00a0y</b>";\n  console.log(html);';
+ const examples = [
+  {lang:'JS', source:code, token:'keyword'},
+  {lang:'python', source:'def double(x):\n    return x * 2', token:'keyword'},
+  {lang:'html', source:'<p title="a & b">Example</p>', token:'tag'},
+  {lang:'c++', source:'int main() { return 0; }', token:'keyword'},
+  {lang:'', source:code},
+  {lang:'unrecognized-language', source:code},
+  {lang:'extend', source:code},
+  {lang:'js', source:'x'.repeat(100_001)},
+ ];
+ const highlights = await page.evaluate(async examples=>{
+  const {renderAnswerContents,renderEvent}=await import('/js/chat-render.js');
+  const {createChatStream}=await import('/js/features/chat/stream.js');
+  const fence=(lang,source)=>['\x60\x60\x60'+lang,source,'\x60\x60\x60'].join('\n');
+  const results=examples.map(({lang,source,token},i)=>{
+   const reply=document.createElement('div');
+   renderAnswerContents(reply,fence(lang,source));
+   document.body.append(reply);
+   const block=reply.querySelector('code');
+   const colored=token&&block.querySelector('.token.'+token);
+   const result={
+    exact:block.textContent===source,
+    tokens:!!block.querySelector('.token'),
+    colored:!!colored&&getComputedStyle(colored).color!==getComputedStyle(block).color,
+    literal:!block.querySelector('b,p'),
+   };
+   if(i===0)reply.id='highlight-copy-fixture'; else reply.remove();
+   return result;
+  });
+  const live=document.createElement('div');
+  const stream=createChatStream({
+   append:node=>live.append(node), working:()=>{}, state:()=>'running',
+   footer:()=>null, log:()=>live, nearBottom:()=>false,
+  });
+  const send=event=>stream.event({type:'stream_event',event});
+  send({type:'content_block_start',content_block:{type:'text'}});
+  send({type:'content_block_delta',delta:{type:'text_delta',text:fence('js',examples[0].source)}});
+  send({type:'content_block_stop'});
+  const streaming=!!live.querySelector('.token');
+  stream.settle();
+  const stopped=!!live.querySelector('.token.keyword');
+  const [tool]=renderEvent({type:'item.completed',item:{
+   type:'command_execution',id:'plain-output',command:'fixture',aggregated_output:examples[0].source,status:'completed',
+  }});
+  const output=tool.querySelector('.tc-out');
+  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedCode=text;}}});
+  return {results,streaming,stopped,outputTokens:!!output.querySelector('.token'),outputText:output.textContent};
+ },examples);
+ assert.deepEqual(highlights.results,examples.map(({token})=>({
+  exact:true,tokens:!!token,colored:!!token,literal:true,
+ })));
+ assert.equal(highlights.streaming,false,'streaming updates stay plain until they settle');
+ assert.equal(highlights.stopped,true,'stopping preserves and highlights the code already rendered');
+ assert.equal(highlights.outputTokens,false,'command output stays plain');
+ assert.equal(highlights.outputText,code);
+ await page.locator('#highlight-copy-fixture .cb-copy').click();
+ assert.equal(await page.evaluate(()=>window.copiedCode),code,'copy writes the original source');
+
  assert.deepEqual(errors,[]);
  console.log('Chat Markdown: display math inside list items ($$ and \\[ across lines, one-line $$, ordered/deeper indent), unclosed $$ fallback, plain continuations, dollar amounts and top-level blocks passed');
+ console.log('Chat code: language tokens and theme colors, safe literal markup, unsupported and large fallbacks, streaming settlement, exact copy and plain command output passed');
 }finally{await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

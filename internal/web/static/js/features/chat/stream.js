@@ -1,4 +1,4 @@
-import { addReasoningPeek, liveNode, renderEvent, renderAnswerContents } from "../../chat-render.js";
+import { addReasoningPeek, highlightAnswerCode, liveNode, renderEvent, renderAnswerContents } from "../../chat-render.js";
 import { t as i18nText } from "../../i18n.js";
 import { codexStreamEvent, codexWorkLabel } from "./codex-items.js";
 import { resetToolRows, settleToolRow } from "./tool-rows.js";
@@ -37,6 +37,8 @@ export function createChatStream(hooks) {
             return; // codex 回放自行收尾，不被回合结束截断
         liveDrain();
         for (const el of liveEls) {
+            if (el.classList.contains("live-text"))
+                highlightAnswerCode(el);
             el.classList.remove("streaming");
             delete el.dataset.status;
         }

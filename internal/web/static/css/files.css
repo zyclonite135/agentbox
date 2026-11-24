@@ -261,19 +261,14 @@
 }
 /* Prism 的 tag 等类名也被页面组件使用；着色不能改变字宽、行高或盒模型，
  * 否则可见代码会偏离负责输入的 textarea。先隔离 token，再只赋予颜色。 */
-:is(.fv-highlight, .fv-md pre) .token { all: unset; }
-:is(.fv-highlight, .fv-md pre) .token.comment, :is(.fv-highlight, .fv-md pre) .token.prolog,
-:is(.fv-highlight, .fv-md pre) .token.doctype, :is(.fv-highlight, .fv-md pre) .token.cdata { color: var(--muted); }
-:is(.fv-highlight, .fv-md pre) .token.keyword, :is(.fv-highlight, .fv-md pre) .token.tag,
-:is(.fv-highlight, .fv-md pre) .token.boolean, :is(.fv-highlight, .fv-md pre) .token.important { color: var(--syntax-keyword); }
-:is(.fv-highlight, .fv-md pre) .token.string, :is(.fv-highlight, .fv-md pre) .token.char,
-:is(.fv-highlight, .fv-md pre) .token.attr-value, :is(.fv-highlight, .fv-md pre) .token.inserted { color: var(--green); }
-:is(.fv-highlight, .fv-md pre) .token.number, :is(.fv-highlight, .fv-md pre) .token.constant,
-:is(.fv-highlight, .fv-md pre) .token.symbol, :is(.fv-highlight, .fv-md pre) .token.attr-name { color: var(--amber); }
-:is(.fv-highlight, .fv-md pre) .token.function, :is(.fv-highlight, .fv-md pre) .token.class-name,
-:is(.fv-highlight, .fv-md pre) .token.property, :is(.fv-highlight, .fv-md pre) .token.selector { color: var(--syntax-function); }
-:is(.fv-highlight, .fv-md pre) .token.operator, :is(.fv-highlight, .fv-md pre) .token.punctuation { color: var(--muted); }
-:is(.fv-highlight, .fv-md pre) .token.deleted { color: var(--red); }
+:is(.fv-highlight, .fv-md pre, .codeblock pre) .token { all: unset; }
+:is(.fv-highlight, .fv-md pre, .codeblock pre) .token:is(.comment, .prolog, .doctype, .cdata) { color: var(--muted); }
+:is(.fv-highlight, .fv-md pre, .codeblock pre) .token:is(.keyword, .tag, .boolean, .important) { color: var(--syntax-keyword); }
+:is(.fv-highlight, .fv-md pre, .codeblock pre) .token:is(.string, .char, .attr-value, .inserted) { color: var(--green); }
+:is(.fv-highlight, .fv-md pre, .codeblock pre) .token:is(.number, .constant, .symbol, .attr-name) { color: var(--amber); }
+:is(.fv-highlight, .fv-md pre, .codeblock pre) .token:is(.function, .class-name, .property, .selector) { color: var(--syntax-function); }
+:is(.fv-highlight, .fv-md pre, .codeblock pre) .token:is(.operator, .punctuation) { color: var(--muted); }
+:is(.fv-highlight, .fv-md pre, .codeblock pre) .token.deleted { color: var(--red); }
 @media (forced-colors: active) {
   .fv-highlight { visibility: hidden; }
   .fv-codepane .fv-editor { color: CanvasText; caret-color: CanvasText; }

@@ -24,7 +24,7 @@ import { remoteBrowserSmoke } from './test-remote-browser.mjs';
 import { imageUpdateSmoke } from './test-image-updates.mjs';
 import {updateComponentsSmoke} from './test-update-components.mjs';
 import { pricingSmoke } from './test-pricing.mjs';
-import { chatFooterSmoke } from './test-chat-footer.mjs';
+import { chatFooterSmoke, chatFooterTouchSmoke } from './test-chat-footer.mjs';
 import { chatContextSmoke } from './test-chat-context.mjs';
 import { chatCommandsSmoke } from './test-chat-commands.mjs';
 import { chatMentionsSmoke } from './test-chat-mentions.mjs';
@@ -99,7 +99,7 @@ export async function smoke(page) {
   terminalSocket = ws;
   ws.onMessage(data => { if (typeof data !== 'string') terminalInput.push(data.toString()); });
  });
- await page.route('**/api/**', async route => {
+ const routeAPI = async route => {
   const u = new URL(route.request().url()), path=u.pathname;
   if (path === '/api/sessions/fixture-space/chat/image') return route.continue();
   let body={};
@@ -172,7 +172,8 @@ export async function smoke(page) {
    body={rows,total:{rows:rows.length,turns:rows.length,input_tokens:sum('input_tokens'),output_tokens:sum('output_tokens'),cache_read_tokens:sum('cache_read_tokens'),cache_write_tokens:sum('cache_write_tokens'),cost_micro_usd:0},facets:{users:[],agents:[],models:[]},scope:'all',timezone:'UTC',order:'desc',limit:20,offset:0,sync:{last_scan_at:Date.now(),last_success_at:Date.now(),scanning:false,errors:0}};
   }
   await route.fulfill({json:body});
- });
+ };
+ await page.route('**/api/**',routeAPI);
  try {
   await page.goto(base + '/#/settings/container');
   await loginProblemsSmoke(page);
@@ -1156,6 +1157,7 @@ export async function smoke(page) {
   await featureLifetimeSmoke(page);
   await thinkingStreamSmoke(page);
   await chatFooterSmoke(page,{setHistory:(entries,costs={})=>{historyEntries=entries;historyCosts=costs;},send:msg=>chatSocket.send(JSON.stringify(msg))});
+  await chatFooterTouchSmoke(page,{base,routeAPI});
   await chatContextSmoke(page,{setHistory:(entries,costs={})=>{historyEntries=entries;historyCosts=costs;},send:msg=>chatSocket.send(JSON.stringify(msg)),socket:()=>chatSocket,setAgent:agent=>{sessions=[{...sessions[0],agent}];}});
   await chatCommandsSmoke(page,{setHistory:(entries,costs={})=>{historyEntries=entries;historyCosts=costs;},messages:()=>chatMessages,socket:()=>chatSocket,setAgent:agent=>{sessions=[{...sessions[0],agent}];}});
   await chatMentionsSmoke(page,{setHistory:(entries,costs={})=>{historyEntries=entries;historyCosts=costs;},messages:()=>chatMessages,socket:()=>chatSocket,setAgent:agent=>{sessions=[{...sessions[0],agent}];}});

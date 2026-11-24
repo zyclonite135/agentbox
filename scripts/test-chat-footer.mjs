@@ -2,6 +2,40 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import {clipboardPermissions, readClipboard} from './playwright-launch.mjs';
 
+export async function chatFooterTouchSmoke(page, { base, routeAPI }) {
+ const touch = await page.context().browser().newPage({viewport:{width:390,height:844},hasTouch:true});
+ try {
+  await touch.addInitScript(origin => {
+   if (location.origin !== origin) return;
+   localStorage.setItem('agentbox_token','synthetic-browser-token');
+   localStorage.setItem('agentbox.language','zh-CN');
+  },base);
+  await touch.route('**/api/**', routeAPI);
+  await touch.route(/\/api\/sessions\/fixture-space\/history(?:\?|$)/, route => route.fulfill({json:{entries:[
+   {kind:'user',ts:'2026-09-26T08:20:00Z',text:'Touch test',turn:{id:'touch',model:'touch-model',effort:'high',control:'effort'}},
+   {kind:'event',ts:'2026-09-26T08:22:00Z',event:{type:'item.completed',item:{type:'agent_message',text:'Touch answer'}}},
+  ]}}));
+  await touch.routeWebSocket('**/api/sessions/*/chat?*', () => {});
+  await touch.goto(base+'/#/sessions/fixture-space/chat');
+  assert.ok(await touch.evaluate(() => matchMedia('(hover: none), (pointer: coarse)').matches));
+  const footer=touch.locator('.answer-footer');
+  const info=footer.getByRole('button',{name:'回答详情',exact:true});
+  const details=footer.locator('.answer-details-shell');
+  await info.locator('[data-icon-name="info"]').waitFor();
+  assert.equal(await footer.evaluate(el=>getComputedStyle(el).opacity),'1');
+  assert.equal(await info.getAttribute('aria-expanded'),'false');
+  assert.ok(await footer.getByRole('button',{name:'复制回答',exact:true}).isVisible());
+  assert.equal(await footer.locator('.answer-touch-menu').count(),0);
+  await info.tap();
+  await details.filter({hasText:'touch-model'}).waitFor();
+  assert.equal(await info.getAttribute('aria-expanded'),'true');
+  await info.tap();
+  await details.waitFor({state:'hidden'});
+  assert.equal(await info.getAttribute('aria-expanded'),'false');
+  console.log('Answer footer touch: information and copy buttons visible, details open and close directly');
+ } finally { await touch.close(); }
+}
+
 // Shared synthetic browser suite: exercises history and real WS rendering,
 // including stream replacement and the Codex exec replay path. No provider calls.
 export async function chatFooterSmoke(page, { setHistory, send }) {

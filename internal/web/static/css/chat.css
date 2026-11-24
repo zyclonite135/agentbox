@@ -150,7 +150,6 @@
 }
 .answer-footer[hidden] { display: none; }
 .answer-actions { display: flex; }
-.answer-actions .answer-touch-menu { display: none; }
 .answer-copy {
   flex: none; width: 32px; height: 32px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -220,8 +219,6 @@
   .answer-footer:has(.answer-details-shell.open) { opacity: 1; }
 }
 @media (hover: none), (pointer: coarse) {
-  .answer-actions .answer-more { display: none; }
-  .answer-actions .answer-touch-menu { display: inline-flex; }
   .answer-context :is(.answer-duration, .answer-cost) { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {

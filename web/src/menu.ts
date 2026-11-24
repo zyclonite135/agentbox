@@ -47,8 +47,9 @@ function place(pop: HTMLElement, btn: HTMLElement) {
   left = Math.max(edge, Math.min(left, innerWidth - w - edge));
   let top = r.bottom + gap;
   if (top + h > innerHeight - edge && r.top - gap - h >= edge) top = r.top - gap - h;
+  top = Math.max(edge, Math.min(top, innerHeight - h - edge));
   pop.style.left = left + "px";
-  pop.style.top = Math.max(edge, top) + "px";
+  pop.style.top = top + "px";
   pop.dataset.side = top < r.top ? "top" : "bottom";
 }
 
@@ -89,7 +90,8 @@ export function openMenu(btn: HTMLElement, items: MenuItem[]) {
   closeMenu();
   if (reopen) return; // 再点一次按钮 = 收起
   const pop = buildMenu(items);
-  (btn.closest("dialog[open]") || document.body).append(pop);
+  const fullscreen = document.fullscreenElement;
+  (btn.closest("dialog[open]") || (fullscreen?.contains(btn) ? fullscreen : document.body)).append(pop);
   btn.setAttribute("aria-expanded", "true");
   hideTip(); // 菜单本身就写明了每一项，按钮的「更多操作」气泡会盖住第一行
   current = { pop, btn };

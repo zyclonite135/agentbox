@@ -926,4 +926,11 @@ export default {
   "客户端": "Client",
   "加载更多": "Load more",
   "复制操作编号": "Copy operation ID",
+  "登录状态按工作空间保存。": "Website sign-ins are saved for this workspace.",
+  "剪贴板": "Clipboard",
+  "浏览器操作失败": "Browser error",
+  "正在连接浏览器…": "Connecting to browser…",
+  "正在打开网页…": "Opening site…",
+  "画质：{p0}": "Quality: {p0}",
+  "退出全屏": "Exit fullscreen",
 } satisfies Record<string, string>;

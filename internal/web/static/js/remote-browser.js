@@ -1,14 +1,16 @@
-import { t as i18nText } from "./i18n.js";
+import { setAttr, setText, t as i18nText } from "./i18n.js";
 import { agentIcon } from "./brand.js";
 import { S, bus } from "./state.js";
 import { api, wsURL } from "./api.js";
 import { enhanceSelects, setSelectValue } from "./select.js";
+import { closeMenu, openMenu } from "./menu.js";
 import { $, toast } from "./util.js";
 let desktop = null;
 let generation = 0;
 let controller = null;
 let connected = false;
 let busy = false;
+const mobile = matchMedia("(max-width: 760px)");
 const qualityModes = {
     smooth: { quality: 3, compression: 2 },
     balanced: { quality: 6, compression: 2 },
@@ -19,19 +21,46 @@ function applyQuality(view) {
     view.qualityLevel = mode.quality;
     view.compressionLevel = mode.compression;
 }
-function state(text) {
+function pending() { return busy || (desktop !== null && !connected); }
+function state(text, compact = "", error = "") {
     $("browser-state").textContent = text;
-    $("browser-dot").dataset.state = busy ? "busy" : connected ? "connected" : "idle";
+    const short = $("browser-mobile-state");
+    setText(short, compact);
+    short.parentElement.toggleAttribute("data-mobile-text", !!compact);
+    const details = $("browser-error-details");
+    details.open = false;
+    details.classList.toggle("hidden", !error);
+    $("browser-error-text").textContent = error;
+    updateDot();
+}
+function problem(message) {
+    state(message, "浏览器操作失败", message);
+}
+function updateDot() {
+    $("browser-dot").dataset.state = !$("browser-error-details").classList.contains("hidden") ? "error" :
+        pending() ? "busy" : connected ? "connected" : "idle";
 }
 function controls() {
-    $("browser-dot").dataset.state = busy ? "busy" : connected ? "connected" : "idle";
+    updateDot();
+    const pane = $("tab-browser");
+    pane.toggleAttribute("data-connected", connected);
+    const more = $("browser-more");
+    more.disabled = pending();
+    if (!connected && mobile.matches) {
+        if (more.getAttribute("aria-expanded") === "true")
+            closeMenu();
+        $("browser-clipboard-panel").open = false;
+        if (document.fullscreenElement === pane)
+            void document.exitFullscreen().catch(() => { });
+    }
     // 同一时刻只露一个：没连上时「启动浏览器」，连上后「关闭浏览器」
     $("browser-start").classList.toggle("hidden", connected);
     $("browser-stop").classList.toggle("hidden", !connected);
-    $("browser-stop").disabled = busy;
-    $("browser-start").disabled = busy;
-    $("browser-launch").disabled = busy;
-    $("browser-open").disabled = busy;
+    for (const id of ["browser-stop", "browser-start", "browser-launch", "browser-open"]) {
+        $(id).disabled = pending();
+    }
+    for (const button of pane.querySelectorAll("[data-browser-url]"))
+        button.disabled = pending();
     $("browser-paste").disabled = !connected;
     $("browser-copy").disabled = !connected;
 }
@@ -53,6 +82,7 @@ async function connect(id, ticket, info) {
         return;
     const view = new RFB($("browser-screen"), wsURL(`/sessions/${id}/browser/desktop`));
     desktop = view;
+    controls();
     view.scaleViewport = true;
     view.resizeSession = false;
     applyQuality(view);
@@ -60,22 +90,30 @@ async function connect(id, ticket, info) {
         if (desktop !== view)
             return;
         connected = true;
-        state(i18nText("已连接 · {p0} · {p1}", { p0: String(info.browser || "Chrome"), p1: String(info.proxy ? i18nText("账号代理出口") : i18nText("服务器出口")) }));
+        state(i18nText("已连接 · {p0} · {p1}", { p0: String(info.browser || "Chrome"), p1: String(info.proxy ? i18nText("账号代理出口") : i18nText("服务器出口")) }), "已连接");
         $("browser-empty").classList.add("hidden");
         controls();
     });
+    let failure = "";
     view.addEventListener("disconnect", () => {
         if (desktop !== view)
             return;
         desktop = null;
         connected = false;
-        state(i18nText("连接已断开，可点击连接浏览器重试"));
+        if (failure)
+            problem(failure);
+        else
+            state(i18nText("连接已断开，可点击连接浏览器重试"), "已断开");
         $("browser-screen").replaceChildren();
         $("browser-empty").classList.remove("hidden");
         controls();
     });
-    view.addEventListener("securityfailure", () => { if (desktop === view)
-        state(i18nText("远程桌面连接失败，请重新启动浏览器")); });
+    view.addEventListener("securityfailure", () => {
+        if (desktop !== view)
+            return;
+        failure = i18nText("远程桌面连接失败，请重新启动浏览器");
+        problem(failure);
+    });
 }
 export async function showBrowser() {
     browserDisconnect();
@@ -83,13 +121,15 @@ export async function showBrowser() {
     if (!id)
         return;
     const ticket = generation;
-    state(i18nText("正在读取浏览器状态…"));
+    busy = true;
+    controls();
+    state(i18nText("正在读取浏览器状态…"), "正在读取浏览器状态…");
     try {
         const info = await api(`/sessions/${id}/browser`);
         if (ticket !== generation || S.current?.id !== id)
             return;
         if (info.running) {
-            state(i18nText("正在连接 {p0}…", { p0: String(info.browser) }));
+            state(i18nText("正在连接 {p0}…", { p0: String(info.browser) }), "正在连接浏览器…");
             await connect(id, ticket, info);
         }
         else
@@ -97,29 +137,37 @@ export async function showBrowser() {
     }
     catch (e) {
         if (ticket === generation)
-            state(e.message);
+            problem(e.message);
+    }
+    finally {
+        if (ticket === generation) {
+            busy = false;
+            controls();
+        }
     }
 }
 async function startBrowser(url = "") {
-    if (busy || !S.current)
+    if (pending() || !S.current)
         return;
     const id = S.current.id;
     const ticket = generation;
     busy = true;
     controls();
-    state(i18nText("正在启动浏览器…"));
+    state(i18nText("正在启动浏览器…"), connected ? "正在打开网页…" : "正在启动浏览器…");
     try {
         const info = await api(`/sessions/${id}/browser`, { method: "POST", body: JSON.stringify({ url }) });
         if (ticket !== generation || S.current?.id !== id || S.tab !== "browser")
             return;
-        state(`${info.browser || "Chrome"} · ${info.proxy ? i18nText("账号代理出口") : i18nText("服务器出口")}`);
+        state(`${info.browser || "Chrome"} · ${info.proxy ? i18nText("账号代理出口") : i18nText("服务器出口")}`, connected ? "已连接" : "正在连接浏览器…");
         if (!desktop)
             await connect(id, ticket, info);
     }
     catch (e) {
         if (ticket === generation) {
-            state(e.message);
-            toast(e.message, true);
+            const message = e.message;
+            problem(message);
+            if (!mobile.matches)
+                toast(message, true);
         }
     }
     finally {
@@ -133,6 +181,9 @@ export function initRemoteBrowser() {
     controller?.abort();
     controller = new AbortController();
     const { signal } = controller;
+    const renderAddress = () => setAttr($("browser-url"), "placeholder", mobile.matches ? "网页地址" : "输入网址，在新标签页打开");
+    renderAddress();
+    mobile.addEventListener("change", renderAddress, { signal });
     for (const button of document.querySelectorAll("[data-browser-brand]")) {
         if (!button.querySelector(".agent-ico"))
             button.prepend(agentIcon(button.dataset.browserBrand, 16));
@@ -183,7 +234,7 @@ export function initRemoteBrowser() {
     for (const button of document.querySelectorAll("[data-browser-url]")) {
         button.addEventListener("click", () => void startBrowser(button.dataset.browserUrl), { signal });
     }
-    $("browser-stop").addEventListener("click", async () => {
+    const stop = async () => {
         if (!S.current || busy)
             return;
         const id = S.current.id;
@@ -191,7 +242,7 @@ export function initRemoteBrowser() {
         const ticket = generation;
         busy = true;
         controls();
-        state(i18nText("正在关闭浏览器…"));
+        state(i18nText("正在关闭浏览器…"), "正在关闭浏览器…");
         try {
             await api(`/sessions/${id}/browser`, { method: "DELETE" });
             if (ticket === generation)
@@ -199,7 +250,7 @@ export function initRemoteBrowser() {
         }
         catch (e) {
             if (ticket === generation)
-                state(e.message);
+                problem(e.message);
         }
         finally {
             if (ticket === generation) {
@@ -207,8 +258,8 @@ export function initRemoteBrowser() {
                 controls();
             }
         }
-    }, { signal });
-    $("browser-fullscreen").addEventListener("click", async () => {
+    };
+    const fullscreen = async () => {
         try {
             if (document.fullscreenElement)
                 await document.exitFullscreen();
@@ -218,6 +269,31 @@ export function initRemoteBrowser() {
         catch {
             toast(i18nText("当前浏览器不支持全屏"), true);
         }
+    };
+    $("browser-stop").addEventListener("click", stop, { signal });
+    $("browser-fullscreen").addEventListener("click", fullscreen, { signal });
+    const more = $("browser-more");
+    more.addEventListener("click", () => {
+        if (!connected || pending())
+            return;
+        const clipboard = $("browser-clipboard-panel");
+        openMenu(more, [
+            ...Array.from(quality.options, option => ({
+                label: i18nText("画质：{p0}", { p0: option.textContent }),
+                icon: option.selected ? "check" : "sliders",
+                run: () => {
+                    setSelectValue(quality, option.value);
+                    quality.dispatchEvent(new Event("change", { bubbles: true }));
+                    more.focus({ preventScroll: true });
+                },
+            })),
+            { label: i18nText(document.fullscreenElement ? "退出全屏" : "全屏"), icon: "expand", sep: true, run: fullscreen },
+            { label: i18nText("剪贴板"), icon: "paste", run: () => {
+                    clipboard.open = !clipboard.open;
+                    (clipboard.open ? clipboard.querySelector("summary") : more)?.focus({ preventScroll: true });
+                } },
+            { label: i18nText("关闭浏览器"), icon: "close", danger: true, run: stop },
+        ]);
     }, { signal });
     $("browser-copy").addEventListener("click", async () => {
         const id = S.current?.id, ticket = generation;

@@ -603,13 +603,28 @@
                 <div class="browser-quality"><svg width="15" height="15" data-icon="sliders" aria-hidden="true"></svg><select id="browser-quality" aria-label="浏览器画质" data-i18n-attrs="{&quot;aria-label&quot;:&quot;浏览器画质&quot;}"><option value="smooth" data-i18n-text="[&quot;流畅&quot;]">流畅</option><option value="balanced" data-i18n-text="[&quot;均衡&quot;]">均衡</option><option value="clear" data-i18n-text="[&quot;清晰&quot;]">清晰</option></select></div>
                 <button id="browser-fullscreen" class="btn browser-tool" data-icon="expand" aria-label="全屏" data-tip="全屏查看远程浏览器" data-i18n-attrs="{&quot;aria-label&quot;:&quot;全屏&quot;,&quot;data-tip&quot;:&quot;全屏查看远程浏览器&quot;}"></button>
               </div>
+              <button id="browser-more" type="button" class="btn browser-tool browser-mobile-only" data-icon="more" aria-haspopup="menu" aria-expanded="false" aria-label="更多操作" data-tip="更多操作" data-i18n-attrs='{"aria-label":"更多操作","data-tip":"更多操作"}'></button>
             </div>
-            <div class="browser-status"><span id="browser-dot" class="browser-dot" aria-hidden="true"></span><p id="browser-state" class="browser-state" role="status" data-i18n-text="[&quot;浏览器未启动&quot;]">浏览器未启动</p></div>
+            <div class="browser-status">
+              <span id="browser-dot" class="browser-dot" aria-hidden="true"></span>
+              <p id="browser-state" class="browser-state" role="status" data-i18n-text='["浏览器未启动"]'>浏览器未启动</p>
+              <p id="browser-mobile-state" class="browser-state browser-mobile-only" role="status"></p>
+              <details id="browser-error-details" class="browser-mobile-only hidden">
+                <summary data-i18n="了解更多">了解更多</summary>
+                <p id="browser-error-text"></p>
+              </details>
+            </div>
             <div class="browser-desktop">
               <div id="browser-screen"></div>
-              <div id="browser-empty"><h3 data-i18n-text="[&quot;你的远程浏览器&quot;]">你的远程浏览器</h3><p data-i18n-text="[&quot;在服务器上浏览网页，登录 Claude、ChatGPT 或其他网站。&quot;,&quot;登录状态按工作空间保存，关闭后仍可继续。&quot;]">在服务器上浏览网页，登录 Claude、ChatGPT 或其他网站。<br>登录状态按工作空间保存，关闭后仍可继续。</p><button id="browser-launch" type="button" class="btn btn-primary" data-icon="globe" data-i18n-text="[&quot;启动浏览器&quot;]">启动浏览器</button><p data-i18n-text="[&quot;下载文件可在「文件 → Downloads」查看。&quot;]">下载文件可在「文件 → Downloads」查看。</p></div>
+              <div id="browser-empty">
+                <h3 class="browser-desktop-only" data-i18n="你的远程浏览器">你的远程浏览器</h3>
+                <p class="browser-desktop-only" data-i18n-text='["在服务器上浏览网页，登录 Claude、ChatGPT 或其他网站。","登录状态按工作空间保存，关闭后仍可继续。"]'>在服务器上浏览网页，登录 Claude、ChatGPT 或其他网站。<br>登录状态按工作空间保存，关闭后仍可继续。</p>
+                <button id="browser-launch" type="button" class="btn btn-primary" data-icon="globe" data-i18n-text='["启动浏览器"]'>启动浏览器</button>
+                <p class="browser-desktop-only" data-i18n="下载文件可在「文件 → Downloads」查看。">下载文件可在「文件 → Downloads」查看。</p>
+                <p class="browser-mobile-only" data-i18n="登录状态按工作空间保存。">登录状态按工作空间保存。</p>
+              </div>
             </div>
-            <details class="browser-clipboard"><summary data-i18n-text="[&quot;剪贴板 · 中文输入与复制&quot;]">剪贴板 · 中文输入与复制</summary><div><textarea id="browser-clipboard" rows="2" maxlength="16000" aria-label="远程剪贴板" placeholder="在这里输入或粘贴文字，再发送到远程输入框；远程复制后点击「读取远程复制」。" data-i18n-attrs="{&quot;aria-label&quot;:&quot;远程剪贴板&quot;,&quot;placeholder&quot;:&quot;在这里输入或粘贴文字，再发送到远程输入框；远程复制后点击「读取远程复制」。&quot;}"></textarea><button id="browser-paste" class="btn btn-sm" data-icon="copy" disabled data-i18n-text="[&quot;发送并粘贴&quot;]">发送并粘贴</button><button id="browser-copy" class="btn btn-sm" data-icon="copy" disabled data-i18n-text="[&quot;读取远程复制&quot;]">读取远程复制</button></div></details>
+            <details id="browser-clipboard-panel" class="browser-clipboard"><summary><span class="browser-desktop-only" data-i18n="剪贴板 · 中文输入与复制">剪贴板 · 中文输入与复制</span><span class="browser-mobile-only" data-i18n="剪贴板">剪贴板</span></summary><div><textarea id="browser-clipboard" rows="2" maxlength="16000" aria-label="远程剪贴板" placeholder="在这里输入或粘贴文字，再发送到远程输入框；远程复制后点击「读取远程复制」。" data-i18n-attrs="{&quot;aria-label&quot;:&quot;远程剪贴板&quot;,&quot;placeholder&quot;:&quot;在这里输入或粘贴文字，再发送到远程输入框；远程复制后点击「读取远程复制」。&quot;}"></textarea><button id="browser-paste" class="btn btn-sm" data-icon="copy" disabled data-i18n-text="[&quot;发送并粘贴&quot;]">发送并粘贴</button><button id="browser-copy" class="btn btn-sm" data-icon="copy" disabled data-i18n-text="[&quot;读取远程复制&quot;]">读取远程复制</button></div></details>
           </section>
 
           <section id="tab-term" class="pane hidden">

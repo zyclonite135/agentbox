@@ -933,4 +933,5 @@ export default {
   "正在打开网页…": "Opening site…",
   "画质：{p0}": "Quality: {p0}",
   "退出全屏": "Exit fullscreen",
+  "连接远程桌面超时，请重试。": "The remote desktop connection timed out. Try again.",
 } satisfies Record<string, string>;

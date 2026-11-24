@@ -17,7 +17,9 @@ let generation = 0;
 let controller: AbortController | null = null;
 let connected = false;
 let busy = false;
-const mobile = matchMedia("(max-width: 760px)");
+let connectTimer = 0;
+const CONNECT_TIMEOUT = 20_000;
+const compactLayout = matchMedia("(max-width: 760px), (pointer: coarse) and (orientation: landscape) and (max-height: 600px)");
 const qualityModes: Record<string, {quality: number; compression: number}> = {
  smooth: {quality: 3, compression: 2},
  balanced: {quality: 6, compression: 2},
@@ -37,9 +39,10 @@ function state(text: string, compact = "", error = "") {
  setText(short, compact);
  short.parentElement!.toggleAttribute("data-mobile-text", !!compact);
  const details = $<HTMLDetailsElement>("browser-error-details");
- details.open = false;
+ const explanation = $("browser-error-text");
+ if (!error || explanation.textContent !== error) details.open = false;
  details.classList.toggle("hidden", !error);
- $("browser-error-text").textContent = error;
+ explanation.textContent = error;
  updateDot();
 }
 function problem(message: string) {
@@ -55,7 +58,7 @@ function controls() {
  pane.toggleAttribute("data-connected", connected);
  const more = $<HTMLButtonElement>("browser-more");
  more.disabled = pending();
- if (!connected && mobile.matches) {
+ if (!connected && compactLayout.matches) {
   if (more.getAttribute("aria-expanded") === "true") closeMenu();
   $<HTMLDetailsElement>("browser-clipboard-panel").open = false;
   if (document.fullscreenElement === pane) void document.exitFullscreen().catch(() => {});
@@ -70,13 +73,18 @@ function controls() {
  $<HTMLButtonElement>("browser-paste").disabled = !connected;
  $<HTMLButtonElement>("browser-copy").disabled = !connected;
 }
-export function browserDisconnect() {
- generation++;
- const old = desktop; desktop = null; connected = false; busy = false;
- old?.disconnect();
+function resetDesktop(closeTransport = false) {
+ window.clearTimeout(connectTimer);
+ const old = desktop;
+ desktop = null; connected = false;
+ if (closeTransport) old?.disconnect();
  $("browser-screen").replaceChildren();
  $("browser-empty").classList.remove("hidden");
  controls();
+}
+export function browserDisconnect() {
+ generation++; busy = false;
+ resetDesktop(true);
 }
 async function connect(id: string, ticket: number, info: BrowserInfo) {
  // Keep native module imports so noVNC assets share Agentbox's content hash.
@@ -90,23 +98,27 @@ async function connect(id: string, ticket: number, info: BrowserInfo) {
  applyQuality(view);
  view.addEventListener("connect", () => {
   if (desktop !== view) return;
+  window.clearTimeout(connectTimer);
   connected = true; state(i18nText("已连接 · {p0} · {p1}", { p0: String(info.browser || "Chrome"), p1: String(info.proxy ? i18nText("账号代理出口") : i18nText("服务器出口")) }), "已连接");
   $("browser-empty").classList.add("hidden"); controls();
  });
  let failure = "";
  view.addEventListener("disconnect", () => {
   if (desktop !== view) return;
-  desktop = null; connected = false;
+  resetDesktop();
   if (failure) problem(failure);
   else state(i18nText("连接已断开，可点击连接浏览器重试"), "已断开");
-  $("browser-screen").replaceChildren();
-  $("browser-empty").classList.remove("hidden"); controls();
  });
  view.addEventListener("securityfailure", () => {
   if (desktop !== view) return;
   failure = i18nText("远程桌面连接失败，请重新启动浏览器");
   problem(failure);
  });
+ connectTimer = window.setTimeout(() => {
+  if (desktop !== view || connected) return;
+  resetDesktop(true);
+  problem(failure || i18nText("连接远程桌面超时，请重试。"));
+ }, CONNECT_TIMEOUT);
 }
 
 export async function showBrowser() {
@@ -138,7 +150,7 @@ async function startBrowser(url = "") {
   if (ticket === generation) {
    const message = (e as Error).message;
    problem(message);
-   if (!mobile.matches) toast(message, true);
+   if (!compactLayout.matches) toast(message, true);
   }
  } finally { if (ticket === generation) { busy = false; controls(); } }
 }
@@ -147,9 +159,9 @@ export function initRemoteBrowser() {
  controller?.abort();
  controller = new AbortController();
  const {signal} = controller;
- const renderAddress = () => setAttr($("browser-url"), "placeholder", mobile.matches ? "网页地址" : "输入网址，在新标签页打开");
+ const renderAddress = () => setAttr($("browser-url"), "placeholder", compactLayout.matches ? "网页地址" : "输入网址，在新标签页打开");
  renderAddress();
- mobile.addEventListener("change", renderAddress, {signal});
+ compactLayout.addEventListener("change", renderAddress, {signal});
  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-browser-brand]")) {
   if (!button.querySelector(".agent-ico")) button.prepend(agentIcon(button.dataset.browserBrand!, 16));
  }

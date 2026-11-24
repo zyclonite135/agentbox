@@ -60,17 +60,20 @@
  .browser-clipboard>div { flex-wrap:wrap; }
  .browser-clipboard textarea { flex-basis:100%; }
 }
-@media (max-width:760px) {
- .browser-toolbar, .browser-toolbar.wb-peek-host {
+@media (max-width:760px), (pointer:coarse) and (orientation:landscape) and (max-height:600px) {
+ .browser-toolbar {
   grid-template-columns:minmax(0,1fr) auto; gap:4px 6px; padding:8px 12px 4px;
  }
+ .browser-toolbar.wb-peek-host { grid-template-columns:auto minmax(0,1fr) auto; }
+ .browser-toolbar > .wb-peek { grid-row:2; grid-column:1; }
  .browser-address { grid-row:1; grid-column:1 / -1; }
  #browser-url { font-size:16px; }
  .browser-shortcuts { grid-row:2; grid-column:1; justify-content:flex-start; }
+ .browser-toolbar.wb-peek-host .browser-shortcuts { grid-column:2; }
  .browser-bookmark { min-width:36px; padding:8px; }
  .browser-bookmark>span, .browser-lifecycle, .browser-display, .browser-desktop-only, #browser-state { display:none; }
  .browser-mobile-only { display:revert; }
- #browser-more { display:inline-flex; grid-row:2; grid-column:2; }
+ #browser-more { display:inline-flex; grid-row:2; grid-column:-2; }
  #tab-browser:not([data-connected]) #browser-more,
  #tab-browser:not([data-connected]) .browser-clipboard,
  .browser-clipboard:not([open]), .browser-status:not([data-mobile-text]) { display:none; }

@@ -9,7 +9,10 @@ export async function remoteBrowserSmoke(page) {
  const operationID = '0123456789abcdef0123456789abcdef';
  await page.route('**/vendor/novnc/core/rfb.js', route => route.fulfill({contentType:'text/javascript',body:`
  export default class extends EventTarget {
- constructor(el,url){super();this.el=el;this.timer=setTimeout(()=>{el.textContent='Synthetic remote desktop';this.dispatchEvent(new Event('connect'));},20);}
+ constructor(el,url){
+  super();this.el=el;window.testRemoteDesktop=this;
+  if(!window.holdRemoteHandshake)this.timer=setTimeout(()=>{el.textContent='Synthetic remote desktop';this.dispatchEvent(new Event('connect'));},20);
+ }
  disconnect(){clearTimeout(this.timer);this.dispatchEvent(new Event('disconnect'));}
  set qualityLevel(value){this.el.dataset.quality=value;}
  set compressionLevel(value){this.el.dataset.compression=value;}
@@ -56,6 +59,14 @@ export async function remoteBrowserSmoke(page) {
  await page.waitForFunction(() => document.getElementById('browser-url').placeholder === 'Адрес сайта');
  await fitsOnScreen('#browser-open');
  await fitsOnScreen('[data-browser-url="https://chatgpt.com/"]');
+ if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) {
+  await page.setViewportSize({width:844,height:320});
+  assert.equal(await page.locator('#browser-start').isVisible(),false);
+  assert.equal(await clipboardPanel.isVisible(),false);
+  await fitsOnScreen('#browser-open');
+  await fitsOnScreen('#browser-launch');
+  await page.setViewportSize({width:320,height:740});
+ }
  unavailable = true;
  await launch.click();
  await mobileState.getByText('Ошибка браузера',{exact:true}).waitFor();
@@ -100,9 +111,42 @@ export async function remoteBrowserSmoke(page) {
  await page.waitForFunction(() => !document.getElementById('browser-launch').disabled);
  assert.equal(running,false);
  await page.setViewportSize({width:320,height:740});
+ // A socket may open without sending a VNC greeting. Bound that wait so the
+ // user can start again without reloading or switching tabs.
+ await page.clock.install();
+ await page.evaluate(() => { window.holdRemoteHandshake=true; window.testRemoteDesktop=null; });
+ await launch.click();
+ await mobileState.getByText('Подключение к браузеру…',{exact:true}).waitFor();
+ await page.waitForFunction(() => window.testRemoteDesktop?.el === document.getElementById('browser-screen') &&
+  !document.querySelector('#browser-screen').textContent && document.getElementById('browser-launch').disabled);
+ assert.equal(await open.isEnabled(),false);
+ await page.clock.fastForward(21_000);
+ await mobileState.getByText('Ошибка браузера',{exact:true}).waitFor();
+ await errorDetails.locator('summary').click();
+ assert.match(await errorDetails.innerText(), /Время подключения к удалённому рабочему столу истекло/);
+ assert.equal(await launch.isEnabled(),true);
+ assert.deepEqual(opened.splice(0),['']);
+ await page.evaluate(() => window.testRemoteDesktop.dispatchEvent(new Event('connect')));
+ assert.equal(await actions.isVisible(),false);
+ await page.evaluate(() => { window.holdRemoteHandshake=false; });
  await page.locator('[data-browser-url="https://chatgpt.com/"]').click();
  await mobileState.getByText('Подключено',{exact:true}).waitFor();
  assert.deepEqual(opened.splice(0),['https://chatgpt.com/']);
+ await actions.click();
+ await menu.getByRole('menuitem',{name:'Буфер обмена',exact:true}).click();
+ await page.evaluate(() => window.testRemoteDesktop.dispatchEvent(new Event('securityfailure')));
+ await mobileState.getByText('Ошибка браузера',{exact:true}).waitFor();
+ await errorDetails.locator('summary').click();
+ await page.evaluate(() => window.testRemoteDesktop.disconnect());
+ await mobileState.getByText('Ошибка браузера',{exact:true}).waitFor();
+ assert.equal(await actions.isVisible(),false);
+ assert.equal(await clipboardPanel.isVisible(),false);
+ assert.equal(await errorDetails.getAttribute('open'),'');
+ assert.match(await errorDetails.innerText(), /Не удалось подключиться к удалённому рабочему столу/);
+ await launch.click();
+ await mobileState.getByText('Подключено',{exact:true}).waitFor();
+ assert.equal(await errorDetails.isVisible(),false);
+ assert.deepEqual(opened.splice(0),['']);
  await actions.click();
  await menu.getByRole('menuitem',{name:'Закрыть браузер'}).click();
  await launch.waitFor();

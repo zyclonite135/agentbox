@@ -27,6 +27,7 @@ let navigationTimer = 0;
 let navigationBusy = false;
 let navigationReading = false;
 let navigationVersion = 0;
+const pendingFavicons = new Map<string, Promise<BrowserNavigation | null>>();
 let editingAddress = false;
 let fullscreenOwner = "";
 let fullscreenChanges = Promise.resolve();
@@ -54,8 +55,15 @@ function readFavicons(id: string, tabs: BrowserTab[]) {
  const batchSize = 24;
  for (let offset = 0; offset < pages.length; offset += batchSize) {
   const batch = pages.slice(offset, offset + batchSize);
-  const query = new URLSearchParams(batch.map(tab => ["favicon", tab.id]));
-  const response = api<BrowserNavigation>(navigationPath(id) + "?" + query).catch(() => null);
+  const key = JSON.stringify([generation, id, batch.map(tab => [tab.id, tab.url])]);
+  let response = pendingFavicons.get(key);
+  if (!response) {
+   const query = new URLSearchParams(batch.map(tab => ["favicon", tab.id]));
+   response = api<BrowserNavigation>(navigationPath(id) + "?" + query)
+    .catch(() => null)
+    .finally(() => pendingFavicons.delete(key));
+   pendingFavicons.set(key, response);
+  }
   for (const tab of batch) icons.set(tab.id, response.then(result => {
    const icon = result?.tabs?.find(entry => entry.id === tab.id && entry.url === tab.url)?.favicon;
    if (icon && icon.length <= 2732 && /^[A-Za-z0-9+/]+={0,2}$/.test(icon)) return "data:image/png;base64," + icon;
@@ -174,6 +182,7 @@ function controls() {
 function resetDesktop(closeTransport = false) {
  window.clearTimeout(connectTimer);
  window.clearInterval(navigationTimer);
+ if ($("browser-tabs").getAttribute("aria-expanded") === "true") closeMenu();
  navigationVersion++;
  navigation = null; navigationId = "";
  navigationBusy = false; navigationReading = false; editingAddress = false;

@@ -4,6 +4,7 @@ Requires a Linux agentbox binary for the daemon architecture and browser image.
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import secrets
 import subprocess
@@ -77,6 +78,9 @@ from pathlib import Path
 class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   Path('/workspace/browser-hits').open('a').write(self.path+' '+self.headers.get('Cookie','')+'\\n')
+  if self.path == '/favicon.ico':
+   self.send_error(404)
+   return
   self.send_response(200)
   if self.path == '/tab-icon.png':
    self.send_header('Content-Type', 'image/png')
@@ -85,7 +89,10 @@ class Handler(BaseHTTPRequestHandler):
    return
   if self.path=='/login': self.send_header('Set-Cookie','synthetic_login=yes; Max-Age=86400; Path=/')
   self.send_header('Content-Type','text/html; charset=utf-8');self.end_headers()
-  self.wfile.write("""<html><head><link rel="icon" href="/tab-icon.png"></head><body style="background:#f4f6fa;color:#13233a;font:24px sans-serif;padding:48px"><div style="position:fixed;top:0;left:35%;width:30%;height:8px;background:#ef1e9e;pointer-events:none"></div><h1>Remote browser fixture</h1><p>Persistent login and UTF-8 clipboard</p><textarea oninput="fetch('/typed?value='+encodeURIComponent(this.value))" style="width:600px;height:180px;font-size:24px" autofocus></textarea><script>document.title=location.pathname;const report=()=>fetch('/viewport?width='+innerWidth);addEventListener('resize',report);report()</script></body></html>""".encode())
+  self.wfile.write(b'<html><head>')
+  if self.path != '/no-icon':
+   self.wfile.write(b'<link rel="icon" href="/tab-icon.png">')
+  self.wfile.write("""</head><body style="background:#f4f6fa;color:#13233a;font:24px sans-serif;padding:48px"><div style="position:fixed;top:0;left:35%;width:30%;height:8px;background:#ef1e9e;pointer-events:none"></div><h1>Remote browser fixture</h1><p>Persistent login and UTF-8 clipboard</p><textarea oninput="fetch('/typed?value='+encodeURIComponent(this.value))" style="width:600px;height:180px;font-size:24px" autofocus></textarea><script>document.title=location.pathname;const report=()=>fetch('/viewport?width='+innerWidth);addEventListener('resize',report);report()</script></body></html>""".encode())
  def log_message(self,*args):pass
 HTTPServer(('127.0.0.1',8765),Handler).serve_forever()
 ''')
@@ -115,6 +122,30 @@ HTTPServer(('127.0.0.1',8765),Handler).serve_forever()
         # Chrome's focused textarea. Credentials reach the test through stdin.
         result=subprocess.run(['node',str(Path(__file__).with_name('test-remote-browser-live.mjs'))],
             input=json.dumps({'base':base,'password':password,'session':sess['id'],'token':token}),text=True,check=True)
+        state = request(path+'/browser')
+        if state.get('navigation'):
+            tab = request(path+'/browser/navigation')['active']
+            abandoned = json.dumps({'action':'navigation','operation':'favicons','favicon_tabs':[tab]})
+            docker('exec',cid,'python3','-c',"""import socket,sys
+with socket.socket(socket.AF_UNIX) as client:
+    client.connect('/tmp/agentbox-browser-1000/control.sock')
+    client.shutdown(socket.SHUT_RD)
+    client.sendall(sys.argv[1].encode() + bytes([10]))
+""",abandoned)
+            assert request(path+'/browser')['running'], 'abandoning a favicon response stopped Chrome'
+            assert request(path+'/browser/navigation')['active'] == tab
+        if os.environ.get('AGENTBOX_REQUIRE_BROWSER_FAVICONS') == '1':
+            # A second origin has no cached site icon; suppress Chrome's default image.
+            request(path+'/browser/navigation',{'operation':'new','url':'http://localhost:8765/no-icon'})
+            for _ in range(30):
+                navigation = request(path+'/browser/navigation')
+                tab = next((t for t in navigation['tabs'] if t['title'] == '/no-icon'), None)
+                if tab:
+                    break
+                time.sleep(.1)
+            else:
+                raise AssertionError('browser did not open the site without an icon')
+            assert request(path+'/browser/navigation?favicon='+tab['id'])['tabs'] == []
         request(path+'/stop',{},'POST')
         assert not request(path+'/browser')['running']
         request(path+'/start',{},'POST')

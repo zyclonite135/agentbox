@@ -476,9 +476,14 @@ def serve():
                             raise RuntimeError('打开网页失败')
                     elif data['action'] != 'status':
                         raise ValueError('未知操作')
-                    conn.sendall(json.dumps(response).encode() + b'\n')
+                    payload = json.dumps(response).encode() + b'\n'
                 except (ValueError, KeyError, RuntimeError, OSError, subprocess.SubprocessError):
-                    conn.sendall(b'{"error":"Browser command failed"}\n')
+                    payload = b'{"error":"Browser command failed"}\n'
+                try:
+                    conn.sendall(payload)
+                except OSError:
+                    # A timed-out control client must not take down Chrome or VNC.
+                    pass
     except Exception as exc:
         (RUNTIME / 'error').write_text(str(exc))
     finally:

@@ -59,6 +59,70 @@ async function expectTabFavicon(page) {
  assert.deepEqual(pixel, [0, 192, 128, 255]);
 }
 
+async function checkFaviconMenuLifecycle(page, picker) {
+ const filter = url => url.pathname.endsWith('/browser/navigation') && url.searchParams.has('favicon');
+ let reads = 0;
+ let release;
+ const holdResponse = new Promise(resolve => { release = resolve; });
+ await page.route(filter, async route => {
+  reads++;
+  await holdResponse;
+  await route.continue();
+ });
+ try {
+  await Promise.all([page.waitForRequest(request => filter(new URL(request.url()))), picker.click()]);
+  await picker.click();
+  await picker.click();
+  release();
+  await expectTabFavicon(page);
+  assert.equal(reads, 1, 'Reopening the same menu should share the pending favicon lookup');
+  await page.evaluate(id => { location.hash = `/sessions/${id}/files`; }, session);
+  await page.locator('#tab-files').waitFor();
+  assert.equal(await picker.getAttribute('aria-expanded'), 'false', 'The tab menu must close on navigation away');
+  await page.evaluate(id => { location.hash = `/sessions/${id}/browser`; }, session);
+  await picker.waitFor();
+ } finally {
+  release();
+  await page.unroute(filter);
+ }
+}
+
+async function checkFaviconBatches(page, picker) {
+ const filter = url => url.pathname.endsWith('/browser/navigation');
+ const tabs = Array.from({length:27}, (_, index) => ({
+  id:`tab-${index}`, title:`Synthetic tab ${index}`, url:`http://fixture.invalid/tab-${index}`,
+ }));
+ const favicon = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFUlEQVR4nGNgONBAGhrVMKph+GoAAJ+3QBAm9UphAAAAAElFTkSuQmCC';
+ const batches = [];
+ await page.route(filter, async route => {
+  const requested = new URL(route.request().url()).searchParams.getAll('favicon');
+  if (!requested.length) {
+   await route.fulfill({json:{tabs, active:tabs[0].id, back:false, forward:false}});
+   return;
+  }
+  batches.push(requested);
+  await route.fulfill({json:{tabs:tabs.filter(tab => requested.includes(tab.id) && tab !== tabs[0])
+   .map(tab => ({...tab, url:tab === tabs[1] ? tab.url + '/stale' : tab.url, favicon}))}});
+ });
+ try {
+  await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('fixture.invalid/tab-0'));
+  await picker.click();
+  const rows = page.getByRole('menuitemradio');
+  assert.equal(await rows.count(), tabs.length);
+  await rows.last().scrollIntoViewIfNeeded();
+  await rows.last().locator('img').waitFor();
+  await rows.nth(2).locator('img').waitFor();
+  assert.equal(await rows.nth(0).locator('.glyph svg').count(), 1);
+  assert.equal(await rows.nth(1).locator('.glyph svg').count(), 1);
+  assert.deepEqual(batches.map(batch => batch.length).sort((a, b) => a - b), [3, 24]);
+  assert.deepEqual(batches.flat().sort(), tabs.map(tab => tab.id).sort());
+  await page.keyboard.press('Escape');
+ } finally {
+  await page.unroute(filter);
+ }
+ await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/navigated'));
+}
+
 const browser=await launchBrowser();
 try {
  const page=await browser.newPage({locale:'en-US',viewport:{width:1600,height:1100}});
@@ -168,6 +232,11 @@ try {
   await page.evaluate(() => document.exitFullscreen());
   await waitForFittedDesktop(page);
   await chromeFrameHeight(page, 40, 220);
+  if (requireFavicons) {
+   await checkFaviconMenuLifecycle(page, chromeControl);
+   await checkFaviconBatches(page, chromeControl);
+   console.log('Favicon menu reopens, navigation away and batches over 24 tabs passed');
+  }
   console.log('Real Chrome navigation, tabs and native toolbar visibility on fullscreen enter/exit passed');
  }
  const storageState = await page.context().storageState();

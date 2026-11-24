@@ -90,6 +90,15 @@ EOF
     apt-get update --error-on=any || \
       fail 'Could not refresh APT package indexes. Check the repository errors above and retry.' \
            'Не удалось обновить индексы APT. Проверьте ошибки репозиториев выше и повторите установку.'
+    # Package installation may start Docker, so set the default before installing it.
+    if [[ ! -e /etc/docker/daemon.json && ! -L /etc/docker/daemon.json ]]; then
+      (
+        umask 022
+        mkdir -p /etc/docker
+        set -o noclobber
+        printf '{\n  "log-driver": "local"\n}\n' > /etc/docker/daemon.json
+      )
+    fi
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove \
       docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   fi

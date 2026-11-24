@@ -24,12 +24,17 @@ EXTRACTOR = INSTALLER.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 
 
 class DockerRepository(unittest.TestCase):
-    def run_setup(self, distro, os_release, arch, engine='absent', fail_key=False, fail_update=False):
+    def run_setup(self, distro, os_release, arch, engine='absent', fail_key=False, fail_update=False, daemon_config=None):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'os-release').write_text(os_release)
+            if daemon_config is not None:
+                config = root / 'etc/docker/daemon.json'
+                config.parent.mkdir(parents=True)
+                config.write_text(daemon_config)
             script, _ = INSTALLER.rsplit('\nmain "$@"', 1)
-            script = script.replace('. /etc/os-release', '. "$staging/os-release"') + r'''
+            script = script.replace('. /etc/os-release', '. "$staging/os-release"')
+            script = script.replace('/etc/docker', '"$staging/etc/docker"') + r'''
 staging=$1 language=en test_arch=$3 test_presence=$4 test_key=$5 test_update=$6
 command() {
   case "$*" in
@@ -53,7 +58,7 @@ apt-get() {
   printf '%s\n' "$*" >> "$staging/calls"
   case "$1" in
     update) [[ $* != *--error-on=any || $test_update == ok ]] ;;
-    install) touch "$staging/packages-installed" ;;
+    install) [[ -f "$staging/etc/docker/daemon.json" ]] && touch "$staging/packages-installed" ;;
     *) return 1 ;;
   esac
 }
@@ -96,6 +101,7 @@ ensure_docker "$2" "$staging"
                     'Types: deb', f'URIs: {repo}', f'Suites: {suite}', 'Components: stable',
                     f'Architectures: {arch}', 'Signed-By: /etc/apt/keyrings/docker.asc',
                 ])
+                self.assertEqual(json.loads(files['etc/docker/daemon.json']), {'log-driver': 'local'})
                 self.assertEqual(files['calls'].splitlines(), [
                     f'{repo}/gpg', 'update --error-on=any',
                     'install -y --no-remove docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin',
@@ -106,6 +112,12 @@ ensure_docker "$2" "$staging"
         result, files = self.run_setup('debian', '', 'amd64', engine='ready')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(files)
+
+    def test_existing_daemon_configuration_is_preserved(self):
+        config = '{"log-driver": "journald", "data-root": "/data/docker"}\n'
+        result, files = self.run_setup('debian', 'VERSION_CODENAME=trixie\n', 'amd64', daemon_config=config)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(files['etc/docker/daemon.json'], config)
 
     def test_existing_stopped_docker_is_started_without_apt(self):
         for engine in ('stopped', 'custom-unit'):
@@ -124,6 +136,7 @@ ensure_docker "$2" "$staging"
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Could not refresh APT package indexes', result.stderr)
         self.assertNotIn('packages-installed', files)
+        self.assertNotIn('etc/docker/daemon.json', files)
 
     def test_key_download_failure_stops_before_install(self):
         result, files = self.run_setup('debian', 'VERSION_CODENAME=trixie\n', 'amd64', fail_key=True)

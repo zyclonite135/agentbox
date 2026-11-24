@@ -4,6 +4,7 @@
  *   unauthorized             — api 收到 401
  *   data-updated             — refreshAll 拉到新的 sessions/accounts
  *   open-session  {detail}   — 侧栏点击会话卡片
+ *   workspace-power {detail} — 侧栏启动或停止指定空间
  *   open-settings            — 侧栏点击系统设置
  *   open-usage               — 侧栏点击使用记录
  *   open-tunnel              — 侧栏点击内网隧道
@@ -84,6 +85,7 @@ export interface AppState {
   fileScope: FileScope;
   /** 启动/停止执行中，期间锁住生命周期按钮 */
   actionBusy: boolean;
+  workspacePowerRequests: Map<string, AbortController>;
   chatState: ChatState;
   /** 当前对话线程元数据（/history 返回；空的新对话为 null） */
   thread: Thread | null;
@@ -131,6 +133,7 @@ export const S: AppState = {
   filePath: "",
   fileScope: "workspace",
   actionBusy: false,
+  workspacePowerRequests: new Map(),
   chatState: "idle",
   thread: null,
   pick: { model: "", effort: "" },

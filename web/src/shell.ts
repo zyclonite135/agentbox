@@ -7,7 +7,8 @@ import { ruCreateWorkspaceLabel } from "./locales/ru-static.js";
 
 import { S, bus, emit } from "./state.js";
 import type { View } from "./state.js";
-import { $ } from "./util.js";
+import { $, spinEl } from "./util.js";
+import { svgIcon } from "./icons.js";
 import { agentIcon, agentAvatar, agentName } from "./brand.js";
 import { hideTip, setTip } from "./tip.js";
 import { sessionState } from "./session-state.js";
@@ -275,7 +276,9 @@ export function renderSidebar() {
   renderUserMenu();
   const list = $("session-list");
   const scrollTop = list.scrollTop;
-  const focusedID = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>(".session-card")?.dataset.sessionId;
+  const focused = document.activeElement;
+  const focusedID = focused?.closest(".session-row")?.querySelector<HTMLElement>(".session-card")?.dataset.sessionId;
+  const focusedPower = focused?.classList.contains("session-power");
   list.replaceChildren();
   const sessions = filterWorkspaces(S.sessions);
   const filtered = workspaceFilterActive();
@@ -341,9 +344,26 @@ export function renderSidebar() {
     card.append(av, body, dot);
     const open = () => emit("open-session", sess);
     card.addEventListener("click", open);
-    list.appendChild(card);
+    const row = document.createElement("div");
+    row.className = "session-row";
+    const power = document.createElement("button");
+    const action = sess.status === "running" ? "stop" : "start";
+    const label = () => i18nText(action === "stop" ? "停止工作空间" : "启动工作空间");
+    const busy = S.workspacePowerRequests.has(sess.id);
+    power.type = "button";
+    power.className = `session-power ${action}`;
+    setAttrRender(power, "aria-label", () => `${label()} · ${sess.name}`);
+    setTip(power, label);
+    if (busy || S.actionBusy) power.setAttribute("aria-disabled", "true");
+    if (busy) power.setAttribute("aria-busy", "true");
+    power.append(busy ? spinEl() : svgIcon(action === "stop" ? "stop" : "play", 16));
+    power.addEventListener("click", () => {
+      if (!power.hasAttribute("aria-disabled")) emit("workspace-power", { id: sess.id, action });
+    });
+    row.append(card, power);
+    list.appendChild(row);
     if (cardsSettled) newCard.play(card, sess.id);
-    if (focusedID === sess.id) card.focus({ preventScroll: true });
+    if (focusedID === sess.id) (focusedPower && power.getClientRects().length ? power : card).focus({ preventScroll: true });
   }
   if (focusedID && !sessions.some(sess => sess.id === focusedID)) {
     const search = $("session-search");

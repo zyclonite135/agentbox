@@ -32,6 +32,8 @@ try {
     const page = await context.newPage();
     page.setDefaultTimeout(12000);
     const errors = [], writes = [];
+    let reportPowerRequest;
+    const nextPowerRequest = () => new Promise(resolve => { reportPowerRequest = resolve; });
     page.on('pageerror', e => errors.push(e.message));
     let identity = 'alice';
     const spaces = Array.from({ length: 100 }, (_, i) => ({
@@ -50,6 +52,15 @@ try {
       const req = route.request(), path = new URL(req.url()).pathname;
       let body = {};
       if (req.method() !== 'GET' && !['/api/login', '/api/logout', '/api/me/activity'].includes(path)) writes.push(path);
+      const power = req.method() === 'POST' && path.match(/^\/api\/sessions\/([^/]+)\/(start|stop)$/);
+      if (power) {
+        await new Promise(resolve => reportPowerRequest(resolve));
+        const space = spaces.find(s => s.id === power[1]);
+        space.status = power[2] === 'start' ? 'running' : 'stopped';
+        space.stop_reason = '';
+        await route.fulfill({ json: space });
+        return;
+      }
       if (path === '/api/login') body = { token: identity + '-token' };
       else if (path === '/api/me') body = { user: identity, role: 'user', timezone: 'UTC', models: { codex: [{ id: 'fixture', label: 'Fixture' }] }, quota: { metered: false } };
       else if (path === '/api/sessions') body = identity === 'alice' ? spaces : [];
@@ -77,6 +88,52 @@ try {
     };
     try {
       await page.goto(base); await login(); await count(100);
+      if (locale === 'en') {
+        await page.emulateMedia({reducedMotion:'no-preference'});
+        const target = cards.and(page.locator('[data-session-id="space-1"]'));
+        const action = target.locator('..').locator('.session-power');
+        await cards.and(page.locator('[data-session-id="space-0"]')).click();
+        await page.waitForFunction(() => location.hash.includes('/sessions/space-0/chat'));
+        const waitForOpacity = opacity => page.waitForFunction(opacity => {
+          const button = document.querySelector('[data-session-id="space-1"] + .session-power');
+          return button && getComputedStyle(button).opacity === opacity;
+        }, opacity);
+        await waitForOpacity('0');
+        await target.hover();
+        await waitForOpacity('1');
+        await target.focus();
+        await page.keyboard.press('Tab');
+        assert.equal(await action.evaluate(el => el === document.activeElement), true);
+        const startRequest = nextPowerRequest();
+        await page.keyboard.press('Enter');
+        const finishStart = await startRequest;
+        await action.locator('.spin').waitFor();
+        assert.ok(await action.locator('.spin').evaluate(el => el.getAnimations().length));
+        assert.equal(await action.innerText(), '');
+        await refresh();
+        assert.equal(await action.getAttribute('aria-busy'), 'true');
+        assert.equal(await action.evaluate(el => el === document.activeElement), true);
+        await page.keyboard.press('Enter');
+        assert.deepEqual(writes, ['/api/sessions/space-1/start']);
+        finishStart();
+        await target.locator('.sc-dot.run').waitFor({state:'attached'});
+        const stopRequest = nextPowerRequest();
+        await action.click();
+        const finishStop = await stopRequest;
+        assert.deepEqual(writes, ['/api/sessions/space-1/start', '/api/sessions/space-1/stop']);
+        finishStop();
+        await target.locator('.sc-dot.off').waitFor({state:'attached'});
+        assert.ok(page.url().includes('/sessions/space-0/chat'));
+        await page.locator('#btn-sidebar-toggle').click();
+        assert.equal(await action.isVisible(), false);
+        await page.locator('#btn-sidebar-toggle').click();
+        spaces[1].stop_reason = 'idle';
+        await refresh();
+        await page.goto(base);
+        await count(100);
+        writes.length = 0;
+        await page.emulateMedia({reducedMotion:'reduce'});
+      }
       const recent = await page.locator('#home-recent').innerText();
       for (const [state, n] of [['run', 34], ['idle', 33], ['off', 33], ['all', 100]]) {
         await selectStatus(state); await count(n);
@@ -146,6 +203,7 @@ try {
       await page.screenshot({ path: `output/playwright/workspace-filter-${locale}-desktop.png` });
       // Narrow drawer focus trap includes the new input/select; first Escape clears, second closes.
       await page.setViewportSize({ width: 390, height: 844 }); await page.locator('#btn-menu').click();
+      assert.equal(await page.locator('#session-list .session-power:visible').count(), 0);
       await search.focus();
       await search.evaluate(el => el.dispatchEvent(new CompositionEvent('compositionstart')));
       await search.press('Escape'); assert.equal(await page.locator('#sidebar').evaluate(el => el.classList.contains('open')), true);

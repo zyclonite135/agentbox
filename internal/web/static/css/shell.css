@@ -427,6 +427,27 @@
 .sc-dot.run { background: var(--green); }
 .sc-dot.idle { background: var(--warn); }
 .sc-initial { display: none; }
+.session-row { position: relative; flex: none; }
+.session-power { display: none; }
+
+@media (min-width: 761px) and (hover: hover) and (pointer: fine) {
+  :root:not([data-sidebar-collapsed="true"]) .session-card { padding-right: 34px; }
+  :root:not([data-sidebar-collapsed="true"]) .sc-dot { position: absolute; right: 13px; margin: 0; }
+  :root:not([data-sidebar-collapsed="true"]) .session-power {
+    position: absolute; top: 50%; right: 3px; transform: translateY(-50%);
+    width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
+    border: 0; border-radius: calc(5px * var(--radius-scale));
+    background: transparent; color: var(--muted); cursor: pointer;
+    opacity: 0; pointer-events: none;
+  }
+  .session-row:is(:hover, :focus-within) .session-power,
+  .session-power[aria-busy="true"] { opacity: 1; pointer-events: auto; }
+  .session-row:is(:hover, :focus-within, :has(.session-power[aria-busy="true"])) .sc-dot { visibility: hidden; }
+  :root:not([data-sidebar-collapsed="true"]) .session-row:hover .session-card:not(.active) { background: var(--side-hover); }
+  .session-power:is(:hover, :focus-visible):not([aria-disabled="true"]) { background: var(--panel-2); color: var(--text-hi); }
+  .session-power.stop:is(:hover, :focus-visible):not([aria-disabled="true"]) { color: var(--red); }
+  .session-power[aria-disabled="true"] { cursor: default; }
+}
 
 /* ---- 抽屉遮罩：仅窄屏显示 ---- */
 .scrim {

@@ -139,6 +139,9 @@ export function renderHead() {
     if (!S.actionBusy) { // 启动/停止执行中由按钮自己管理，轮询刷新不得把另一个按钮换回来
         $("btn-start").classList.toggle("hidden", running);
         $("btn-stop").classList.toggle("hidden", !running);
+        const pendingPower = S.workspacePowerRequests.has(sess.id);
+        $("btn-start").disabled = pendingPower;
+        $("btn-stop").disabled = pendingPower;
     }
 }
 function closeChannels() {
@@ -182,51 +185,64 @@ export function setTab(name) {
 for (const t of document.querySelectorAll(".tab")) {
     t.addEventListener("click", () => setTab(t.dataset.tab));
 }
-/* ---------------- 生命周期：启动 / 停止 / 删除 ---------------- */
-async function doStart() {
-    const s = S.current;
-    if (!s || S.actionBusy)
+async function setWorkspacePower(id, action, fromWorkbench = false) {
+    const sess = S.current?.id === id ? S.current : S.sessions.find(s => s.id === id);
+    if (!sess || S.actionBusy || S.workspacePowerRequests.has(sess.id))
         return;
-    S.actionBusy = true;
-    wbBusy("start");
-    btnBusy($("btn-start"), () => i18nText("启动中…"));
-    try {
-        const res = await api(`/sessions/${s.id}/start`, { method: "POST" });
-        if (S.current && S.current.id === s.id)
-            S.current = res; // 期间切换了会话则不覆盖
-    }
-    catch (e) {
-        toast(i18nText("启动失败：") + e.message, true);
-    }
-    S.actionBusy = false;
-    wbIdle();
-    btnDone($("btn-start"));
-    renderHead();
-    refreshAll();
-}
-async function doStop() {
-    const s = S.current;
-    if (!s || S.actionBusy)
+    if ((sess.status === "running") !== (action === "stop"))
         return;
-    S.actionBusy = true;
-    wbBusy("stop");
-    btnBusy($("btn-stop"), () => i18nText("停止中…"));
+    const request = new AbortController();
+    S.workspacePowerRequests.set(sess.id, request);
+    const button = $(`btn-${action}`);
+    if (fromWorkbench) {
+        S.actionBusy = true;
+        wbBusy(action);
+        btnBusy(button, () => i18nText(action === "start" ? "启动中…" : "停止中…"));
+    }
+    renderSidebar();
+    if (!fromWorkbench && S.current?.id === sess.id)
+        renderHead();
     try {
-        const res = await api(`/sessions/${s.id}/stop`, { method: "POST" });
-        if (S.current && S.current.id === s.id)
+        const res = await api(`/sessions/${encodeURIComponent(sess.id)}/${action}`, { method: "POST", signal: request.signal });
+        if (request.signal.aborted)
+            return;
+        S.sessions = S.sessions.map(s => s.id === sess.id ? res : s);
+        if (S.current?.id === sess.id) {
             S.current = res;
-        browserDisconnect();
-        termDisconnect(); // 容器停了收掉连接，但保留终端画面
+            if (action === "stop") {
+                browserDisconnect();
+                termDisconnect();
+            }
+        }
     }
     catch (e) {
-        toast(i18nText("停止失败：") + e.message, true);
+        if (!request.signal.aborted)
+            toast(i18nText(action === "start" ? "启动失败：" : "停止失败：") + e.message, true);
     }
-    S.actionBusy = false;
-    wbIdle();
-    btnDone($("btn-stop"));
-    renderHead();
-    refreshAll();
+    finally {
+        S.workspacePowerRequests.delete(sess.id);
+        if (fromWorkbench) {
+            S.actionBusy = false;
+            wbIdle();
+            btnDone(button);
+        }
+        if (!request.signal.aborted) {
+            emit("data-updated");
+            if (fromWorkbench)
+                void refreshAll();
+        }
+    }
 }
+const doStart = () => setWorkspacePower(S.current?.id, "start", true);
+const doStop = () => setWorkspacePower(S.current?.id, "stop", true);
+bus.addEventListener("workspace-power", e => {
+    const { id, action } = e.detail;
+    void setWorkspacePower(id, action);
+});
+bus.addEventListener("signed-out", () => {
+    for (const request of S.workspacePowerRequests.values())
+        request.abort();
+});
 function openDeleteDlg() {
     if (!S.current)
         return;
@@ -250,16 +266,17 @@ function sessionMenu(withPower) {
     if (!s)
         return [];
     const running = s.status === "running";
+    const busy = S.actionBusy || S.workspacePowerRequests.has(s.id);
     return [
-        { label: i18nText("启动"), icon: "play", run: doStart, hidden: !withPower || running, disabled: S.actionBusy },
-        { label: i18nText("停止"), icon: "stop", danger: true, run: doStop, hidden: !withPower || !running, disabled: S.actionBusy, tip: i18nText("停止工作空间，保留文件与对话") },
+        { label: i18nText("启动"), icon: "play", run: doStart, hidden: !withPower || running, disabled: busy },
+        { label: i18nText("停止"), icon: "stop", danger: true, run: doStop, hidden: !withPower || !running, disabled: busy, tip: i18nText("停止工作空间，保留文件与对话") },
         { label: i18nText("使用指引"), icon: "bulb", run: () => emit("workspace-guide-open"), sep: true },
         { label: i18nText("环境检查"), icon: "activity", run: () => openDiagnostics(s.id), sep: true },
         { label: i18nText("查看账号额度"), icon: "gauge", run: openAcctUsage, hidden: agentKey(s.agent) !== "claude", sep: true, tip: i18nText("该账号订阅的 5 小时 / 每周用量窗口") },
         { label: i18nText("缓存保活…"), icon: "heart-pulse", run: openKeepalive, hidden: agentKey(s.agent) !== "claude", tip: i18nText("离开时保持对话与终端会话的提示缓存") },
-        { label: i18nText("切换账号…"), icon: "switch", run: openSwitchAccount, sep: agentKey(s.agent) !== "claude", disabled: S.actionBusy, tip: i18nText("改用同类型的另一个账号，文件与对话保留") },
+        { label: i18nText("切换账号…"), icon: "switch", run: openSwitchAccount, sep: agentKey(s.agent) !== "claude", disabled: busy, tip: i18nText("改用同类型的另一个账号，文件与对话保留") },
         { label: i18nText("重命名"), icon: "rename", run: renameSession },
-        { label: i18nText("删除工作空间…"), icon: "trash", danger: true, sep: true, run: openDeleteDlg, disabled: S.actionBusy },
+        { label: i18nText("删除工作空间…"), icon: "trash", danger: true, sep: true, run: openDeleteDlg, disabled: busy },
     ];
 }
 bindMenu($("btn-wb-more"), () => sessionMenu(false));
@@ -307,7 +324,7 @@ async function renameSession() {
 let switchBusy = false;
 async function openSwitchAccount() {
     const sess = S.current;
-    if (!sess || S.actionBusy)
+    if (!sess || S.actionBusy || S.workspacePowerRequests.has(sess.id))
         return;
     const dlg = $("dlg-switch-acct"), select = $("switch-acct-select");
     setText($("switch-acct-current"), "当前账号：{account}", { account: sess.account_label || sess.account_id });

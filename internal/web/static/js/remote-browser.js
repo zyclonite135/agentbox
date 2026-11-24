@@ -11,6 +11,15 @@ let controller = null;
 let connected = false;
 let busy = false;
 let connectTimer = 0;
+let navigation = null;
+let navigationId = "";
+let navigationTimer = 0;
+let navigationBusy = false;
+let navigationReading = false;
+let navigationVersion = 0;
+let editingAddress = false;
+let fullscreenOwner = "";
+let fullscreenChanges = Promise.resolve();
 const CONNECT_TIMEOUT = 20_000;
 const compactLayout = matchMedia("(max-width: 760px), (pointer: coarse) and (orientation: landscape) and (max-height: 600px)");
 const portraitLayout = matchMedia("(orientation: portrait)");
@@ -25,6 +34,77 @@ function applyQuality(view) {
     view.compressionLevel = mode.compression;
 }
 function pending() { return busy || (desktop !== null && !connected); }
+function navigationPath(id) { return `/sessions/${encodeURIComponent(id)}/browser/navigation`; }
+function renderAddressHint() {
+    setAttr($("browser-url"), "placeholder", navigationId || compactLayout.matches ? "网页地址" : "输入网址，在新标签页打开");
+}
+function renderNavigation() {
+    const available = connected && !!navigationId;
+    $("browser-nav").hidden = !available;
+    const disabled = navigationBusy || !navigation;
+    $("browser-back").disabled = disabled || !navigation?.back;
+    $("browser-forward").disabled = disabled || !navigation?.forward;
+    $("browser-reload").disabled = disabled || !navigation?.active;
+    $("browser-tabs").disabled = disabled;
+    if (!available || !navigation || editingAddress)
+        return;
+    const url = navigation.tabs.find(tab => tab.id === navigation?.active)?.url ?? "";
+    $("browser-url").value = /^https?:\/\//.test(url) ? url : "";
+}
+async function updateNavigation(command) {
+    const id = navigationId;
+    if (!id || !connected || navigationBusy || (!command && navigationReading))
+        return;
+    const currentGeneration = generation;
+    const ticket = ++navigationVersion;
+    if (command)
+        navigationBusy = true;
+    else
+        navigationReading = true;
+    renderNavigation();
+    try {
+        const request = command ? { method: "POST", body: JSON.stringify(command) } : undefined;
+        const result = await api(navigationPath(id), request);
+        if (ticket === navigationVersion && Array.isArray(result.tabs))
+            navigation = result;
+    }
+    catch (err) {
+        if (command && ticket === navigationVersion)
+            toast(err.message, true);
+    }
+    finally {
+        if (id === navigationId && generation === currentGeneration) {
+            if (command && ticket === navigationVersion)
+                navigationBusy = false;
+            if (!command)
+                navigationReading = false;
+            renderNavigation();
+        }
+    }
+}
+function queueFullscreen(id, enabled) {
+    fullscreenChanges = fullscreenChanges.then(async () => {
+        try {
+            await api(navigationPath(id), { method: "POST", keepalive: !enabled, body: JSON.stringify({ operation: "fullscreen", enabled }) });
+        }
+        catch (err) {
+            if (id === navigationId && enabled)
+                toast(err.message, true);
+        }
+    });
+}
+function syncFullscreen() {
+    const enabled = document.fullscreenElement === $("tab-browser");
+    $("browser-fullscreen").setAttribute("aria-pressed", String(enabled));
+    if (enabled && navigationId && !fullscreenOwner) {
+        fullscreenOwner = navigationId;
+        queueFullscreen(fullscreenOwner, true);
+    }
+    else if (!enabled && fullscreenOwner) {
+        queueFullscreen(fullscreenOwner, false);
+        fullscreenOwner = "";
+    }
+}
 function state(text, compact = "", error = "") {
     $("browser-state").textContent = text;
     const short = $("browser-mobile-state");
@@ -68,9 +148,24 @@ function controls() {
         button.disabled = pending();
     $("browser-paste").disabled = !connected;
     $("browser-copy").disabled = !connected;
+    renderNavigation();
 }
 function resetDesktop(closeTransport = false) {
     window.clearTimeout(connectTimer);
+    window.clearInterval(navigationTimer);
+    navigationVersion++;
+    navigation = null;
+    navigationId = "";
+    navigationBusy = false;
+    navigationReading = false;
+    editingAddress = false;
+    renderAddressHint();
+    if (fullscreenOwner) {
+        queueFullscreen(fullscreenOwner, false);
+        fullscreenOwner = "";
+    }
+    if (document.fullscreenElement === $("tab-browser"))
+        void document.exitFullscreen().catch(() => { });
     const old = desktop;
     desktop = null;
     connected = false;
@@ -107,6 +202,16 @@ async function connect(id, ticket, info) {
         window.clearTimeout(connectTimer);
         connected = true;
         state(i18nText("已连接 · {p0} · {p1}", { p0: String(info.browser || "Chrome"), p1: String(info.proxy ? i18nText("账号代理出口") : i18nText("服务器出口")) }), "已连接");
+        if (info.navigation) {
+            navigationId = id;
+            renderAddressHint();
+            syncFullscreen();
+            void updateNavigation();
+            navigationTimer = window.setInterval(() => {
+                if (!document.hidden)
+                    void updateNavigation();
+            }, 2000);
+        }
         $("browser-empty").classList.add("hidden");
         controls();
     });
@@ -199,9 +304,8 @@ export function initRemoteBrowser() {
     controller?.abort();
     controller = new AbortController();
     const { signal } = controller;
-    const renderAddress = () => setAttr($("browser-url"), "placeholder", compactLayout.matches ? "网页地址" : "输入网址，在新标签页打开");
-    renderAddress();
-    compactLayout.addEventListener("change", renderAddress, { signal });
+    renderAddressHint();
+    compactLayout.addEventListener("change", renderAddressHint, { signal });
     for (const button of document.querySelectorAll("[data-browser-brand]")) {
         if (!button.querySelector(".agent-ico"))
             button.prepend(agentIcon(button.dataset.browserBrand, 16));
@@ -230,6 +334,32 @@ export function initRemoteBrowser() {
     }, { signal });
     $("browser-start").addEventListener("click", () => void startBrowser(), { signal });
     $("browser-launch").addEventListener("click", () => void startBrowser(), { signal });
+    $("browser-url").addEventListener("input", () => { editingAddress = true; }, { signal });
+    $("browser-url").addEventListener("keydown", event => {
+        if (event.key === "Escape" && editingAddress && navigationId) {
+            editingAddress = false;
+            renderNavigation();
+        }
+    }, { signal });
+    for (const operation of ["back", "forward", "reload"]) {
+        $(`browser-${operation}`).addEventListener("click", () => void updateNavigation({ operation }), { signal });
+    }
+    const tabPicker = $("browser-tabs");
+    tabPicker.addEventListener("click", () => {
+        if (!navigation)
+            return;
+        const active = navigation.active;
+        openMenu(tabPicker, [
+            ...navigation.tabs.map(tab => ({
+                label: tab.title || tab.url || i18nText("新建标签页"),
+                icon: tab.id === navigation?.active ? "check" : "globe",
+                run: () => { editingAddress = false; void updateNavigation({ operation: "select", tab: tab.id }); },
+            })),
+            { label: i18nText("新建标签页"), icon: "plus", sep: true, run: () => { editingAddress = false; void updateNavigation({ operation: "new" }); } },
+            { label: i18nText("关闭当前标签页"), icon: "close", disabled: navigation.tabs.length < 2 || !active,
+                run: () => { editingAddress = false; void updateNavigation({ operation: "close", tab: active }); } },
+        ]);
+    }, { signal });
     $("browser-address").addEventListener("submit", e => {
         e.preventDefault();
         const input = $("browser-url");
@@ -247,10 +377,22 @@ export function initRemoteBrowser() {
             toast(i18nText("请输入有效的 HTTP / HTTPS 地址"), true);
             return;
         }
-        void startBrowser(url);
+        if (navigationId) {
+            editingAddress = false;
+            void updateNavigation({ operation: "navigate", url });
+        }
+        else
+            void startBrowser(url);
     }, { signal });
     for (const button of document.querySelectorAll("[data-browser-url]")) {
-        button.addEventListener("click", () => void startBrowser(button.dataset.browserUrl), { signal });
+        button.addEventListener("click", () => {
+            if (navigationId) {
+                editingAddress = false;
+                void updateNavigation({ operation: "new", url: button.dataset.browserUrl });
+            }
+            else
+                void startBrowser(button.dataset.browserUrl);
+        }, { signal });
     }
     const stop = async () => {
         if (!S.current || busy)
@@ -288,6 +430,14 @@ export function initRemoteBrowser() {
             toast(i18nText("当前浏览器不支持全屏"), true);
         }
     };
+    document.addEventListener("fullscreenchange", syncFullscreen, { signal });
+    window.addEventListener("pagehide", () => {
+        if (fullscreenOwner) {
+            void api(navigationPath(fullscreenOwner), { method: "POST", keepalive: true,
+                body: JSON.stringify({ operation: "fullscreen", enabled: false }) }).catch(() => { });
+            fullscreenOwner = "";
+        }
+    }, { signal });
     $("browser-stop").addEventListener("click", stop, { signal });
     $("browser-fullscreen").addEventListener("click", fullscreen, { signal });
     const more = $("browser-more");

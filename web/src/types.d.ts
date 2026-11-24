@@ -1719,6 +1719,7 @@ export interface GitReviewPreview {provider:string;project:string;connection_id:
 
 /** dockerx.BrowserInfo: private desktop status, no network credentials. */
 export interface BrowserInfo {
+  navigation?: boolean;
  available: boolean;
  running: boolean;
  browser?: string;

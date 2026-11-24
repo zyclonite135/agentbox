@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Workspace desktop. No published port, privileged process, or CDP endpoint.
+"""Workspace desktop. Chrome navigation uses a private pipe, never a debug port.
 Control and VNC relay run as the workspace UID; that UID is the trust boundary.
 """
 import base64
@@ -41,6 +41,171 @@ def safe_url(value):
     if p.scheme not in ('http', 'https') or not p.hostname or p.username or p.password:
         raise ValueError('仅支持不含用户名密码的 HTTP / HTTPS 地址')
     return value
+
+
+class Navigation:
+    def __init__(self, launch, command):
+        chrome_input, self.output = os.pipe()
+        self.input, chrome_output = os.pipe()
+        self.buffer = bytearray()
+        self.request_id = 0
+        self.sessions = {}
+        self.active = ''
+        self.restore = None
+        os.set_blocking(self.output, False)
+        try:
+            self.process = launch([sys.executable, '-I', __file__, 'chrome-pipe', str(chrome_input), str(chrome_output),
+                                   *command, '--remote-debugging-pipe', 'about:blank'], pass_fds=(chrome_input, chrome_output))
+        except Exception:
+            self.close()
+            raise
+        finally:
+            os.close(chrome_input)
+            os.close(chrome_output)
+
+    def close(self):
+        os.close(self.input)
+        os.close(self.output)
+
+    def call(self, method, params=None, session=None):
+        self.request_id += 1
+        message = {'id': self.request_id, 'method': method, 'params': params or {}}
+        if session:
+            message['sessionId'] = session
+        deadline = time.monotonic() + 2
+        payload = memoryview(json.dumps(message).encode() + b'\0')
+        while payload:
+            if not select.select([], [self.output], [], max(0, deadline - time.monotonic()))[1]:
+                raise TimeoutError('Chrome navigation pipe unavailable')
+            payload = payload[os.write(self.output, payload):]
+        while time.monotonic() < deadline:
+            end = self.buffer.find(0)
+            if end >= 0:
+                reply = json.loads(self.buffer[:end])
+                del self.buffer[:end + 1]
+                if reply.get('id') == self.request_id:
+                    if 'error' in reply:
+                        raise ValueError('Chrome navigation command failed')
+                    return reply.get('result', {})
+                if reply.get('method') == 'Target.detachedFromTarget':
+                    expired = reply['params']['sessionId']
+                    self.sessions = {tab: session for tab, session in self.sessions.items() if session != expired}
+                continue
+            if not select.select([self.input], [], [], max(0, deadline - time.monotonic()))[0]:
+                break
+            chunk = os.read(self.input, 65536)
+            if not chunk or len(self.buffer) + len(chunk) > MAX_REQUEST * 4:
+                break
+            self.buffer.extend(chunk)
+        raise TimeoutError('Chrome navigation response unavailable')
+
+    def tabs(self):
+        tabs = [t for t in self.call('Target.getTargets')['targetInfos'] if t['type'] == 'page' and not t.get('subtype')]
+        self.sessions = {t['targetId']: self.sessions[t['targetId']] for t in tabs if t['targetId'] in self.sessions}
+        return tabs
+
+    def session(self, tab):
+        if tab not in self.sessions:
+            self.sessions[tab] = self.call('Target.attachToTarget', {'targetId': tab, 'flatten': True})['sessionId']
+        return self.sessions[tab]
+
+    def selected(self, tabs):
+        visible = []
+        for tab in tabs:
+            target = tab['targetId']
+            try:
+                attention = self.call('Runtime.evaluate', {'expression':
+                    'document.hasFocus() ? 2 : document.visibilityState === "visible" ? 1 : 0',
+                    'returnByValue': True}, self.session(target))['result'].get('value')
+            except ValueError:
+                self.sessions.pop(target, None)
+                continue  # A tab can close or change processes while scanning.
+            if attention == 2:
+                return target
+            if attention == 1:
+                visible.append(target)
+        candidates = visible or [tab['targetId'] for tab in tabs]
+        return self.active if self.active in candidates else next(iter(candidates), '')
+
+    def page(self, method, params=None):
+        return self.call('Page.' + method, params, self.session(self.active))
+
+    def fullscreen(self, enabled):
+        if not enabled:
+            if self.restore:
+                window, previous = self.restore
+                self.call('Browser.setWindowBounds', {'windowId': window, 'bounds': {'windowState': 'normal'}})
+                if previous == 'maximized':
+                    self.call('Browser.setWindowBounds', {'windowId': window, 'bounds': {'windowState': previous}})
+                self.restore = None
+            return
+        bounds = self.call('Browser.getWindowForTarget', {'targetId': self.active})
+        window = bounds['windowId']
+        if self.restore and self.restore[0] == window:
+            return
+        self.fullscreen(False)
+        previous = bounds['bounds'].get('windowState', 'normal')
+        self.call('Browser.setWindowBounds', {'windowId': window, 'bounds': {'windowState': 'fullscreen'}})
+        self.restore = (window, previous if previous in ('normal', 'maximized') else 'normal')
+
+    def handle(self, data):
+        action = data['operation']
+        tabs = self.tabs()
+        self.active = self.selected(tabs)
+        if action == 'fullscreen':
+            self.fullscreen(data['enabled'])
+        elif action == 'new':
+            url = safe_url(data['url']) if data.get('url') else 'about:blank'
+            self.active = self.call('Target.createTarget', {'url': url})['targetId']
+            self.call('Target.activateTarget', {'targetId': self.active})
+        elif action == 'select':
+            target = data['tab']
+            if target not in {tab['targetId'] for tab in tabs}:
+                raise ValueError('Tab no longer exists')
+            self.call('Target.activateTarget', {'targetId': target})
+            self.active = target
+        elif action == 'close':
+            target = data['tab']
+            if len(tabs) > 1 and target in {tab['targetId'] for tab in tabs}:
+                self.call('Target.closeTarget', {'targetId': target})
+        elif action != 'state' and self.active:
+            if action in ('back', 'forward'):
+                history = self.page('getNavigationHistory')
+                index = history['currentIndex'] + (-1 if action == 'back' else 1)
+                if 0 <= index < len(history['entries']):
+                    self.page('navigateToHistoryEntry', {'entryId': history['entries'][index]['id']})
+            elif action == 'reload':
+                self.page('reload')
+            elif action == 'navigate':
+                self.page('navigate', {'url': safe_url(data['url'])})
+        tabs = self.tabs()
+        if self.active not in {tab['targetId'] for tab in tabs}:
+            self.active = self.selected(tabs)
+        if self.restore and self.active and action in ('new', 'select', 'close'):
+            self.fullscreen(True)
+        history = {'entries': [], 'currentIndex': 0}
+        if self.active:
+            try:
+                history = self.page('getNavigationHistory')
+            except ValueError:
+                # Chrome may replace its page target between receiving and
+                # committing navigation. The next status poll reads the new page.
+                self.sessions.pop(self.active, None)
+        return {'active': self.active, 'fullscreen': bool(self.restore),
+                'tabs': [{'id': tab['targetId'], 'title': tab['title'][:300], 'url': tab['url'][:8192]} for tab in tabs],
+                'back': history['currentIndex'] > 0,
+                'forward': history['currentIndex'] < len(history['entries']) - 1}
+
+
+def chrome_pipe():
+    endpoints = [int(value) for value in sys.argv[2:4]]
+    copies = [fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 5) for fd in endpoints]
+    for fd in endpoints:
+        os.close(fd)
+    for source, target in zip(copies, (3, 4)):
+        os.dup2(source, target)
+        os.close(source)
+    os.execv(sys.argv[4], sys.argv[4:])
 
 
 def pump(a, b):
@@ -122,6 +287,7 @@ def serve():
     env = {**os.environ, 'XDG_CONFIG_HOME': str(config)}
     children = []
     chrome = None
+    navigation = None
     proxy = None
     control = socket.socket(socket.AF_UNIX)
     stopping = threading.Event()
@@ -174,7 +340,8 @@ def serve():
         for name in ('SingletonLock', 'SingletonSocket', 'SingletonCookie'):
             (PROFILE / 'profile' / name).unlink(missing_ok=True)
         command = ['/usr/local/bin/agentbox-browser', *flags]
-        chrome = launch([*command, 'about:blank'])
+        navigation = Navigation(launch, command)
+        chrome = navigation.process
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             if chrome.poll() is not None or vnc.poll() is not None:
@@ -194,7 +361,7 @@ def serve():
         control.listen(8)
         control.settimeout(.5)
         browser = 'Chromium' if os.uname().machine in ('aarch64', 'arm64') else 'Google Chrome'
-        info = {'running': True, 'browser': browser, 'proxy': bool(upstream),
+        info = {'running': True, 'browser': browser, 'proxy': bool(upstream), 'navigation': True,
                 'network_key': os.environ.get('AGENTBOX_BROWSER_NETWORK_KEY', '')}
         while not stopping.is_set() and all(p.poll() is None for p in children):
             try:
@@ -233,6 +400,8 @@ def serve():
                                 proc.stdout.close()
                     elif data['action'] == 'stop':
                         stopping.set()
+                    elif data['action'] == 'navigation':
+                        response = navigation.handle(data)
                     elif data['action'] == 'open':
                         url = safe_url(data['url'])
                         # Chrome hands the URL to the existing instance and exits.
@@ -282,6 +451,8 @@ def serve():
             except subprocess.TimeoutExpired:
                 os.killpg(p.pid, signal.SIGKILL)
                 p.wait()
+        if navigation:
+            navigation.close()
         if proxy:
             proxy.shutdown()
             proxy.server_close()
@@ -290,6 +461,9 @@ def serve():
 
 def main():
     action = sys.argv[1]
+    if action == 'chrome-pipe':
+        chrome_pipe()
+        return
     if action == 'relay':
         # Raw RFB on Docker's attached stdin/stdout, no public VNC listener.
         with socket.create_connection(('127.0.0.1', VNC_PORT), timeout=10) as sock:
@@ -325,6 +499,12 @@ def main():
             if not info['running']:
                 raise RuntimeError('浏览器未运行')
             data['action'] = 'clipboard'
+            print(json.dumps(request(data, timeout=8), ensure_ascii=False))
+            return
+        if action == 'navigation':
+            if not info['running'] or not info.get('navigation'):
+                raise RuntimeError('浏览器未运行')
+            data['action'] = 'navigation'
             print(json.dumps(request(data, timeout=8), ensure_ascii=False))
             return
         if action == 'status':

@@ -30,9 +30,24 @@ async function waitForRemotePageWidth(page, canvas) {
  throw new Error(`The remote page did not fit the ${expectedWidth}px framebuffer`);
 }
 
+async function chromeFrameHeight(page, min, max) {
+ // The colored marker begins at the top of the site, below any native chrome.
+ const handle = await page.waitForFunction(({min,max}) => {
+  const canvas = document.querySelector('#browser-screen canvas');
+  if (!canvas?.width) return false;
+  const pixels = canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2), 0, 1, Math.min(220, canvas.height)).data;
+  for (let y = 0; y < pixels.length / 4; y++) {
+   const [r,g,b] = pixels.subarray(y * 4, y * 4 + 3);
+   if (r > 200 && g < 75 && b > 100 && b < 200) return y >= min && y <= max ? {y} : false;
+  }
+  return false;
+ }, {min,max}, {timeout:10000});
+ return (await handle.jsonValue()).y;
+}
+
 const browser=await launchBrowser();
 try {
- const page=await browser.newPage({viewport:{width:1600,height:1100}});
+ const page=await browser.newPage({locale:'en-US',viewport:{width:1600,height:1100}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(`${base}/#/sessions/${session}/browser`);
  await page.locator('#login-user').fill('boxadmin');
@@ -66,12 +81,42 @@ try {
  await page.setViewportSize({width:2120,height:920});
  await waitForFittedDesktop(page);
  await waitForRemotePageWidth(page, canvas);
+ const address = page.locator('#browser-url');
+ const chromeControl = page.locator('#browser-tabs');
+ if (process.env.AGENTBOX_REQUIRE_BROWSER_NAVIGATION === '1') await chromeControl.waitFor({state:'visible'});
+ const navigationSupported = await chromeControl.isVisible();
+ let beforeFullscreen;
+ if (navigationSupported) {
+  await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/check'));
+  await address.fill('http://127.0.0.1:8765/navigated');
+  await address.press('Enter');
+  await page.waitForFunction(() => !document.querySelector('#browser-back').disabled);
+  await page.locator('#browser-back').click();
+  await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/check'));
+  await page.locator('#browser-forward').click();
+  await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/navigated'));
+  await page.locator('#browser-reload').click();
+  beforeFullscreen = await chromeFrameHeight(page, 40, 220);
+ }
  await page.locator('#browser-fullscreen').click();
  await page.waitForFunction(() => document.fullscreenElement?.id === 'tab-browser');
  await waitForFittedDesktop(page);
+ if (navigationSupported) {
+  await chromeFrameHeight(page, 0, beforeFullscreen - 40);
+  await chromeControl.click();
+  await page.getByRole('menuitem', {name:'New tab', exact:true}).last().click();
+  await page.waitForFunction(() => document.querySelector('#browser-url').value === '');
+  await chromeControl.click();
+  await page.getByRole('menuitem', {name:'/navigated', exact:true}).click();
+  await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/navigated'));
+ }
  await page.locator('#browser-fullscreen').click();
  await page.waitForFunction(() => !document.fullscreenElement);
  await waitForFittedDesktop(page);
+ if (navigationSupported) {
+  await chromeFrameHeight(page, 40, 220);
+  console.log('Real Chrome navigation, tabs and native toolbar visibility on fullscreen enter/exit passed');
+ }
  const storageState = await page.context().storageState();
  await page.close();
  const phone = await browser.newPage({storageState, isMobile:true, hasTouch:true, deviceScaleFactor:3, viewport:{width:360,height:780}});

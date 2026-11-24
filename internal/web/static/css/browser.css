@@ -11,6 +11,10 @@
 .browser-address { min-width:0; display:flex; align-items:center; gap:8px; margin:0; padding:2px 3px 2px 12px; border:1px solid var(--line); border-radius:calc(10px * var(--radius-scale)); background:var(--panel); transition:border-color 140ms ease,box-shadow 140ms ease; }
 .browser-address:focus-within { border-color:var(--amber-dim); box-shadow:0 0 0 2px color-mix(in srgb,var(--amber) 10%,transparent); }
 .browser-address-icon { color:var(--muted); flex:none; }
+.browser-nav:not([hidden]) { display:flex; align-items:center; flex:none; gap:2px; }
+:root #tab-browser .browser-nav .browser-tool { --action-size:30px; }
+.browser-address:has(.browser-nav:not([hidden])) { padding-left:3px; }
+.browser-address:has(.browser-nav:not([hidden])) .browser-address-icon { display:none; }
 #browser-url { flex:1; width:0; min-width:0; height:32px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; outline:none; font-size:13px; }
 #browser-url::placeholder { color:var(--muted); }
 :root #tab-browser #browser-open { --action-size:32px; }

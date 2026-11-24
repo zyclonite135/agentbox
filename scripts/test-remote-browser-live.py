@@ -79,7 +79,7 @@ class Handler(BaseHTTPRequestHandler):
   self.send_response(200)
   if self.path=='/login': self.send_header('Set-Cookie','synthetic_login=yes; Max-Age=86400; Path=/')
   self.send_header('Content-Type','text/html; charset=utf-8');self.end_headers()
-  self.wfile.write("""<html><body style="background:#f4f6fa;color:#13233a;font:24px sans-serif;padding:48px"><h1>Remote browser fixture</h1><p>Persistent login and UTF-8 clipboard</p><textarea oninput="fetch('/typed?value='+encodeURIComponent(this.value))" style="width:600px;height:180px;font-size:24px" autofocus></textarea><script>const report=()=>fetch('/viewport?width='+innerWidth);addEventListener('resize',report);report()</script></body></html>""".encode())
+  self.wfile.write("""<html><body style="background:#f4f6fa;color:#13233a;font:24px sans-serif;padding:48px"><div style="position:fixed;top:0;left:35%;width:30%;height:8px;background:#ef1e9e;pointer-events:none"></div><h1>Remote browser fixture</h1><p>Persistent login and UTF-8 clipboard</p><textarea oninput="fetch('/typed?value='+encodeURIComponent(this.value))" style="width:600px;height:180px;font-size:24px" autofocus></textarea><script>document.title=location.pathname;const report=()=>fetch('/viewport?width='+innerWidth);addEventListener('resize',report);report()</script></body></html>""".encode())
  def log_message(self,*args):pass
 HTTPServer(('127.0.0.1',8765),Handler).serve_forever()
 ''')

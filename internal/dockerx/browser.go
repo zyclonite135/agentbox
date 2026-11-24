@@ -20,6 +20,7 @@ type BrowserInfo struct {
 	Running    bool   `json:"running"`
 	Browser    string `json:"browser,omitempty"`
 	Proxy      bool   `json:"proxy"`
+	Navigation bool   `json:"navigation,omitempty"`
 	NetworkKey string `json:"-"`
 }
 
@@ -41,6 +42,7 @@ func (m *Manager) BrowserCommand(ctx context.Context, id, action, url string, en
 		Running    bool   `json:"running"`
 		Browser    string `json:"browser"`
 		Proxy      bool   `json:"proxy"`
+		Navigation bool   `json:"navigation"`
 		NetworkKey string `json:"network_key"`
 		Error      string `json:"error"`
 	}
@@ -50,7 +52,44 @@ func (m *Manager) BrowserCommand(ctx context.Context, id, action, url string, en
 	if result.Error != "" {
 		return BrowserInfo{}, browserHelperError(result.Error, "浏览器操作失败")
 	}
-	return BrowserInfo{Available: true, Running: result.Running, Browser: result.Browser, Proxy: result.Proxy, NetworkKey: result.NetworkKey}, nil
+	return BrowserInfo{Available: true, Running: result.Running, Browser: result.Browser, Proxy: result.Proxy, Navigation: result.Navigation, NetworkKey: result.NetworkKey}, nil
+}
+
+type BrowserNavigationRequest struct {
+	Operation string `json:"operation"`
+	URL       string `json:"url,omitempty"`
+	Tab       string `json:"tab,omitempty"`
+	Enabled   bool   `json:"enabled"`
+}
+
+type BrowserTab struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+type BrowserNavigation struct {
+	Active     string       `json:"active"`
+	Tabs       []BrowserTab `json:"tabs"`
+	Back       bool         `json:"back"`
+	Forward    bool         `json:"forward"`
+	Fullscreen bool         `json:"fullscreen"`
+}
+
+func (m *Manager) BrowserNavigation(ctx context.Context, id string, req BrowserNavigationRequest) (BrowserNavigation, error) {
+	payload, _ := json.Marshal(req)
+	out, err := m.ExecCapture(ctx, id, []string{"python3", "-I", "/opt/agentbox/browser.py", "navigation"}, nil, string(payload))
+	if err != nil {
+		return BrowserNavigation{}, errors.New("浏览器操作失败")
+	}
+	var result struct {
+		BrowserNavigation
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil || result.Error != "" || result.Tabs == nil {
+		return BrowserNavigation{}, errors.New("浏览器操作失败")
+	}
+	return result.BrowserNavigation, nil
 }
 
 func browserContainerOptions(cc *container.Config, hc *container.HostConfig, labels map[string]string) {

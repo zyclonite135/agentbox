@@ -280,3 +280,58 @@ func (s *Server) handleBrowserClipboard(w http.ResponseWriter, r *http.Request, 
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, 200, map[string]string{"text": text})
 }
+
+func validNavigationRequest(req dockerx.BrowserNavigationRequest) bool {
+	switch req.Operation {
+	case "navigate":
+		return req.URL != "" && validBrowserURL(req.URL)
+	case "select", "close":
+		return req.Tab != "" && len(req.Tab) <= 128 && strings.IndexFunc(req.Tab, unicode.IsControl) < 0
+	case "new":
+		return validBrowserURL(req.URL)
+	case "back", "forward", "reload", "fullscreen":
+		return true
+	}
+	return false
+}
+
+func (s *Server) handleBrowserNavigation(w http.ResponseWriter, r *http.Request, sess store.Session) {
+	if why := s.quotaBlock(sess.User); why != "" {
+		writeErr(w, 403, why)
+		return
+	}
+	_, key, err := s.browserEnv(sess)
+	if err != nil {
+		writeErr(w, 403, err.Error())
+		return
+	}
+	req := dockerx.BrowserNavigationRequest{Operation: "state"}
+	if r.Method == http.MethodPost {
+		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
+		dec.DisallowUnknownFields()
+		if dec.Decode(&req) != nil || dec.Decode(&struct{}{}) != io.EOF || !validNavigationRequest(req) {
+			writeErr(w, 400, "浏览器操作失败")
+			return
+		}
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	var result dockerx.BrowserNavigation
+	err = s.workspaces().UseRunning(ctx, sess.ID, func(cur store.Session) error {
+		state, err := s.dock.BrowserCommand(ctx, cur.ContainerID, "status", "", nil)
+		if err != nil {
+			return err
+		}
+		if !state.Running || !state.Navigation || state.NetworkKey != key {
+			return errors.New("请先连接浏览器")
+		}
+		result, err = s.dock.BrowserNavigation(ctx, cur.ContainerID, req)
+		return err
+	})
+	if err != nil {
+		writeErr(w, 409, err.Error())
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, 200, result)
+}

@@ -40,6 +40,14 @@ func TestBrowserAccessBeforeDocker(t *testing.T) {
 			t.Fatalf("%s: %d %s", method, w.Code, w.Body.String())
 		}
 	}
+	for _, method := range []string{"GET", "POST"} {
+		w := httptest.NewRecorder()
+		r := accessRequest("alice", method, "/browser/navigation", "")
+		s.handleBrowserNavigation(w, r, sess)
+		if w.Code != 403 {
+			t.Fatalf("navigation %s: %d %s", method, w.Code, w.Body.String())
+		}
+	}
 	// A different user cannot reach even the status handler through withSession.
 	w := httptest.NewRecorder()
 	r := accessRequest("bob", "GET", "/browser", "")
@@ -47,6 +55,25 @@ func TestBrowserAccessBeforeDocker(t *testing.T) {
 	s.withSession(s.handleBrowser).ServeHTTP(w, r)
 	if w.Code != 404 && w.Code != 403 {
 		t.Fatalf("cross-user: %d", w.Code)
+	}
+}
+
+func TestBrowserNavigationRequest(t *testing.T) {
+	for _, req := range []dockerx.BrowserNavigationRequest{
+		{Operation: "navigate", URL: "https://example.test"}, {Operation: "select", Tab: "tab"},
+		{Operation: "new"}, {Operation: "new", URL: "http://localhost:3000"}, {Operation: "fullscreen", Enabled: true},
+	} {
+		if !validNavigationRequest(req) {
+			t.Errorf("rejected %+v", req)
+		}
+	}
+	for _, req := range []dockerx.BrowserNavigationRequest{
+		{Operation: "Runtime.evaluate"}, {Operation: "navigate"}, {Operation: "navigate", URL: "file:///example"},
+		{Operation: "new", URL: "javascript:alert(1)"}, {Operation: "select", Tab: "\n"}, {Operation: "close"},
+	} {
+		if validNavigationRequest(req) {
+			t.Errorf("accepted %+v", req)
+		}
 	}
 }
 

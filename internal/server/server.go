@@ -554,6 +554,8 @@ func (s *Server) routes() *http.ServeMux {
 	mux.Handle("DELETE /api/sessions/{id}/browser", s.auth(s.withSession(s.handleBrowser)))
 	mux.Handle("GET /api/sessions/{id}/browser/clipboard", s.auth(s.withSession(s.handleBrowserClipboard)))
 	mux.Handle("POST /api/sessions/{id}/browser/clipboard", s.auth(s.withSession(s.handleBrowserClipboard)))
+	mux.Handle("GET /api/sessions/{id}/browser/navigation", s.auth(s.withSession(s.handleBrowserNavigation)))
+	mux.Handle("POST /api/sessions/{id}/browser/navigation", s.auth(s.withSession(s.handleBrowserNavigation)))
 	mux.Handle("GET /api/sessions/{id}/browser/desktop", s.auth(s.withSession(s.handleBrowserWS)))
 	mux.Handle("GET /api/sessions/{id}/term", s.auth(s.withSession(s.handleTermWS)))
 	mux.Handle("GET /api/sessions/{id}/chat", s.auth(s.withSession(s.handleChatWS)))

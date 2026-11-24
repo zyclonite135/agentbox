@@ -90,13 +90,21 @@ EOF
     apt-get update --error-on=any || \
       fail 'Could not refresh APT package indexes. Check the repository errors above and retry.' \
            'Не удалось обновить индексы APT. Проверьте ошибки репозиториев выше и повторите установку.'
-    # Package installation may start Docker, so set the default before installing it.
+    # Package installation may start Docker. Publish only complete JSON and preserve existing configuration.
     if [[ ! -e /etc/docker/daemon.json && ! -L /etc/docker/daemon.json ]]; then
       (
         umask 022
         mkdir -p /etc/docker
-        set -o noclobber
-        printf '{\n  "log-driver": "local"\n}\n' > /etc/docker/daemon.json
+        daemon_config=$(mktemp /etc/docker/.agentbox-daemon.XXXXXX)
+        trap 'rm -f -- "$daemon_config"' EXIT
+        printf '{\n  "log-driver": "local"\n}\n' > "$daemon_config" || \
+          fail 'Could not write the Docker logging configuration' 'Не удалось записать настройки журналов Docker'
+        chmod 0644 "$daemon_config"
+        if ! ln -T -- "$daemon_config" /etc/docker/daemon.json 2>/dev/null; then
+          if [[ ! -e /etc/docker/daemon.json && ! -L /etc/docker/daemon.json ]]; then
+            fail 'Could not create /etc/docker/daemon.json' 'Не удалось создать /etc/docker/daemon.json'
+          fi
+        fi
       )
     fi
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove \

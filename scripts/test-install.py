@@ -24,7 +24,8 @@ EXTRACTOR = INSTALLER.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 
 
 class DockerRepository(unittest.TestCase):
-    def run_setup(self, distro, os_release, arch, engine='absent', fail_key=False, fail_update=False, daemon_config=None):
+    def run_setup(self, distro, os_release, arch, engine='absent', fail_key=False, fail_update=False,
+                  daemon_config=None, config_event='normal'):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'os-release').write_text(os_release)
@@ -35,7 +36,21 @@ class DockerRepository(unittest.TestCase):
             script, _ = INSTALLER.rsplit('\nmain "$@"', 1)
             script = script.replace('. /etc/os-release', '. "$staging/os-release"')
             script = script.replace('/etc/docker', '"$staging/etc/docker"') + r'''
-staging=$1 language=en test_arch=$3 test_presence=$4 test_key=$5 test_update=$6
+staging=$1 language=en test_arch=$3 test_presence=$4 test_key=$5 test_update=$6 test_config=$7
+printf() {
+  if [[ $test_config == write-error && $1 == *'"log-driver"'* ]]; then
+    builtin printf '{\n'
+    return 1
+  fi
+  builtin printf "$@"
+}
+ln() {
+  if [[ $test_config == concurrent-config ]]; then
+    builtin printf '%s\n' '{"log-driver": "journald"}' > "${@: -1}"
+    return 1
+  fi
+  builtin command ln "$@"
+}
 command() {
   case "$*" in
     '-v docker') [[ $test_presence != absent || -f "$staging/packages-installed" ]] ;;
@@ -80,7 +95,7 @@ export DOCKER_CONTEXT=remote
 ensure_docker "$2" "$staging"
 '''
             result = subprocess.run(['bash', '-c', script, 'docker-fixture', tmp, distro, arch, engine,
-                                     'fail' if fail_key else 'ok', 'fail' if fail_update else 'ok'],
+                                     'fail' if fail_key else 'ok', 'fail' if fail_update else 'ok', config_event],
                                     capture_output=True, encoding='utf-8')
             files = {path.relative_to(root).as_posix(): path.read_text()
                      for path in root.rglob('*') if path.is_file() and path.name != 'os-release'}
@@ -118,6 +133,18 @@ ensure_docker "$2" "$staging"
         result, files = self.run_setup('debian', 'VERSION_CODENAME=trixie\n', 'amd64', daemon_config=config)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(files['etc/docker/daemon.json'], config)
+
+    def test_partial_config_write_leaves_no_daemon_file(self):
+        result, files = self.run_setup('debian', 'VERSION_CODENAME=trixie\n', 'amd64', config_event='write-error')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(any(name.startswith('etc/docker/') for name in files), files)
+        self.assertNotIn('packages-installed', files)
+
+    def test_configuration_created_concurrently_is_preserved(self):
+        result, files = self.run_setup('debian', 'VERSION_CODENAME=trixie\n', 'amd64', config_event='concurrent-config')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(files['etc/docker/daemon.json']), {'log-driver': 'journald'})
+        self.assertEqual([name for name in files if name.startswith('etc/docker/')], ['etc/docker/daemon.json'])
 
     def test_existing_stopped_docker_is_started_without_apt(self):
         for engine in ('stopped', 'custom-unit'):

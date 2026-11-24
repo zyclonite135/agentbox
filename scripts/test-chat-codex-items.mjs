@@ -258,8 +258,19 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await until(() => images.first().evaluate(img => img.naturalWidth > 0), 'history image loads inline');
  assert.equal(await images.count(), 1, 'ImageGen and ViewImage show one image in the same turn');
  const imageMenu = page.locator('#chat-log .chat-image-details').first();
- assert.equal(await imageMenu.isVisible(), false);
- assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 2);
+ const menuButton = imageMenu.locator('summary');
+ const imagePanel = imageMenu.locator('.chat-image-panel');
+ assert.equal(await menuButton.isVisible(), true);
+ assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 0);
+ assert.equal(await imagePanel.isVisible(), false);
+ assert.doesNotMatch(await page.locator('#chat-log').innerText(), /generated_images|A cat by the window/);
+ await menuButton.focus();
+ await page.keyboard.press('Enter');
+ assert.match(await imagePanel.innerText(), /thread\/image\.png/);
+ assert.match(await imagePanel.innerText(), /A cat by the window/);
+ assert.equal(await imagePanel.locator('a[download]').isVisible(), true);
+ await page.keyboard.press('Enter');
+ await imagePanel.waitFor({state:'hidden'});
  await page.setViewportSize({width:320, height:844});
  assert.equal(await firstReply.locator('.fold-activity').count(), 0, 'this reply has no activity summary');
  await sideAvatar.waitFor({state:'hidden'});
@@ -267,7 +278,6 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
   turn.querySelector('.turn-body').getBoundingClientRect().left === turn.getBoundingClientRect().left), true);
  assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 0);
  assert.doesNotMatch(await page.locator('#chat-log').innerText(), /generated_images/);
- const menuButton = imageMenu.locator('summary');
  const bounds = await menuButton.boundingBox(), thumb = await images.first().boundingBox();
  assert.ok(bounds.x >= thumb.x && bounds.x + bounds.width <= 320 && bounds.y >= thumb.y + thumb.height,
   'the menu for a tiny thumbnail fits on screen and leaves the thumbnail clickable');
@@ -325,12 +335,16 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await until(async () => await images.count() === 2, 'the same image is visible in a later live turn');
  await until(() => images.last().evaluate(img => img.naturalWidth > 0), 'live image loads inline');
  await until(() => images.last().evaluate(img => img.classList.contains('chat-image-reveal')), 'image fades in after loading');
+ assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 0);
+ assert.equal(await page.locator('#chat-log .chat-image-details > summary').last().isVisible(), true);
  await page.emulateMedia({reducedMotion:'reduce'});
  generationEvent('item.started', {type:'image_generation', id:'g2'});
  await progress.waitFor();
  generationEvent('item.completed', {type:'image_generation', id:'g2', status:'failed'});
  await progress.waitFor({state:'hidden'});
- assert.equal(await page.locator('#chat-log .tool-call[data-status="failed"] .tc-badge.err').last().innerText(), '✗ 失败');
+ const generationError = page.locator('#chat-log .tool-call[data-status="failed"] .tc-badge.err').last();
+ assert.equal(await generationError.isVisible(), true);
+ assert.equal(await generationError.innerText(), '✗ 失败');
  generationEvent('item.started', {type:'image_generation', id:'g3'});
  await progress.waitFor();
  send({type:'status', state:'idle'});
@@ -380,6 +394,13 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  assert.equal(overlayMenu.y - overlayImage.y, 8, 'regular images keep the menu over the top-right corner');
  assert.equal(overlayImage.x + overlayImage.width - overlayMenu.x - overlayMenu.width, 8);
  await page.setViewportSize({width:1280, height:900});
+ const desktopImage = await overlay.locator('img').boundingBox();
+ const desktopMenu = await overlay.locator('summary').boundingBox();
+ assert.equal(desktopMenu.y - desktopImage.y, 8);
+ assert.equal(desktopImage.x + desktopImage.width - desktopMenu.x - desktopMenu.width, 8);
+ await overlay.locator('summary').click();
+ assert.match(await overlay.locator('.chat-image-panel').innerText(), /thread\/overlay\.png/);
+ await page.locator('#dlg-img').waitFor({state:'hidden'});
 
  const results = ['site/index.html', 'site/css/main.css', 'site/js/main.js', 'site/img/logo.svg', 'site/pages/about.html'];
  const declared = count => 'Готово.\n\n' + '```agentbox-files\n' +

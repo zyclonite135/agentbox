@@ -24,6 +24,7 @@ import { resultFilesCard, splitResultFiles } from "./features/chat/result-files.
 import { breakClaudeGroup, claudeTaskProgress, claudeToolResults, claudeToolTitle, claudeToolUse, subAgentKnown, useMarkdown } from "./features/chat/claude-tools.js";
 import { heartbeatNode } from "./features/chat/folds.js";
 import { markActivity } from "./features/chat/activity.js";
+import { markdownFences } from "./features/chat/markdown-fences.js";
 
 export const USER_ATTACH_RE = /\[(图片|附件)#(\d+) (\/shared\/\.(?:images|file)\/[A-Za-z0-9._-]+)\]/g;
 
@@ -364,16 +365,16 @@ export function formatText(text: string, opts: { img?: MdImgResolver } = {}) {
   imgResolver = opts.img || null;
   try {
     const frag = document.createDocumentFragment();
-    // split 产物：[文本, 语言, 段, 语言, 段, ...]——奇数下标是围栏行的语言捕获，
-    // 偶数下标的段在 文本/代码体 之间交替（开栏后是代码体，闭栏后回到文本）
-    const parts = String(text).split(/```([\w+-]*)[ \t]*\n?/);
-    for (let i = 0; i < parts.length; i += 2) {
-      const isCode = (i / 2) % 2 === 1;
-      if (!isCode) renderBlocks(frag, parts[i]);
-      else if (MATH_FENCE.has((parts[i - 1] || "").toLowerCase()))
-        frag.appendChild(renderMath(parts[i].replace(/\n$/, "").trim(), true));
-      else frag.appendChild(codeBlock(parts[i - 1] || "", parts[i].replace(/\n$/, "")));
+    const source = String(text);
+    let offset = 0;
+    for (const fence of markdownFences(source)) {
+      renderBlocks(frag, source.slice(offset, fence.start));
+      const [language] = fence.info.split(/\s+/, 1);
+      const body = source.slice(fence.bodyStart, fence.bodyEnd).replace(/\r?\n$/, "");
+      frag.appendChild(MATH_FENCE.has(language.toLowerCase()) ? renderMath(body.trim(), true) : codeBlock(language, body));
+      offset = fence.end;
     }
+    renderBlocks(frag, source.slice(offset));
     return frag;
   } finally {
     imgResolver = null;

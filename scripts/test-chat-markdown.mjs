@@ -100,11 +100,17 @@ try{
  assert.equal(r[1].katex,true);
 
  const code = 'const html = "<b>& x\u00a0y</b>";\n  console.log(html);';
+ const ticks = '\x60'.repeat(3);
  const examples = [
-  {lang:'JS', source:code, token:'keyword'},
+  {lang:'JS', info:'JS title="example.js"', source:code, token:'keyword'},
   {lang:'python', source:'def double(x):\n    return x * 2', token:'keyword'},
+  {lang:'python', eol:'\r\n', source:'def double(x):\r\n    return x * 2', token:'keyword'},
   {lang:'html', source:'<p title="a & b">Example</p>', token:'tag'},
   {lang:'c++', source:'int main() { return 0; }', token:'keyword'},
+  {lang:'C#', source:'class Example {}'},
+  {lang:'js', source:'const marker = "'+ticks+'";', token:'keyword'},
+  {lang:'text', delimiter:ticks+'\x60', source:[ticks+'js',code,ticks].join('\n')},
+  {lang:'js', delimiter:'~~~', source:code, token:'keyword'},
   {lang:'', source:code},
   {lang:'unrecognized-language', source:code},
   {lang:'extend', source:code},
@@ -113,10 +119,10 @@ try{
  const highlights = await page.evaluate(async examples=>{
   const {renderAnswerContents,renderEvent}=await import('/js/chat-render.js');
   const {createChatStream}=await import('/js/features/chat/stream.js');
-  const fence=(lang,source)=>['\x60\x60\x60'+lang,source,'\x60\x60\x60'].join('\n');
-  const results=examples.map(({lang,source,token},i)=>{
+  const fence=(info,source,delimiter='\x60\x60\x60',eol='\n')=>[delimiter+info,source,delimiter].join(eol);
+  const results=examples.map(({lang,info=lang,source,token,delimiter,eol},i)=>{
    const reply=document.createElement('div');
-   renderAnswerContents(reply,fence(lang,source));
+   renderAnswerContents(reply,fence(info,source,delimiter,eol));
    document.body.append(reply);
    const block=reply.querySelector('code');
    const colored=token&&block.querySelector('.token.'+token);
@@ -125,6 +131,8 @@ try{
     tokens:!!block.querySelector('.token'),
     colored:!!colored&&getComputedStyle(colored).color!==getComputedStyle(block).color,
     literal:!block.querySelector('b,p'),
+    label:reply.querySelector('.cb-lang').textContent,
+    blocks:reply.querySelectorAll('.codeblock').length,
    };
    if(i===0)reply.id='highlight-copy-fixture'; else reply.remove();
    return result;
@@ -136,7 +144,7 @@ try{
   });
   const send=event=>stream.event({type:'stream_event',event});
   send({type:'content_block_start',content_block:{type:'text'}});
-  send({type:'content_block_delta',delta:{type:'text_delta',text:fence('js',examples[0].source)}});
+  send({type:'content_block_delta',delta:{type:'text_delta',text:fence('js',examples[0].source).slice(0,-4)}});
   send({type:'content_block_stop'});
   const streaming=!!live.querySelector('.token');
   stream.settle();
@@ -148,8 +156,8 @@ try{
   Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedCode=text;}}});
   return {results,streaming,stopped,outputTokens:!!output.querySelector('.token'),outputText:output.textContent};
  },examples);
- assert.deepEqual(highlights.results,examples.map(({token})=>({
-  exact:true,tokens:!!token,colored:!!token,literal:true,
+ assert.deepEqual(highlights.results,examples.map(({token,lang})=>({
+  exact:true,tokens:!!token,colored:!!token,literal:true,label:lang||'code',blocks:1,
  })));
  assert.equal(highlights.streaming,false,'streaming updates stay plain until they settle');
  assert.equal(highlights.stopped,true,'stopping preserves and highlights the code already rendered');

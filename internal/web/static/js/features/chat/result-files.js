@@ -4,33 +4,20 @@ import { svgIcon } from "../../icons.js";
 import { S } from "../../state.js";
 import { setTip } from "../../tip.js";
 import { fmtBytes } from "../../util.js";
+import { markdownFences } from "./markdown-fences.js";
 const internalNames = new Set([".git", ".agentbox", ".codex", ".claude", ".ds_store", "thumbs.db"]);
-const fences = /^ {0,3}(\x60{3,}|~{3,})([^\r\n]*)\r?$/gm;
 export function splitResultFiles(message, streaming = false) {
-    let open = "", start, end;
-    for (const fence of message.matchAll(fences)) {
-        const [, delimiter, suffix] = fence;
-        if (open) {
-            if (delimiter[0] !== open[0] || delimiter.length < open.length || suffix.trim())
-                continue;
-            if (start && !message.slice(fence.index + fence[0].length).trim()) {
-                end = fence;
-                break;
-            }
-            open = "";
-            start = undefined;
+    for (const fence of markdownFences(message)) {
+        if (fence.delimiter !== "\x60\x60\x60" || fence.info !== "agentbox-files" || message.slice(fence.end).trim())
             continue;
-        }
-        open = delimiter;
-        if (delimiter === "\x60\x60\x60" && suffix.trim() === "agentbox-files")
-            start = fence;
+        const text = message.slice(0, fence.start).trimEnd();
+        if (!fence.closed)
+            return { text: streaming ? text : message };
+        return readResultFiles(message, text, message.slice(fence.bodyStart, fence.bodyEnd).trim());
     }
-    if (!start)
-        return { text: message };
-    const text = message.slice(0, start.index).trimEnd();
-    if (!end)
-        return { text: streaming ? text : message };
-    const raw = message.slice(start.index + start[0].length, end.index).trim();
+    return { text: message };
+}
+function readResultFiles(message, text, raw) {
     if (raw.length > 768 * 1024)
         return { text: message };
     let result;

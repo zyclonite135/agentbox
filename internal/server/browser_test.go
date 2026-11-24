@@ -48,9 +48,15 @@ func TestBrowserAccessBeforeDocker(t *testing.T) {
 			t.Fatalf("navigation %s: %d %s", method, w.Code, w.Body.String())
 		}
 	}
-	// A different user cannot reach even the status handler through withSession.
 	w := httptest.NewRecorder()
-	r := accessRequest("bob", "GET", "/browser", "")
+	r := accessRequest("alice", "GET", "/browser/navigation?favicon=tab", "")
+	s.handleBrowserNavigation(w, r, sess)
+	if w.Code != 403 {
+		t.Fatalf("favicon: %d %s", w.Code, w.Body.String())
+	}
+	// A different user cannot reach even the status handler through withSession.
+	w = httptest.NewRecorder()
+	r = accessRequest("bob", "GET", "/browser", "")
 	r.SetPathValue("id", sess.ID)
 	s.withSession(s.handleBrowser).ServeHTTP(w, r)
 	if w.Code != 404 && w.Code != 403 {
@@ -70,6 +76,7 @@ func TestBrowserNavigationRequest(t *testing.T) {
 	for _, req := range []dockerx.BrowserNavigationRequest{
 		{Operation: "Runtime.evaluate"}, {Operation: "navigate"}, {Operation: "navigate", URL: "file:///example"},
 		{Operation: "new", URL: "javascript:alert(1)"}, {Operation: "select", Tab: "\n"}, {Operation: "close"},
+		{Operation: "favicons", FaviconTabs: []string{"tab"}}, {Operation: "reload", FaviconTabs: []string{"tab"}},
 	} {
 		if validNavigationRequest(req) {
 			t.Errorf("accepted %+v", req)

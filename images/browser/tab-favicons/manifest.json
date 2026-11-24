@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3,
+  "name": "AgentBox Tab Icons",
+  "version": "1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnB/U1Xh+XfCYLfXnLf5O50Ejvp1ccqdYMw2DTNDbc1qV/5vDe6vFt6cVnbj+5mGjUDSeTS2ePt0DUmWfcluL0LZDLkianXfxYfD3Yz1ws0NHDzhY+zvs0NDTrtle01g2Jx1/LRwYbSG2Db7nu0F34t9mPnLTxYErDv0nreOOVmQrl7w1k/aP3MIf8M6ltzVEzuwKByRMDwCmrv3eR9zTdkhZuZRPyqQBvG1FH0q7yw3TCD57bujTWhUea52YjinhHxQH/tYSdGka0UdaOHMyNVXn7JmZlYODt1edNeJ5dWgJmcUHK96I9EuXPeRr40uHAdTn95xBB1EINY1gvSVxQwIDAQAB",
+  "permissions": ["favicon"]
+}

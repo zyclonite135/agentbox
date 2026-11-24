@@ -22,6 +22,7 @@ RUN apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 instal
 RUN apt-get -o Acquire::Retries=3 update && apt-get -o Acquire::Retries=3 install -y --no-install-recommends wmctrl \
     && rm -rf /var/lib/apt/lists/*
 COPY browser.py /opt/agentbox/browser.py
+COPY tab-favicons/ /opt/agentbox/tab-favicons/
 LABEL agentbox.browser="1"
 # manager.go selects the narrow user-namespace seccomp profile for this image;
 # Chrome's sandbox stays enabled. No VNC/CDP port is published.

@@ -18,7 +18,7 @@ let controller: AbortController | null = null;
 let connected = false;
 let busy = false;
 let connectTimer = 0;
-type BrowserTab = {id: string; title: string; url: string};
+type BrowserTab = {id: string; title: string; url: string; favicon?: string};
 type BrowserNavigation = {active: string; tabs: BrowserTab[]; back: boolean; forward: boolean};
 type NavigationCommand = {operation: "navigate" | "back" | "forward" | "reload" | "select" | "new" | "close"; url?: string; tab?: string};
 let navigation: BrowserNavigation | null = null;
@@ -47,6 +47,22 @@ function applyQuality(view: Desktop) {
 function pending() { return busy || (desktop !== null && !connected); }
 
 function navigationPath(id: string) { return `/sessions/${encodeURIComponent(id)}/browser/navigation`; }
+
+function readFavicons(id: string, tabs: BrowserTab[]) {
+ const icons = new Map<string, Promise<string | undefined>>();
+ const pages = tabs.filter(tab => /^https?:\/\//.test(tab.url));
+ const batchSize = 24;
+ for (let offset = 0; offset < pages.length; offset += batchSize) {
+  const batch = pages.slice(offset, offset + batchSize);
+  const query = new URLSearchParams(batch.map(tab => ["favicon", tab.id]));
+  const response = api<BrowserNavigation>(navigationPath(id) + "?" + query).catch(() => null);
+  for (const tab of batch) icons.set(tab.id, response.then(result => {
+   const icon = result?.tabs?.find(entry => entry.id === tab.id && entry.url === tab.url)?.favicon;
+   if (icon && icon.length <= 2732 && /^[A-Za-z0-9+/]+={0,2}$/.test(icon)) return "data:image/png;base64," + icon;
+  }));
+ }
+ return icons;
+}
 
 function renderAddressHint() {
  setAttr($("browser-url"), "placeholder", navigationId || compactLayout.matches ? "网页地址" : "输入网址，在新标签页打开");
@@ -298,11 +314,18 @@ export function initRemoteBrowser() {
  const tabPicker = $("browser-tabs");
  tabPicker.addEventListener("click", () => {
   if (!navigation) return;
+  if (tabPicker.getAttribute("aria-expanded") === "true") {
+   closeMenu();
+   return;
+  }
+  const favicons = readFavicons(navigationId, navigation.tabs);
   const active = navigation.active;
   openMenu(tabPicker, [
    ...navigation.tabs.map(tab => ({
     label: tab.title || tab.url || i18nText("新建标签页"),
-    icon: tab.id === navigation?.active ? "check" as const : "globe" as const,
+    icon: "globe" as const,
+    checked: tab.id === active,
+    image: favicons.get(tab.id),
     run: () => void updateNavigation({operation:"select", tab:tab.id}),
    })),
    {label:i18nText("新建标签页"), icon:"plus", sep:true, run:() => void updateNavigation({operation:"new"})},

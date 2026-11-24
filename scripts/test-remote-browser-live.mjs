@@ -45,6 +45,20 @@ async function chromeFrameHeight(page, min, max) {
  return (await handle.jsonValue()).y;
 }
 
+async function expectTabFavicon(page) {
+ const row = page.getByRole('menuitemradio', {name:'/navigated', exact:true});
+ const image = row.locator('img');
+ await image.waitFor({timeout:8000});
+ assert.equal(await image.evaluate(el => el.getBoundingClientRect().width), 16);
+ const pixel = await image.evaluate(el => {
+  const canvas = document.createElement('canvas');
+  const drawing = canvas.getContext('2d');
+  drawing.drawImage(el, 0, 0);
+  return [...drawing.getImageData(8, 8, 1, 1).data];
+ });
+ assert.deepEqual(pixel, [0, 192, 128, 255]);
+}
+
 const browser=await launchBrowser();
 try {
  const page=await browser.newPage({locale:'en-US',viewport:{width:1600,height:1100}});
@@ -85,6 +99,7 @@ try {
  const chromeControl = page.locator('#browser-tabs');
  if (process.env.AGENTBOX_REQUIRE_BROWSER_NAVIGATION === '1') await chromeControl.waitFor({state:'visible'});
  const navigationSupported = await chromeControl.isVisible();
+ const requireFavicons = process.env.AGENTBOX_REQUIRE_BROWSER_FAVICONS === '1';
  let beforeFullscreen;
  if (navigationSupported) {
   await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/check'));
@@ -129,10 +144,18 @@ try {
  if (navigationSupported) {
   await chromeFrameHeight(page, 0, beforeFullscreen - 40);
   await chromeControl.click();
+  assert.equal(await page.getByRole('menuitemradio', {name:'/navigated', exact:true}).getAttribute('aria-checked'), 'true');
+  if (requireFavicons) await expectTabFavicon(page);
   await page.getByRole('menuitem', {name:'New tab', exact:true}).last().click();
   await page.waitForFunction(() => document.querySelector('#browser-url').value === '');
   await chromeControl.click();
-  await page.getByRole('menuitem', {name:'/navigated', exact:true}).click();
+  if (requireFavicons) {
+   const blank = page.getByRole('menuitemradio', {checked:true});
+   await blank.locator('.glyph svg').waitFor();
+   await expectTabFavicon(page);
+   assert.equal(await blank.locator('img').count(), 0);
+  }
+  await page.getByRole('menuitemradio', {name:'/navigated', exact:true}).click();
   await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/navigated'));
  }
  await page.locator('#browser-fullscreen').click();
@@ -155,6 +178,16 @@ try {
  await phone.locator('#tab-browser[data-connected]').waitFor({timeout:30000});
  await waitForFittedDesktop(phone, true);
  await waitForRemotePageWidth(phone, phone.locator('#browser-screen canvas'));
+ if (requireFavicons) {
+  await phone.locator('#browser-tabs').click();
+  await expectTabFavicon(phone);
+  assert.equal(await phone.getByRole('menu').evaluate(el => {
+   const bounds = el.getBoundingClientRect();
+   return bounds.left >= 0 && bounds.right <= innerWidth;
+  }), true);
+  await phone.keyboard.press('Escape');
+  console.log('Chrome favicon pixels, active tab and blank-tab fallback passed on desktop and mobile layouts');
+ }
  await phone.screenshot({path:'output/playwright/remote-browser-live-mobile.png'});
  assert.equal(await phone.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
  await phone.setViewportSize({width:844,height:390});

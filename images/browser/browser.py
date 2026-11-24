@@ -4,6 +4,7 @@ Control and VNC relay run as the workspace UID; that UID is the trust boundary.
 """
 import base64
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -23,6 +24,7 @@ PROFILE = Path.home() / '.agentbox-browser'
 VNC_PORT = 5909
 PROXY_PORT = 18089
 MAX_REQUEST = 300000
+FAVICON_EXTENSION = Path(__file__).with_name('tab-favicons')
 
 
 def request(value, timeout=3):
@@ -45,6 +47,13 @@ def safe_url(value):
 
 class Navigation:
     def __init__(self, launch, command):
+        self.favicon_page = ''
+        if (FAVICON_EXTENSION / 'manifest.json').is_file():
+            key = json.loads((FAVICON_EXTENSION / 'manifest.json').read_text())['key']
+            extension_id = hashlib.sha256(base64.b64decode(key)).hexdigest()[:32].translate(
+                str.maketrans('0123456789abcdef', 'abcdefghijklmnop'))
+            self.favicon_page = 'chrome-extension://' + extension_id + '/icons.html'
+            command = [*command, '--load-extension=' + str(FAVICON_EXTENSION)]
         chrome_input, self.output = os.pipe()
         self.input, chrome_output = os.pipe()
         self.buffer = bytearray()
@@ -100,9 +109,51 @@ class Navigation:
         raise TimeoutError('Chrome navigation response unavailable')
 
     def tabs(self):
-        tabs = [t for t in self.call('Target.getTargets')['targetInfos'] if t['type'] == 'page' and not t.get('subtype')]
+        tabs = [t for t in self.call('Target.getTargets')['targetInfos']
+                if t['type'] == 'page' and not t.get('subtype') and t['url'] != self.favicon_page]
         self.sessions = {t['targetId']: self.sessions[t['targetId']] for t in tabs if t['targetId'] in self.sessions}
         return tabs
+
+    def favicons(self, requested):
+        if not self.favicon_page or not requested:
+            return []
+        # Only read cached icons for existing workspace tabs; never accept an
+        # icon URL from the caller. Batches keep replies within the pipe limit.
+        tabs = [tab for tab in self.tabs() if tab['targetId'] in requested
+                and len(tab['url']) <= 8192 and tab['url'].startswith(('https://', 'http://'))]
+        if not tabs:
+            return []
+        target = None
+        try:
+            target = self.call('Target.createTarget', {'url': self.favicon_page, 'hidden': True,
+                                                       'background': True})['targetId']
+            session = self.session(target)
+            # A new target may still be committing its extension page.
+            urls = list(dict.fromkeys(tab['url'] for tab in tabs))
+            expression = 'typeof readTabFavicons === "function" ? readTabFavicons(' + json.dumps(urls) + ') : null'
+            for _ in range(6):
+                try:
+                    result = self.call('Runtime.evaluate', {'expression': expression, 'awaitPromise': True,
+                                                           'returnByValue': True}, session)
+                except ValueError:
+                    pass
+                else:
+                    icons = result['result'].get('value')
+                    if isinstance(icons, list):
+                        by_url = dict(zip(urls, icons))
+                        return [{'id': tab['targetId'], 'url': tab['url'], 'favicon': by_url[tab['url']]}
+                                for tab in tabs if by_url.get(tab['url'])]
+                time.sleep(.05)
+        except (OSError, ValueError):
+            pass  # Older or restricted Chromium builds can use the UI fallback.
+        finally:
+            if target:
+                self.sessions.pop(target, None)
+                try:
+                    self.call('Target.closeTarget', {'targetId': target})
+                except (OSError, ValueError):
+                    pass
+        return []
 
     def session(self, tab):
         if tab not in self.sessions:
@@ -161,6 +212,8 @@ class Navigation:
 
     def handle(self, data):
         action = data['operation']
+        if action == 'favicons':
+            return {'tabs': self.favicons(set(data.get('favicon_tabs', [])))}
         tabs = self.tabs()
         self.active = self.selected(tabs)
         if action == 'fullscreen':

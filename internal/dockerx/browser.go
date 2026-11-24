@@ -56,16 +56,18 @@ func (m *Manager) BrowserCommand(ctx context.Context, id, action, url string, en
 }
 
 type BrowserNavigationRequest struct {
-	Operation string `json:"operation"`
-	URL       string `json:"url,omitempty"`
-	Tab       string `json:"tab,omitempty"`
-	Enabled   bool   `json:"enabled"`
+	Operation   string   `json:"operation"`
+	URL         string   `json:"url,omitempty"`
+	Tab         string   `json:"tab,omitempty"`
+	Enabled     bool     `json:"enabled"`
+	FaviconTabs []string `json:"favicon_tabs,omitempty"`
 }
 
 type BrowserTab struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	URL   string `json:"url"`
+	ID      string `json:"id"`
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Favicon string `json:"favicon,omitempty"`
 }
 
 type BrowserNavigation struct {

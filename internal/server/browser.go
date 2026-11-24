@@ -282,6 +282,9 @@ func (s *Server) handleBrowserClipboard(w http.ResponseWriter, r *http.Request, 
 }
 
 func validNavigationRequest(req dockerx.BrowserNavigationRequest) bool {
+	if len(req.FaviconTabs) != 0 {
+		return false
+	}
 	switch req.Operation {
 	case "navigate":
 		return req.URL != "" && validBrowserURL(req.URL)
@@ -313,6 +316,20 @@ func (s *Server) handleBrowserNavigation(w http.ResponseWriter, r *http.Request,
 			writeErr(w, 400, "浏览器操作失败")
 			return
 		}
+	} else if tabs := r.URL.Query()["favicon"]; len(tabs) != 0 {
+		// Batches fit the browser helper's bounded control response even
+		// when tabs have long URLs.
+		if len(tabs) > 24 {
+			writeErr(w, 400, "浏览器操作失败")
+			return
+		}
+		for _, tab := range tabs {
+			if tab == "" || len(tab) > 128 {
+				writeErr(w, 400, "浏览器操作失败")
+				return
+			}
+		}
+		req.Operation, req.FaviconTabs = "favicons", tabs
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()

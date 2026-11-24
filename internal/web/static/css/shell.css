@@ -153,6 +153,8 @@
   max-height: calc(100dvh - 16px); overflow: auto; overscroll-behavior: contain;
 }
 .kebab-menu.menu-pop button { white-space: nowrap; }
+.kebab-menu .menu-choice-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.kebab-menu .menu-choice-check { flex: none; }
 @media (pointer: coarse) {
   .kebab-menu.menu-pop button { min-height: 40px; }
 }

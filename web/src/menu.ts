@@ -16,6 +16,8 @@ export interface MenuItem {
   danger?: boolean;
   disabled?: boolean;
   hidden?: boolean;
+  image?: Promise<string | undefined>;
+  checked?: boolean;
   /** 说明文字，用作气泡与读屏名称 */
   tip?: string;
   /** 在此项之前画一条分隔线 */
@@ -74,7 +76,28 @@ function buildMenu(items: MenuItem[]) {
     const glyph = document.createElement("span");
     glyph.className = "glyph";
     glyph.append(svgIcon(it.icon, 17));
-    b.append(glyph, it.label);
+    if (it.image) void it.image.then(src => {
+      if (!src || !glyph.isConnected) return;
+      const image = document.createElement("img");
+      image.alt = "";
+      image.width = image.height = 16;
+      image.addEventListener("load", () => glyph.replaceChildren(image), {once:true});
+      image.src = src;
+    });
+    if (it.checked === undefined) b.append(glyph, it.label);
+    else {
+      b.setAttribute("role", "menuitemradio");
+      b.setAttribute("aria-checked", String(it.checked));
+      const label = document.createElement("span");
+      label.className = "menu-choice-label";
+      label.textContent = it.label;
+      b.append(glyph, label);
+      if (it.checked) {
+        const check = svgIcon("check", 16);
+        check.classList.add("menu-choice-check");
+        b.append(check);
+      }
+    }
     b.addEventListener("click", (e) => {
       e.stopPropagation();
       closeMenu();

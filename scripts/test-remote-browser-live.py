@@ -71,15 +71,21 @@ try:
         # Fixture HTTP app stores an ordinary persistent login cookie. All page
         # loads stay on container loopback, with the workspace network disabled.
         fixture=tmp/'website.py'
-        fixture.write_text('''from http.server import HTTPServer,BaseHTTPRequestHandler
+        fixture.write_text('''from base64 import b64decode
+from http.server import HTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 class Handler(BaseHTTPRequestHandler):
  def do_GET(self):
   Path('/workspace/browser-hits').open('a').write(self.path+' '+self.headers.get('Cookie','')+'\\n')
   self.send_response(200)
+  if self.path == '/tab-icon.png':
+   self.send_header('Content-Type', 'image/png')
+   self.end_headers()
+   self.wfile.write(b64decode('iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAFUlEQVR4nGNgONBAGhrVMKph+GoAAJ+3QBAm9UphAAAAAElFTkSuQmCC'))
+   return
   if self.path=='/login': self.send_header('Set-Cookie','synthetic_login=yes; Max-Age=86400; Path=/')
   self.send_header('Content-Type','text/html; charset=utf-8');self.end_headers()
-  self.wfile.write("""<html><body style="background:#f4f6fa;color:#13233a;font:24px sans-serif;padding:48px"><div style="position:fixed;top:0;left:35%;width:30%;height:8px;background:#ef1e9e;pointer-events:none"></div><h1>Remote browser fixture</h1><p>Persistent login and UTF-8 clipboard</p><textarea oninput="fetch('/typed?value='+encodeURIComponent(this.value))" style="width:600px;height:180px;font-size:24px" autofocus></textarea><script>document.title=location.pathname;const report=()=>fetch('/viewport?width='+innerWidth);addEventListener('resize',report);report()</script></body></html>""".encode())
+  self.wfile.write("""<html><head><link rel="icon" href="/tab-icon.png"></head><body style="background:#f4f6fa;color:#13233a;font:24px sans-serif;padding:48px"><div style="position:fixed;top:0;left:35%;width:30%;height:8px;background:#ef1e9e;pointer-events:none"></div><h1>Remote browser fixture</h1><p>Persistent login and UTF-8 clipboard</p><textarea oninput="fetch('/typed?value='+encodeURIComponent(this.value))" style="width:600px;height:180px;font-size:24px" autofocus></textarea><script>document.title=location.pathname;const report=()=>fetch('/viewport?width='+innerWidth);addEventListener('resize',report);report()</script></body></html>""".encode())
  def log_message(self,*args):pass
 HTTPServer(('127.0.0.1',8765),Handler).serve_forever()
 ''')
@@ -120,9 +126,10 @@ HTTPServer(('127.0.0.1',8765),Handler).serve_forever()
             time.sleep(.2)
         else:raise AssertionError('login cookie lost on workspace restart')
         # Browser endpoints are never public, even status.
-        try:request(path+'/browser',override='invalid')
-        except urllib.error.HTTPError as err:assert err.code==401
-        else:raise AssertionError('unauthenticated browser access')
+        for suffix in ('/browser', '/browser/navigation?favicon=tab'):
+            try:request(path+suffix,override='invalid')
+            except urllib.error.HTTPError as err:assert err.code==401
+            else:raise AssertionError('unauthenticated browser access')
         request(path+'?purge=1',method='DELETE')
         print('Real browser: sandbox, no published ports, page loading, UTF-8 clipboard, RFB/UI, persistent cookie across browser/workspace restart, auth, purge passed')
 except Exception as exc:

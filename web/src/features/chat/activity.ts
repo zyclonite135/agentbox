@@ -1,4 +1,5 @@
 import { svgIcon } from "../../icons.js";
+import { agentIcon } from "../../brand.js";
 import { setTextRender, t } from "../../i18n.js";
 
 const captions = {
@@ -34,7 +35,7 @@ function title(items: HTMLElement) {
 }
 
 /** Store the existing tool nodes inside a native disclosure, including their handlers and results. */
-export function activityNode(prev: Element | null, node: HTMLElement): HTMLElement | null {
+export function activityNode(prev: Element | null, node: HTMLElement, agent: () => string): HTMLElement | null {
   if (!steps.has(node)) return node;
   const previous = prev && groups.get(prev);
   if (previous) { previous.items.append(node); return null; }
@@ -47,7 +48,9 @@ export function activityNode(prev: Element | null, node: HTMLElement): HTMLEleme
   label.className = "fold-text";
   const items = document.createElement("div");
   items.className = "fold-items";
-  head.append(svgIcon("chat.tool-group", 13), label);
+  const avatar = agentIcon(agent(), 18);
+  avatar.classList.add("fold-agent-icon");
+  head.append(avatar, svgIcon("chat.tool-group", 13), label);
   items.append(node);
   fold.append(head, items);
   groups.set(fold, { fold, items });

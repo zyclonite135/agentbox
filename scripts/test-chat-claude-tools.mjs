@@ -189,6 +189,10 @@ export async function chatClaudeToolsSmoke(page, { setHistory, send, socket, set
 
  // Narrow screens: long commands and diffs scroll inside their rows.
  await page.setViewportSize({width:390, height:844});
+ await head(groups(0).first()).locator('.fold-agent-icon.agent-claude').waitFor({state:'visible'});
+ assert.equal(await groups(0).locator('.fold-agent-icon:visible').count(), 1, 'only the first activity summary shows a brand icon');
+ assert.equal(await head(groups(0).first()).locator('.fold-agent-icon.agent-claude').isVisible(), true);
+ assert.equal(await head(groups(0).last()).locator('.ui-icon').isVisible(), true, 'later summaries keep the tool icon');
  await turns.nth(0).scrollIntoViewIfNeeded();
  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
  await page.screenshot({path:'output/playwright/chat-claude-tools-mobile.png', animations:'disabled'});

@@ -52,6 +52,13 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await rows.first().waitFor({state:'attached'});
  const activity = page.locator('#chat-log .fold-activity');
  const activityHead = activity.first().locator(':scope > summary');
+ const firstReply = page.locator('#chat-log .turn:not(.working)').first();
+ const sideAvatar = firstReply.locator(':scope > .turn-avatar');
+ const summaryAvatar = activityHead.locator('.fold-agent-icon.agent-codex');
+ const summaryToolIcon = activityHead.locator('.ui-icon');
+ assert.equal(await sideAvatar.isVisible(), true);
+ assert.equal(await summaryAvatar.isVisible(), false);
+ assert.equal(await summaryToolIcon.isVisible(), true);
  assert.equal(await activity.count(), 1);
  assert.equal(await activityHead.textContent(),
   '工作过程 · 推理摘要 1 段, 读文件 1 次, 命令 2 条, 文件变更 1 项, 搜索次数 1, 工具调用 1 次');
@@ -221,10 +228,18 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
 
  // Narrow screens: long commands and output scroll inside their rows.
  await page.setViewportSize({width:390, height:844});
+ await summaryAvatar.waitFor({state:'visible'});
+ assert.equal(await sideAvatar.isVisible(), false);
+ assert.equal(await summaryAvatar.isVisible(), true);
+ assert.equal(await summaryToolIcon.isVisible(), false);
+ assert.equal(await firstReply.evaluate(turn =>
+  turn.querySelector('.turn-body').getBoundingClientRect().left === turn.getBoundingClientRect().left), true);
  await rows.nth(0).scrollIntoViewIfNeeded();
  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
  await page.screenshot({path:'output/playwright/chat-codex-items-mobile.png', animations:'disabled'});
  await page.setViewportSize({width:1280, height:900});
+ await sideAvatar.waitFor({state:'visible'});
+ assert.equal(await summaryAvatar.isVisible(), false);
  await page.screenshot({path:'output/playwright/chat-codex-items.png', animations:'disabled'});
 
  const generated = '/home/agent/.codex/generated_images/thread/image.png';
@@ -246,6 +261,10 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  assert.equal(await imageMenu.isVisible(), false);
  assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 2);
  await page.setViewportSize({width:320, height:844});
+ assert.equal(await firstReply.locator('.fold-activity').count(), 0, 'this reply has no activity summary');
+ await sideAvatar.waitFor({state:'hidden'});
+ assert.equal(await firstReply.evaluate(turn =>
+  turn.querySelector('.turn-body').getBoundingClientRect().left === turn.getBoundingClientRect().left), true);
  assert.equal(await page.locator('#chat-log .chat-image-trace:visible').count(), 0);
  assert.doesNotMatch(await page.locator('#chat-log').innerText(), /generated_images/);
  const menuButton = imageMenu.locator('summary');

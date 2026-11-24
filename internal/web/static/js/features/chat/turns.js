@@ -69,7 +69,7 @@ export class TurnWriter {
             footer.setReceipt(node);
         else {
             const previous = footer.el.previousElementSibling;
-            const display = activityNode(previous, node);
+            const display = activityNode(previous, node, this.agent);
             if (display && !foldInto(previous, display))
                 body.insertBefore(display, footer.el);
         }

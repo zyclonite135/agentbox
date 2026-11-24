@@ -730,6 +730,7 @@ details.think summary:hover { color: var(--text); }
 .fold-activity > summary::-webkit-details-marker { display: none; }
 .fold-activity > .fold-head { list-style: none; min-height: 24px; }
 .fold-activity > .fold-head::after { flex: none; }
+.fold-activity > .fold-head > .fold-agent-icon { display: none; }
 .fold-activity > .fold-head > .fold-text { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .fold-activity > .fold-items { min-width: 0; }
 @media (pointer: coarse) {
@@ -1577,6 +1578,9 @@ details.think.streaming .think-body::after {
   .thread-panel { width: min(300px, 84vw); }
   .turn { gap: 9px; }
   .turn-avatar .agent-ico { width: 22px; height: 22px; }
+  .turn:not(.working) > .turn-avatar { display: none; }
+  .turn-body > .fold-activity:not(.fold-activity ~ .fold-activity) > .fold-head > .fold-agent-icon { display: block; }
+  .turn-body > .fold-activity:not(.fold-activity ~ .fold-activity) > .fold-head > .ui-icon { display: none; }
   .chip { max-width: 100%; }
   .composer-wrap { padding: 4px 10px 12px; }
   .composer { border-radius: calc(20px * var(--radius-scale)); padding: 10px 10px 8px 12px; }

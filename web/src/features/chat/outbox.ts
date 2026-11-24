@@ -1,7 +1,7 @@
 import {readChatReceipt} from "../../contracts/chat.js";
 import {S} from "../../state.js";
 import {api} from "../../api.js";
-import {$,askConfirm} from "../../util.js";
+import {$,askConfirm,isMobile} from "../../util.js";
 import {actionButton,svgIcon,type IconSlot} from "../../icons.js";
 import {t,setTextRender,setAttrRender} from "../../i18n.js";
 import {APIError,problemMessages} from "../../problems.js";
@@ -34,6 +34,7 @@ function look(state:Outgoing["state"],code="",merged=false,paused=false):Look{
  }
 }
 const settled=(state:Outgoing["state"])=>state!=="unconfirmed"&&state!=="queued"&&!receiptActive(state);
+const queryFailureNotice="无法确认消息结果，已保留待确认内容。请重新查询。";
 const identifier=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("");
 const key=(session:string,id:string)=>session+"/"+id;
 const delegationEnvelope=(input:ChatRequestInput)=>input.delegation?[input.delegation.version,input.delegation.workers.map(w=>[w.account_id,w.model]),input.delegation.jev]:null;
@@ -45,7 +46,7 @@ function receipt(value:unknown,session:string,id?:string):ChatRequestReceipt {
 }
 
 /** Owns only delivery/recovery. Polling and socket events never submit a task. */
-export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;move:(expected:Draft)=>void;restore:(draft:Draft)=>boolean;followed:(how:"queued"|"steered")=>void;paused:()=>boolean}){
+export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;networkUnavailable:()=>boolean;move:(expected:Draft)=>void;restore:(draft:Draft)=>boolean;followed:(how:"queued"|"steered")=>void;paused:()=>boolean}){
  const owner=S.token,scope=S.chatScope,protocol=S.chatProtocol,lifetime=new AbortController();
  const storage=new OutboxStore(localStorage,scope,S.draftScope);
  const enabled=protocol===1;
@@ -130,9 +131,9 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;mov
     if(!c||receiptActive(c.state)||c.state==="queued"&&!listed.has(row.id))await query(row,signal);
     if(!current(session,generation))return;
    }
-   queryFailed=false;notice="";noticeTranslated=false;
+   queryFailed=false;notice="";noticeError=false;noticeTranslated=false;
   }catch{
-   if(current(session,generation)){queryFailed=true;notice="无法确认消息结果，已保留待确认内容。请重新查询。";noticeError=true;noticeTranslated=false;}
+   if(current(session,generation)){queryFailed=true;notice=queryFailureNotice;noticeError=true;noticeTranslated=false;}
   }finally{
    refreshing=false;
    if(current(session,generation)){loading=false;render();}
@@ -168,7 +169,7 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;mov
    if(!storage.add(row)){say("待确认副本未保存，暂未发送。请检查本机存储，或关闭本机保存后重试。",true);return;}
    if(row.draft)hooks.move(row.draft);
    await transmit(row);
-  }catch{if(current(row.session,generation))say("无法确认消息结果，已保留待确认内容。请重新查询。",true);}
+  }catch{if(current(row.session,generation))say(queryFailureNotice,true);}
  }
  async function act(row:Outgoing,action:"review"|"abandon"|"interrupt"|"withdraw"){
   if(!guard()||busy.has(key(row.session,row.id)))return;
@@ -222,23 +223,28 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;mov
   const waiting=items.filter(r=>r.state==="queued").length;
   const other=(row:Outgoing)=>row.thread!==context?.thread?" · "+t("另一对话的消息"):"";
   const highlighted=items.find(r=>r.state==="unconfirmed"||r.state==="uncertain")||items.find(r=>receiptActive(r.state))||items.find(r=>r.state!=="completed")||items[0];
+  const compactQueryFailure=isMobile()&&notice===queryFailureNotice&&!noticeTranslated&&!storage.error&&!scopeChanged;
+  const savedText=compactQueryFailure&&storage.enabled&&items.some(row=>
+   (row.state==="unconfirmed"||row.state==="uncertain")&&Boolean(row.draft?.text||row.input?.text));
+  const coveredByConnection=compactQueryFailure&&!items.some(row=>row.state!=="completed")&&hooks.networkUnavailable();
+  root.classList.toggle("delivery-query-failure",compactQueryFailure);
   $<HTMLButtonElement>("chat-delivery-toggle").disabled=!items.length;
   if(!items.length)showDetails(false);
   setTextRender($("chat-delivery-count"),()=>String(items.length));
   setAttrRender($("chat-delivery-count"),"aria-label",()=>t("{count} 条消息",{count:items.length}));
   $("chat-delivery-count").classList.toggle("hidden",items.length<2);
   // A finished turn says nothing the conversation does not already show.
-  root.classList.toggle("hidden",enabled&&!items.some(r=>r.state!=="completed")&&!loading&&!queryFailed&&!scopeChanged&&!notice&&!storage.error);
+  root.classList.toggle("hidden",coveredByConnection||enabled&&!items.some(r=>r.state!=="completed")&&!loading&&!queryFailed&&!scopeChanged&&!notice&&!storage.error);
   // Any of these replaces the headline, so the row's reason and action step aside.
   const pageIssue=unsupported||!enabled||!scope||scopeChanged||!!notice||storage.error;
   const view=highlighted&&look(highlighted.state,code(highlighted),merged(highlighted),hooks.paused());
   root.dataset.tone=pageIssue&&noticeError||queryFailed||unsupported||scopeChanged||storage.error?"attention":loading?"busy":view?.tone||"quiet";
   // Status precedence: a page/protocol problem, then this row's own story.
-  const headline=()=>unsupported?t("当前网页不支持此服务端的消息协议，请刷新页面或升级客户端。"):!enabled?t("此服务端使用旧发送方式，无法按消息编号确认接收结果。"):!scope||scopeChanged?t("消息所属的实例或登录身份已变化"):notice?(noticeTranslated?notice:t(notice)):storage.error?t("本机待确认副本保存失败，请保留本页并检查存储设置。"):loading?t("正在查询消息接收状态…"):view?t(view.title)+other(highlighted):t("消息确认与恢复");
+  const headline=()=>unsupported?t("当前网页不支持此服务端的消息协议，请刷新页面或升级客户端。"):!enabled?t("此服务端使用旧发送方式，无法按消息编号确认接收结果。"):!scope||scopeChanged?t("消息所属的实例或登录身份已变化"):compactQueryFailure?t(savedText?"文本已保存":"无法查询消息状态"):notice?(noticeTranslated?notice:t(notice)):storage.error?t("本机待确认副本保存失败，请保留本页并检查存储设置。"):loading?t("正在查询消息接收状态…"):view?t(view.title)+other(highlighted):t("消息确认与恢复");
   const detail=()=>pageIssue||loading||!view?"":highlighted.state==="unconfirmed"&&!storage.enabled?t("本机保存已关闭；待确认内容仅保留在当前页面。"):receiptActive(highlighted.state)&&waiting?t("后面还有 {n} 条排队",{n:waiting}):view.reason?t(view.reason):"";
   setTextRender(status,headline);setTextRender(reason,detail);
   reason.classList.toggle("hidden",!detail());
-  status.classList.toggle("error",noticeError||storage.error);
+  status.classList.toggle("error",noticeError&&!compactQueryFailure||storage.error);
   $<HTMLButtonElement>("chat-delivery-refresh").disabled=!enabled||loading||refreshing;
   const next=highlighted&&!pageIssue&&!loading?primary(highlighted):undefined;
   const quickKey=JSON.stringify([highlighted?.id,highlighted?.state,next?.label,next?.disabled,highlighted&&busy.has(key(highlighted.session,highlighted.id))]);

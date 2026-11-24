@@ -6,6 +6,7 @@ import { setAttrRender, setTextRender, t as i18nText } from "./i18n.js";
 
 import { $, fmtLatency } from "./util.js";
 import { refreshAll } from "./data.js";
+import { emit } from "./state.js";
 import { setTip } from "./tip.js";
 
 const INTERVAL = 5000;
@@ -14,10 +15,13 @@ const TIMEOUT = 8000;
 const OFFLINE_AFTER = 2;
 let timer = 0;
 let fails = 0;
+let unreachable = false;
 let generation = 0;
 let pending: AbortController | null = null;
 
-async function measure() {
+export const serverUnreachable = () => unreachable;
+
+export async function probeServer() {
   if (document.hidden || pending) return; // 后台标签不必刷，回到前台下一拍即恢复
   const gen = generation;
   const ctrl = pending = new AbortController();
@@ -47,6 +51,9 @@ async function measure() {
 function setOffline(on: boolean) {
   const el = $("offline-banner");
   if (el) el.classList.toggle("hidden", !on);
+  if (unreachable === on) return;
+  unreachable = on;
+  emit("server-reachability-changed");
 }
 
 function render(ms: number, ok: boolean) {
@@ -61,14 +68,14 @@ function render(ms: number, ok: boolean) {
 /* 从后台切回前台：轮询这段时间是停摆的，立刻测一次并刷新数据，
  * 免得用户看着一屏 8 秒前（或几分钟前）的旧状态。 */
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && timer) { measure(); refreshAll(); }
+  if (!document.hidden && timer) { void probeServer(); refreshAll(); }
 });
 
 /* 登录进入主界面后启动；重复调用只保留一个循环。 */
 export function startPing() {
   if (timer) return;
-  measure();
-  timer = setInterval(measure, INTERVAL);
+  void probeServer();
+  timer = setInterval(probeServer, INTERVAL);
 }
 
-export function stopPing() { ++generation; clearInterval(timer); timer = 0; pending?.abort(); pending = null; fails = 0; }
+export function stopPing() { ++generation; clearInterval(timer); timer = 0; pending?.abort(); pending = null; fails = 0; setOffline(false); }

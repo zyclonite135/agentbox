@@ -923,4 +923,5 @@ export default {
     "登录方式": "Method",
     "客户端": "Client",
     "加载更多": "Load more",
+    "复制操作编号": "Copy operation ID",
 };

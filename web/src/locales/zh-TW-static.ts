@@ -925,4 +925,5 @@ export default {
   "登录方式": "登入方式",
   "客户端": "用戶端",
   "加载更多": "載入更多",
+  "复制操作编号": "複製操作編號",
 } satisfies Record<string, string>;

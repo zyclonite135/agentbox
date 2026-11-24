@@ -13,7 +13,8 @@ import type {
 import { $, fmtClock, fmtElapsed, spinEl, insertAtCursor, openLightbox, isMobile, onMobileChange, askPrompt, toast, isImeEnter, enterInsertsNewline } from "./util.js";
 import { api, wsURL, imgURLFromPath, uploadAttachment } from "./api.js";
 import { refreshAll } from "./data.js";
-import { chip, renderUserTurn, renderSteer, interruptedChip, problemChip, svgIcon, USER_ATTACH_RE } from "./chat-render.js";
+import { probeServer, serverUnreachable } from "./ping.js";
+import { chip, copyText, renderUserTurn, renderSteer, interruptedChip, problemChip, svgIcon, USER_ATTACH_RE } from "./chat-render.js";
 import { observeAnswer } from "./chat-footer.js";
 import { setThreadBar, noteThreadTitle, applyThreadTitle, threadTitleOf } from "./chat-threads.js";
 import { agentIcon, agentAvatar } from "./brand.js";
@@ -77,8 +78,41 @@ let chatConnectionID: string | undefined;
 
 /** 对话通道状态条的四种态；connected 表示收起状态条 */
 type ChatConn = "connected" | "connecting" | "waking" | "closed";
+let chatConnState: ChatConn = "connected";
+const networkUnavailable = () => !navigator.onLine || serverUnreachable();
+
+function renderMobileChatConnection() {
+  const bar = $("mobile-chat-connection");
+  const offline = !navigator.onLine;
+  const unreachable = serverUnreachable();
+  const visible = isMobile() && (offline || unreachable || chatConnState !== "connected");
+  bar.classList.toggle("hidden", !visible);
+  const details = $<HTMLDetailsElement>("mobile-chat-connection-details");
+  if (!visible) { details.open = false; return; }
+
+  const title = offline ? "无网络连接"
+    : unreachable ? "无法连接 AgentBox"
+    : chatConnState === "waking" ? "正在唤醒工作空间…"
+    : chatConnState === "closed" ? "对话连接已断开"
+    : chatConnectionID ? "正在重连对话…" : "对话连接建立中…";
+  setText($("mobile-chat-connection-status"), title);
+  bar.dataset.tone = offline || unreachable || chatConnState === "closed" ? "bad" : "warn";
+  const canRetry = !offline && (unreachable || chatConnState === "closed");
+  bar.classList.toggle("has-retry", canRetry);
+  $("mobile-chat-reconnect").classList.toggle("hidden", !canRetry);
+  const reference = chatConnectionID;
+  setTextRender($("mobile-chat-connection-reason"), () => reference
+    ? formatProblem({code:"websocket_failed", operation_id:reference}, i18nText)
+    : i18nText(offline ? "请检查设备的网络连接。"
+      : unreachable ? "与服务器的连接已断开，正在重连…"
+      : chatConnState === "waking" ? "工作空间已休眠，正在唤醒…"
+      : chatConnState === "closed" ? "对话连接不可用" : title));
+  $("mobile-chat-copy-reference").classList.toggle("hidden", !reference);
+}
 
 function setChatConn(state: ChatConn) {
+  chatConnState = state;
+  renderMobileChatConnection();
   const bar = $("chat-conn");
   if (!bar) return;
   if (state === "connected") { bar.classList.add("hidden"); return; }
@@ -1418,6 +1452,7 @@ export function initChat() {
  });
  outbox=initChatOutbox({
   connected:()=>connection.ready,
+  networkUnavailable,
   // 回执说任务在跑、对话连接却没告诉过本页：连接可能已经断了而浏览器不知道，探一下
   changed:()=>{const state=outbox?.executionState();if(state&&S.chatState!==state){if(state==="running")connection.probe();setChatStatus(state);}else updateHero();syncPendingUser();},
   move:expected=>{if(draftFingerprint(composerDraft())===draftFingerprint(expected))applyComposerDraft({text:"",attachments:[]});},
@@ -1429,17 +1464,37 @@ export function initChat() {
   followed:how=>toast(how==="steered"?i18nText("已插入当前任务，当前步骤结束后生效"):pausedQueue()?i18nText("已排队，5 小时额度重置后自动执行"):S.chatState!=="running"&&runningCount()>=maxParallelChats()?i18nText("已有 {p0} 个对话在运行，已排队，空出位置后自动执行",{p0:String(maxParallelChats())}):i18nText("已排队，这一轮结束后自动执行")),
   paused:()=>!!pausedQueue(),
  });
- window.matchMedia("(max-width: 760px)").addEventListener("change", updateChatPlaceholder, { signal: lifetime.signal });
+ const refreshConnectionDisplay = () => { renderMobileChatConnection(); outbox?.repaint(); };
+ window.matchMedia("(max-width: 760px)").addEventListener("change", () => {
+  updateChatPlaceholder(); refreshConnectionDisplay();
+ }, { signal: lifetime.signal });
  updateChatPlaceholder();
+ refreshConnectionDisplay();
+ bus.addEventListener("server-reachability-changed", refreshConnectionDisplay, { signal: lifetime.signal });
+ window.addEventListener("offline", refreshConnectionDisplay, { signal: lifetime.signal });
  // 页面挂后台、电脑睡眠或切网之后，连接可能已经断了而浏览器仍报告在线：回来时探一下
  document.addEventListener("visibilitychange", () => { if (!document.hidden) connection.probe(); }, { signal: lifetime.signal });
- window.addEventListener("online", () => connection.probe(), { signal: lifetime.signal });
+ window.addEventListener("online", () => {
+  connection.probe();
+  refreshConnectionDisplay();
+  if (isMobile()) void probeServer();
+ }, { signal: lifetime.signal });
  window.addEventListener("pageshow", () => connection.probe(), { signal: lifetime.signal });
- $("chat-reconnect").addEventListener("click", () => {
+ const reconnectChat = () => {
   if (!S.current) return;
   chatAttempt = 0;
   connectChat();
-}, { signal: lifetime.signal });
+ };
+ $("chat-reconnect").addEventListener("click", reconnectChat, { signal: lifetime.signal });
+ $("mobile-chat-reconnect").addEventListener("click", () => {
+  if (networkUnavailable()) void probeServer();
+  reconnectChat();
+ }, { signal: lifetime.signal });
+ $("mobile-chat-copy-reference").addEventListener("click", async () => {
+  if (!chatConnectionID) return;
+  try { await copyText(chatConnectionID); toast(i18nText("已复制")); }
+  catch { toast(i18nText("复制失败，请选择内容后手动复制"), true); }
+ }, { signal: lifetime.signal });
 $("chat-log").addEventListener("scroll", updateScrollBottomButton, { ...({ passive: true }), signal: lifetime.signal });
 $("chat-scroll-bottom").addEventListener("click", () => {
   if (historyWindow.isOpen()) { showLatest(); return; }

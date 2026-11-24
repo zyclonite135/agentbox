@@ -3131,4 +3131,12 @@ export default {
   "换取令牌失败 (HTTP {status})，请重新授权": "Could not exchange the authorization code for a token (HTTP {status}). Authorize again.",
   "额度已用完（余额 {balance}），请联系管理员充值后再继续": "The quota is exhausted (balance {balance}). Ask an administrator to top it up before continuing.",
   "浏览器操作失败，请检查镜像、内存和 Chrome 沙箱支持: {detail}": "The browser operation failed. Check the image, available memory, and Chrome sandbox support. Details: {detail}",
+  "无网络连接": "No internet",
+  "无法连接 AgentBox": "Cannot reach AgentBox",
+  "正在唤醒工作空间…": "Waking workspace…",
+  "对话连接已断开": "Chat disconnected",
+  "正在重连对话…": "Reconnecting to chat…",
+  "请检查设备的网络连接。": "Check this device’s network connection.",
+  "文本已保存": "Message saved",
+  "无法查询消息状态": "Message status unavailable",
 } satisfies Record<string, string>;

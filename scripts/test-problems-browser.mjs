@@ -12,6 +12,49 @@ const language = (page, locale) => page.evaluate(async locale => {
 const expected = (code, locale) => problemMessages[code].map(text => locale === 'en' ? en[text] : locale === 'zh-TW' ? tw[text] : text);
 const problem = code => ({code, error:'synthetic-secret /private/config.json',hint:'synthetic-secret',operation_id:id,action:'contact_admin',retryable:false});
 
+async function mobileDeliverySmoke(page) {
+  const scope='a'.repeat(64), thread='mobile-receipt-thread';
+  const mePath='**/api/me', historyPath=/\/sessions\/fixture-space\/history(?:\?|$)/;
+  const receiptPath=/\/sessions\/fixture-space\/chat\/requests(?:[/?]|$)/;
+  const me=route=>route.fulfill({json:{user:'fixture',role:'admin',timezone:'UTC',draft_protocol:1,draft_scope:scope,chat_protocol:1,chat_scope:scope}});
+  const history=route=>route.fulfill({json:{entries:[],active_thread:thread}});
+  const receipts=route=>route.fulfill({status:503,json:{code:'internal_error'}});
+  await page.route(mePath,me);
+  await page.route(historyPath,history);
+  await page.route(receiptPath,receipts);
+  try {
+    await page.reload();
+    await language(page,'en');
+    const delivery=page.locator('#chat-delivery');
+    const status=page.locator('#chat-delivery-status');
+    await status.filter({hasText:'Message status unavailable'}).waitFor();
+    await page.evaluate(()=>{
+      Object.defineProperty(navigator,'onLine',{configurable:true,value:false});
+      window.dispatchEvent(new Event('offline'));
+    });
+    await delivery.waitFor({state:'hidden'});
+    await page.evaluate(({scope,thread,id})=>{
+      const key='agentbox.chat-outbox.v1.'+scope+'.'+id;
+      localStorage.setItem(key,JSON.stringify({version:1,id,session:'fixture-space',thread,created:Date.now(),
+        input:{scope,thread_id:thread,text:'Saved example',model:'fixture',effort:'',effort_control:''},draft:null,revision:0,state:'unconfirmed'}));
+      window.dispatchEvent(new StorageEvent('storage',{key}));
+    },{scope,thread,id});
+    await status.filter({hasText:'Message saved'}).waitFor();
+    await delivery.getByRole('button',{name:'Check status'}).waitFor();
+  } finally {
+    await page.evaluate(({scope,id})=>{
+      Reflect.deleteProperty(navigator,'onLine');
+      window.dispatchEvent(new Event('online'));
+      localStorage.removeItem('agentbox.chat-outbox.v1.'+scope+'.'+id);
+    },{scope,id});
+    await page.unroute(receiptPath,receipts);
+    await page.unroute(historyPath,history);
+    await page.unroute(mePath,me);
+    await page.reload();
+    await page.locator('#chat-input').waitFor({state:'visible'});
+  }
+}
+
 export async function loginProblemsSmoke(page) {
   let payload = problem('invalid_credentials');
   const handler = route => route.fulfill({status:401,json:payload});
@@ -92,12 +135,55 @@ export async function problemsSmoke(page, base, socket, history) {
     await page.waitForFunction(()=>document.querySelector('#sidebar').getBoundingClientRect().right<=1);
     const reference=new URL(socket().url()).searchParams.get('connection_id');
     assert.match(reference,/^[a-f0-9]{32}$/);
-    socket().close({code:1011,reason:'synthetic disconnect'});
-    await page.locator('#chat-conn-text').filter({hasText:reference}).waitFor();
-    assert.equal(await page.locator('#chat-conn').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,'connection error overflows on narrow screen');
+    socket().close({code:4001,reason:'synthetic disconnect'});
+    const mobileConnection=page.locator('#mobile-chat-connection');
+    const mobileStatus=page.locator('#mobile-chat-connection-status');
+    const reason=page.locator('#mobile-chat-connection-reason');
+    const offlineBanner=page.locator('#offline-banner');
+    await mobileStatus.filter({hasText:'Chat disconnected'}).waitFor();
+    assert.ok(await page.locator('#chat-conn').isHidden());
+    assert.ok(await reason.isHidden());
+    assert.equal(await mobileConnection.evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,'connection status overflows on narrow screen');
+    await mobileConnection.locator('summary').click();
+    await reason.filter({hasText:reference}).waitFor();
+    await page.locator('#mobile-chat-copy-reference').waitFor();
+    await mobileConnection.locator('summary').click();
+    const serverUnreachable=route=>route.fulfill({status:503});
+    const pingPath=/\/api\/ping(?:\?|$)/;
+    await page.route(pingPath,serverUnreachable);
+    try {
+      await page.evaluate(async()=>{
+        const {probeServer}=await import('/_v/{{BUILD}}/js/ping.js');
+        await probeServer(); await probeServer();
+      });
+      await mobileStatus.filter({hasText:'Cannot reach AgentBox'}).waitFor();
+      assert.ok(await offlineBanner.isHidden(),'global banner duplicates the mobile status');
+      await page.evaluate(()=>{
+        Object.defineProperty(navigator,'onLine',{configurable:true,value:false});
+        window.dispatchEvent(new Event('offline'));
+      });
+      await mobileStatus.filter({hasText:'No internet'}).waitFor();
+      assert.ok(await page.locator('#mobile-chat-reconnect').isHidden());
+      await page.evaluate(()=>{
+        Reflect.deleteProperty(navigator,'onLine');
+        window.dispatchEvent(new Event('online'));
+      });
+      await mobileStatus.filter({hasText:'Cannot reach AgentBox'}).waitFor();
+      await page.setViewportSize({width:1280,height:900});
+      await offlineBanner.waitFor({state:'visible'});
+      await page.locator('#chat-conn-text').filter({hasText:reference}).waitFor();
+      assert.ok(await mobileConnection.isHidden());
+      await page.setViewportSize({width:390,height:900});
+      await mobileConnection.waitFor({state:'visible'});
+    } finally {
+      await page.unroute(pingPath,serverUnreachable);
+    }
     await mkdir('output/playwright',{recursive:true});
     await page.screenshot({path:'output/playwright/problems-english-mobile.png',animations:'disabled'});
-    console.log('Problems browser: three-language login/start/chat/history, server restart/upgrade/time-limit notice, old-server fallback, redaction, narrow layout and WS connection reference passed');
+    await page.locator('#mobile-chat-reconnect').click();
+    await mobileConnection.waitFor({state:'hidden'});
+    await mobileDeliverySmoke(page);
+    console.log('Problems browser: error localization, redaction, mobile connection, details, reconnect, message status and desktop layout passed');
   } finally {
     await page.unroute('**/api/sessions/fixture-space/start',handler);
     history([]);

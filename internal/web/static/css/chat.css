@@ -855,8 +855,51 @@ details.think.streaming .think-body::after {
 .chat-conn .btn { margin-left: auto; flex-shrink: 0; }
 #chat-conn-text { min-width: 0; overflow-wrap: anywhere; }
 
+.mobile-chat-connection { display: none; }
 @media (max-width: 760px) {
-  .chat-conn { margin: 6px 8px 0; }
+  .chat-conn { display: none; }
+  body:has(#view-work:not(.hidden) #workbench:not(.hidden) #tab-chat:not(.hidden) #mobile-chat-connection:not(.hidden)) #offline-banner { display: none; }
+  .mobile-chat-connection:not(.hidden) {
+    display: block;
+    position: relative;
+    flex: none;
+    margin: 6px 8px 0;
+    border: 1px solid var(--line);
+    border-radius: calc(9px * var(--radius-scale));
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .mobile-chat-connection summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 4px 10px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .mobile-chat-connection summary::-webkit-details-marker { display: none; }
+  .mobile-chat-connection.has-retry summary { padding-inline-end: 100px; }
+  .mobile-chat-connection summary > svg { flex: none; }
+  .mobile-chat-connection details[open] summary > svg { transform: rotate(180deg); }
+  .mobile-chat-connection[data-tone="bad"] .t-dot { background: var(--red); }
+  .mobile-chat-connection[data-tone="warn"] .t-dot { background: var(--amber); }
+  #mobile-chat-connection-status { overflow-wrap: anywhere; }
+  #mobile-chat-reconnect {
+    position: absolute;
+    top: 3px;
+    inset-inline-end: 4px;
+    max-width: 90px;
+    min-height: 30px;
+    padding: 2px 8px;
+    overflow-wrap: anywhere;
+  }
+  .mobile-chat-connection-body {
+    padding: 0 10px 8px;
+    overflow-wrap: anywhere;
+  }
+  .mobile-chat-connection-body p { margin: 0 0 4px; }
 }
 /* 顶部栏收起后（head-fold.ts）当前标签页工具栏最左的空间名（对话页在线程栏）：悬停或点击浮出顶部栏。
  * 右侧分隔线距空间名 7px，外边距补到与后面内容共 14px 左右（各工具栏的 gap 不同） */
@@ -1630,6 +1673,7 @@ details.think.streaming .think-body::after {
 #chat-delivery-status { flex:0 1 auto; min-width:0; line-height:1.45; color:var(--text); }
 .chat-delivery:is([data-tone="attention"], [data-tone="error"]) #chat-delivery-status { font-weight:500; }
 #chat-delivery-status.error { color:var(--red); }
+#chat-delivery-refresh > span { display:none; }
 .delivery-header .delivery-reason { flex:1 1 0; color:var(--muted); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .delivery-header .delivery-reason::before { content:"·"; margin-right:8px; }
 .delivery-count { flex:none; margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:var(--radius-pill); background:var(--panel-2); color:var(--muted); font-size:11px; line-height:18px; text-align:center; font-variant-numeric:tabular-nums; }
@@ -1675,6 +1719,16 @@ details.think.streaming .think-body::after {
 @media (max-width:760px) {
   /* A clipped reason ("服务…") says nothing; the open list shows it whole. */
   .delivery-header .delivery-reason { display:none; }
+  .delivery-query-failure #chat-delivery-refresh {
+    display:inline-flex;
+    align-items:center;
+    width:auto;
+    flex:none;
+    gap:4px;
+    padding-inline:6px;
+    font-size:12px;
+  }
+  .delivery-query-failure #chat-delivery-refresh > span { display:block; }
   /* Icon actions stay at the row's end; a worded action takes its own line. */
   .delivery-item:has(.delivery-act:not(.action-icon)) .delivery-actions { grid-column:2 / -1; flex-wrap:wrap; margin:6px 0 -2px; }
   .delivery-quick .btn.delivery-primary { padding:0 8px; }

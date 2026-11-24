@@ -468,6 +468,20 @@
               <span id="chat-conn-text"></span>
               <button id="chat-reconnect" type="button" class="btn btn-sm" data-icon="refresh" data-i18n-text="[&quot;立即重连&quot;]">立即重连</button>
             </div>
+            <div id="mobile-chat-connection" class="mobile-chat-connection hidden">
+              <details id="mobile-chat-connection-details">
+                <summary>
+                  <span class="t-dot" aria-hidden="true"></span>
+                  <span id="mobile-chat-connection-status" role="status"></span>
+                  <svg width="14" height="14" data-icon="chevron" aria-hidden="true"></svg>
+                </summary>
+                <div class="mobile-chat-connection-body">
+                  <p id="mobile-chat-connection-reason"></p>
+                  <button id="mobile-chat-copy-reference" type="button" class="btn btn-sm hidden" data-icon="copy" data-i18n-text='["复制操作编号"]'>复制操作编号</button>
+                </div>
+              </details>
+              <button id="mobile-chat-reconnect" type="button" class="btn btn-sm hidden" data-i18n-text='["重试"]'>重试</button>
+            </div>
             <div id="chat-log" class="chat-log"></div>
             <div id="chat-loading" class="loading-block hidden">
               <span id="chat-loading-spin" class="spin"></span>
@@ -508,7 +522,7 @@
                       <span class="delivery-dot" aria-hidden="true"></span><span id="chat-delivery-status" role="status"></span><span id="chat-delivery-reason" class="delivery-reason hidden"></span><span id="chat-delivery-count" class="delivery-count hidden"></span><svg class="delivery-chevron" width="14" height="14" data-icon="chevron" aria-hidden="true"></svg>
                     </button>
                     <span id="chat-delivery-quick" class="delivery-quick"></span>
-                    <button id="chat-delivery-refresh" type="button" class="icon-btn" aria-label="查询结果" data-tip="查询结果" data-i18n-attrs='{"aria-label":"查询结果","data-tip":"查询结果"}'><svg width="16" height="16" data-icon="refresh" aria-hidden="true"></svg></button>
+                    <button id="chat-delivery-refresh" type="button" class="icon-btn" aria-label="查询状态" data-tip="查询状态" data-i18n-attrs='{"aria-label":"查询状态","data-tip":"查询状态"}'><svg width="16" height="16" data-icon="refresh" aria-hidden="true"></svg><span data-i18n-text='["查询状态"]'>查询状态</span></button>
                   </div>
                   <div id="chat-delivery-list" class="hidden"></div>
                 </section>

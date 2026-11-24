@@ -150,7 +150,7 @@
   .changes-view-tabs .seg + .seg { border: 0; }
   .change-row { min-height: 44px; }
   .change-discard { width: 36px; height: 36px; }
-  .files-bar, .skills-bar { padding: 8px 12px; gap: 8px; }
+  .skills-bar { padding: 8px 12px; gap: 8px; }
   .files-actions { gap: 4px; }
   .file-act { width: 36px; height: 36px; }
   .files-head, .file-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px; padding-inline: 0; }

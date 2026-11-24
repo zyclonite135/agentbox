@@ -84,21 +84,25 @@ async function fileLayoutSmoke(page) {
   }, language);
   const help = page.locator('.files-left .help');
   const tip = help.locator('.help-tip');
-  const withinViewport = async (selector, width) => {
+  const withinViewport = async (selector, width, height) => {
     const box = await page.locator(selector).boundingBox();
-    assert.ok(box && box.x >= 0 && box.x + box.width <= width + 0.5, `${selector} fits at ${width}px: ${JSON.stringify(box)}`);
+    assert.ok(box && box.x >= 0 && box.x + box.width <= width + 0.5 && box.y >= 0 && box.y + box.height <= height + 0.5,
+      `${selector} fits at ${width}×${height}: ${JSON.stringify(box)}`);
   };
   await setLanguage('ru');
   try {
     assert.match(await page.locator('#scope-ws').innerText(), /Файлы рабочего пространства/);
-    for (const width of [320, 390, 760]) {
-      await page.setViewportSize({width, height:740});
+    for (const [width, height] of [[320, 740], [390, 740], [760, 740], [568, 230]]) {
+      await page.setViewportSize({width, height});
       for (const selector of ['#scope-ws', '#scope-shared', '.files-left .help', '#btn-upload']) {
-        await withinViewport(selector, width);
+        await withinViewport(selector, width, height);
       }
       await help.focus();
       await tip.waitFor();
-      await withinViewport('.files-left .help-tip', width);
+      await withinViewport('.files-left .help-tip', width, height);
+      if (height === 230) {
+        assert.ok(await tip.evaluate(el => { el.scrollTop = el.scrollHeight; return el.scrollTop > 0; }));
+      }
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
       await help.blur();
     }

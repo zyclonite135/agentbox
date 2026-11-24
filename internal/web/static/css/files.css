@@ -335,9 +335,12 @@
 
 /* ---- 窄屏：工具条两行化、面包屑横滚、行高加大、列只留名称+大小、预览全屏 ---- */
 @media (max-width: 760px) {
+  #tab-files { container-type: size; }
   .files-bar {
+    --files-bar-pad: 8px;
+    --files-help-gap: 6px;
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto);
-    gap: 8px; padding: 10px 12px;
+    gap: 8px; padding: var(--files-bar-pad) 12px;
   }
   .files-left { display: contents; }
   .files-left .scope-switch { position: relative; grid-column: 1 / -1; justify-self: start; min-width: 0; }
@@ -346,8 +349,11 @@
   }
   .files-left .help { position: static; flex: none; width: 24px; height: 24px; margin-inline: 2px; }
   .files-left .help-tip {
-    inset: calc(100% + 6px) 0 auto auto;
-    width: min(340px, 100%); overflow-wrap: anywhere;
+    inset: calc(100% + var(--files-help-gap)) 0 auto auto;
+    width: min(340px, 100%);
+    /* Leave room for the scope row and the toolbar padding above and below. */
+    max-height: calc(100cqh - 100% - var(--files-help-gap) - 2 * var(--files-bar-pad));
+    overflow: auto; overscroll-behavior: contain; overflow-wrap: anywhere;
   }
   .files-crumb {
     min-width: 0;

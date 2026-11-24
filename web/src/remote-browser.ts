@@ -20,6 +20,7 @@ let busy = false;
 let connectTimer = 0;
 const CONNECT_TIMEOUT = 20_000;
 const compactLayout = matchMedia("(max-width: 760px), (pointer: coarse) and (orientation: landscape) and (max-height: 600px)");
+const portraitLayout = matchMedia("(orientation: portrait)");
 const qualityModes: Record<string, {quality: number; compression: number}> = {
  smooth: {quality: 3, compression: 2},
  balanced: {quality: 6, compression: 2},
@@ -91,7 +92,10 @@ async function connect(id: string, ticket: number, info: BrowserInfo) {
  const { default: RFB } = await import("../vendor/novnc/core/rfb.js");
  if (ticket !== generation || S.current?.id !== id || S.tab !== "browser") return;
  // Chrome keeps a minimum window width even on a narrower X screen.
- const view: Desktop = new RFB($("browser-screen"), wsURL(`/sessions/${id}/browser/desktop`), {minRemoteWidth: 512});
+ const view: Desktop = new RFB($("browser-screen"), wsURL(`/sessions/${id}/browser/desktop`), {
+  minRemoteWidth: 512,
+  preserveViewportAspect: () => compactLayout.matches && portraitLayout.matches,
+ });
  desktop = view;
  controls();
  view.scaleViewport = true;

@@ -121,6 +121,7 @@ export default class RFB extends EventTargetMixin {
         this._wsProtocols = options.wsProtocols || [];
         // AgentBox: the remote Chrome window can be wider than a phone viewport.
         this._minRemoteWidth = options.minRemoteWidth ?? 0;
+        this._preserveViewportAspect = options.preserveViewportAspect;
 
         // Internal state
         this._rfbConnectionState = '';
@@ -817,11 +818,20 @@ export default class RFB extends EventTargetMixin {
         this._resizeTimeout = null;
 
         const size = this._screenSize();
-        const width = Math.max(this._minRemoteWidth, Math.floor(size.w));
-        const height = Math.floor(size.h);
+        const viewportWidth = Math.floor(size.w);
+        const viewportHeight = Math.floor(size.h);
+        if (viewportWidth < 1 || viewportHeight < 1) {
+            return;
+        }
+        const width = Math.max(this._minRemoteWidth, viewportWidth);
+        // Keep the portrait viewport filled when Chrome needs a wider screen.
+        // Cap the factor for transient, extremely narrow layouts.
+        const height = width > viewportWidth && this._preserveViewportAspect?.()
+            ? Math.round(size.h * Math.min(width / size.w, 2))
+            : viewportHeight;
 
         // Do we actually change anything?
-        if (size.w < 1 || height < 1 || (width === this._fbWidth && height === this._fbHeight)) {
+        if (width === this._fbWidth && height === this._fbHeight) {
             return;
         }
 

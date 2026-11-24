@@ -13,6 +13,7 @@ let busy = false;
 let connectTimer = 0;
 const CONNECT_TIMEOUT = 20_000;
 const compactLayout = matchMedia("(max-width: 760px), (pointer: coarse) and (orientation: landscape) and (max-height: 600px)");
+const portraitLayout = matchMedia("(orientation: portrait)");
 const qualityModes = {
     smooth: { quality: 3, compression: 2 },
     balanced: { quality: 6, compression: 2 },
@@ -90,7 +91,10 @@ async function connect(id, ticket, info) {
     if (ticket !== generation || S.current?.id !== id || S.tab !== "browser")
         return;
     // Chrome keeps a minimum window width even on a narrower X screen.
-    const view = new RFB($("browser-screen"), wsURL(`/sessions/${id}/browser/desktop`), { minRemoteWidth: 512 });
+    const view = new RFB($("browser-screen"), wsURL(`/sessions/${id}/browser/desktop`), {
+        minRemoteWidth: 512,
+        preserveViewportAspect: () => compactLayout.matches && portraitLayout.matches,
+    });
     desktop = view;
     controls();
     view.scaleViewport = true;

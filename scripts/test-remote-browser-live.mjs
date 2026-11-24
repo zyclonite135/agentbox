@@ -3,17 +3,20 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 let raw=''; for await (const chunk of process.stdin) raw+=chunk;
 const {base,password,session,token}=JSON.parse(raw);
-async function waitForFittedDesktop(page) {
- await page.waitForFunction(() => {
+async function waitForFittedDesktop(page, fillPortrait = false) {
+ await page.waitForFunction(fillPortrait => {
   const screen = document.querySelector('#browser-screen');
   const canvas = screen.querySelector('canvas');
   if (!canvas) return false;
   const bounds = screen.getBoundingClientRect();
   const image = canvas.getBoundingClientRect();
-  return canvas.width === Math.max(512, Math.floor(bounds.width)) && canvas.height === Math.floor(bounds.height) &&
+  const width = Math.max(512, Math.floor(bounds.width));
+  const height = fillPortrait ? Math.round(bounds.height * width / bounds.width) : Math.floor(bounds.height);
+  return canvas.width === width && canvas.height === height &&
    image.left >= bounds.left - 1 && image.right <= bounds.right + 1 &&
-   image.top >= bounds.top - 1 && image.bottom <= bounds.bottom + 1;
- }, null, {timeout:10000});
+   image.top >= bounds.top - 1 && image.bottom <= bounds.bottom + 1 &&
+   (!fillPortrait || (Math.abs(image.width - bounds.width) <= 2 && Math.abs(image.height - bounds.height) <= 2));
+ }, fillPortrait, {timeout:10000});
 }
 
 async function waitForRemotePageWidth(page, canvas) {
@@ -69,14 +72,20 @@ try {
  await page.locator('#browser-fullscreen').click();
  await page.waitForFunction(() => !document.fullscreenElement);
  await waitForFittedDesktop(page);
- await page.setViewportSize({width:390,height:900});
- await page.waitForTimeout(200);
- if(await page.locator('#sidebar.open').count())await page.locator('#btn-sidebar-close').click();
- await page.waitForFunction(()=>!document.querySelector('#sidebar').classList.contains('open'));
- await waitForFittedDesktop(page);
- await waitForRemotePageWidth(page, canvas);
- await page.screenshot({path:'output/playwright/remote-browser-live-mobile.png'});
- assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
+ const storageState = await page.context().storageState();
+ await page.close();
+ const phone = await browser.newPage({storageState, isMobile:true, hasTouch:true, deviceScaleFactor:3, viewport:{width:360,height:780}});
+ phone.on('pageerror',e=>errors.push(e.message));
+ await phone.goto(`${base}/#/sessions/${session}/browser`);
+ await phone.locator('#tab-browser[data-connected]').waitFor({timeout:30000});
+ await waitForFittedDesktop(phone, true);
+ await waitForRemotePageWidth(phone, phone.locator('#browser-screen canvas'));
+ await phone.screenshot({path:'output/playwright/remote-browser-live-mobile.png'});
+ assert.equal(await phone.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
+ await phone.setViewportSize({width:844,height:390});
+ await waitForFittedDesktop(phone);
+ await phone.setViewportSize({width:390,height:900});
+ await waitForFittedDesktop(phone, true);
  assert.deepEqual(errors,[]);
  console.log('Real noVNC: resized framebuffer and remote page, mobile layout and clipboard controls passed');
 } finally {await browser.close();}

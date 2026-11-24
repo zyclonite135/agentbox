@@ -29,7 +29,7 @@ Google 没有提供 Linux arm64 的 Chrome for Testing 二进制。ARM 镜像明
 - 中文或复杂文字使用底部「剪贴板」：填入文字、在远程页面选中输入框，再点「发送并粘贴」。远程执行复制后点击「读取远程复制」，文字出现在文本框中。该通道使用 UTF-8，不依赖 VNC 的旧式 Latin-1 剪贴板；不会自动读取本机剪贴板。
 - 画质默认「流畅」，降低图像编码质量以减少带宽；阅读细小文字可切换「均衡」或「清晰」，即时生效并在当前设备记忆，不需要重启浏览器。压缩等级保持较低，避免额外挤占服务器 CPU。
 - Chrome 使用容器的 256 MiB `/dev/shm`，避免强制改用磁盘临时目录。
-- 浏览器启动时桌面为 1440×900。连接后，TigerVNC 按浏览器面板的可用空间调整桌面分辨率，包括进入全屏和展开剪贴板时。远程桌面最窄为 512 像素，更窄的面板会等比缩放，确保 Chrome 窗口完整可见。分辨率由同一个工作空间的连接共享。旧镜像继续等比缩放；启用自动调整需重建浏览器镜像并重启工作空间。
+- 浏览器启动时桌面为 1440×900。连接后，TigerVNC 按浏览器面板的可用空间调整桌面分辨率，包括进入全屏和展开剪贴板时。远程桌面最窄为 512 像素。窄屏竖向布局会按面板比例增加远程桌面的高度，缩放后尽量填满面板并保留完整的 Chrome 窗口。分辨率由同一个工作空间的连接共享。旧镜像继续等比缩放；启用自动调整需重建浏览器镜像并重启工作空间。
 
 ## 网络与权限
 
@@ -61,6 +61,6 @@ AGENTBOX_PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
   python3 scripts/test-remote-browser-live.py --binary /tmp/agentbox-browser-test --image agentbox-agent:browser
 ```
 
-真实测试检查沙箱配置、不发布端口、页面加载、UTF-8 剪贴板、noVNC 画面、浏览器/空间重启后的 Cookie、鉴权及删除。桌面截图在 `output/playwright/remote-browser-live*.png`。项目对 noVNC 1.6.0 的 `rfb.js` 增加了用于远程分辨率的最小宽度选项，并保留第三方许可。文件哈希记录在 `third_party/vendor.json`。
+真实测试检查沙箱配置、不发布端口、页面加载、UTF-8 剪贴板、noVNC 画面、浏览器/空间重启后的 Cookie、鉴权及删除。桌面截图在 `output/playwright/remote-browser-live*.png`。项目对 noVNC 1.6.0 的 `rfb.js` 增加了远程分辨率的最小宽度与保持宽高比选项，并保留第三方许可。文件哈希记录在 `third_party/vendor.json`。
 
 代理回归必须包含实际 Chrome：`--host-resolver-rules` 会作用于代理的 IP 字面量，必须排除 `127.0.0.1`，否则即使本机代理正常，浏览器仍报 `ERR_PROXY_CONNECTION_FAILED`。真实代理测试使用 `network=none` 和不可解析域名，验证请求实际到达合成认证代理。

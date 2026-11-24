@@ -428,11 +428,12 @@ def serve():
         with os.fdopen(readfd, 'rb') as display:
             try:
                 # Xvnc can resize the X screen itself on a VNC client's request.
-                # Clipboard traffic still uses the explicit UTF-8 control API.
+                # Native Paste requests UTF-8 over extended RFB clipboard;
+                # remote clipboard contents still use the explicit control API.
                 vnc = launch(['Xtigervnc', '-displayfd', str(writefd), '-geometry', '1440x900',
                               '-depth', '24', '-nolisten', 'tcp', '-rfbport', str(VNC_PORT),
                               '-localhost', '-SecurityTypes', 'None', '-AlwaysShared',
-                              '-AcceptSetDesktopSize=1', '-AcceptCutText=0', '-SendCutText=0'],
+                              '-AcceptSetDesktopSize=1', '-AcceptCutText=1', '-SetPrimary=0', '-SendCutText=0'],
                              pass_fds=(writefd,))
             finally:
                 os.close(writefd)
@@ -488,7 +489,7 @@ def serve():
         control.listen(8)
         control.settimeout(.5)
         browser = 'Chromium' if os.uname().machine in ('aarch64', 'arm64') else 'Google Chrome'
-        info = {'running': True, 'browser': browser, 'proxy': bool(upstream), 'navigation': True,
+        info = {'running': True, 'browser': browser, 'proxy': bool(upstream), 'navigation': True, 'clipboard_offer': True,
                 'network_key': os.environ.get('AGENTBOX_BROWSER_NETWORK_KEY', '')}
         while not stopping.is_set() and all(p.poll() is None for p in children):
             try:

@@ -11,9 +11,12 @@ import type { BrowserInfo } from "./types.js";
 type Desktop = EventTarget & {
  disconnect(): void; focus(): void;
  sendKey(keysym: number, code: string, down?: boolean): void;
+ offerClipboard(provider: () => Promise<string | null>): Promise<boolean>;
+ withdrawClipboardOffer(): void;
  scaleViewport: boolean; resizeSession: boolean; qualityLevel: number; compressionLevel: number;
 };
 let desktop: Desktop | null = null;
+let nativeClipboard = false;
 let generation = 0;
 let controller: AbortController | null = null;
 let connected = false;
@@ -178,7 +181,6 @@ function controls() {
  }
  $<HTMLButtonElement>("browser-paste").disabled = !connected;
  $<HTMLButtonElement>("browser-copy").disabled = !connected;
- $<HTMLButtonElement>("browser-paste-device").disabled = !connected;
  renderNavigation();
 }
 function resetDesktop(closeTransport = false) {
@@ -195,7 +197,7 @@ function resetDesktop(closeTransport = false) {
  }
  if (document.fullscreenElement === $("tab-browser")) void document.exitFullscreen().catch(() => {});
  const old = desktop;
- desktop = null; connected = false;
+ desktop = null; connected = false; nativeClipboard = false;
  if (closeTransport) old?.disconnect();
  $("browser-screen").replaceChildren();
  $("browser-empty").classList.remove("hidden");
@@ -215,6 +217,7 @@ async function connect(id: string, ticket: number, info: BrowserInfo) {
   preserveViewportAspect: () => compactLayout.matches && portraitLayout.matches,
  });
  desktop = view;
+ nativeClipboard = !!info.clipboard_offer;
  controls();
  view.scaleViewport = true;
  // Older browser images keep proportional scaling if they cannot resize.
@@ -292,12 +295,12 @@ export function initRemoteBrowser() {
  controller?.abort();
  controller = new AbortController();
  const {signal} = controller;
- const clipboardActions = setupBrowserClipboard($("browser-screen"), () => {
+ setupBrowserClipboard($("browser-screen"), () => {
   const view = desktop, id = S.current?.id, ticket = generation;
   const tab = navigation?.active;
   const active = () => connected && desktop === view && S.current?.id === id && S.tab === "browser"
    && ticket === generation && (!tab || tab === navigation?.active) && !document.hidden && document.hasFocus();
-  return view && id && active() ? {id, view, current:active} : null;
+  return view && id && active() ? {id, view, current:active, nativeClipboard} : null;
  }, signal);
  renderAddressHint();
  compactLayout.addEventListener("change", renderAddressHint, {signal});
@@ -410,7 +413,6 @@ export function initRemoteBrowser() {
     },
    })),
    {label:i18nText(document.fullscreenElement ? "退出全屏" : "全屏"), icon:"expand", sep:true, run:fullscreen},
-   {label:i18nText("从本机粘贴"), icon:"paste", run:() => void clipboardActions.fromDevice()},
    {label:i18nText("剪贴板"), icon:"paste", run:() => {
     clipboard.open = !clipboard.open;
     (clipboard.open ? clipboard.querySelector("summary") : more)?.focus({preventScroll:true});

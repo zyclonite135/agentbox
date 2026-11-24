@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 let raw=''; for await (const chunk of process.stdin) raw+=chunk;
 const {base,password,session,token}=JSON.parse(raw);
+const touchNativePaste = browserEngine() === 'chromium' && process.env.AGENTBOX_NATIVE_PASTE_TOUCH === '1';
 async function setLocalClipboard(page, text) {
  const scratch = await page.evaluateHandle(value => {
   const field = document.createElement('textarea');
@@ -24,68 +25,6 @@ async function expectRemoteInput(page, text) {
   await page.waitForTimeout(100);
  }
  throw new Error('Clipboard text did not reach the remote input');
-}
-
-async function checkDelayedDevicePaste(page, canvas, position, pasteButton) {
- await page.evaluate(() => {
-  window.heldClipboardReads = 0;
-  navigator.clipboard.readText = () => {
-   window.heldClipboardReads++;
-   return new Promise(resolve => { window.releaseClipboardRead = resolve; });
-  };
-  const fetch = window.fetch;
-  window.devicePasteRequests = 0;
-  window.fetch = (url, options) => {
-   if (String(url).endsWith('/browser/clipboard') && options?.method === 'POST') window.devicePasteRequests++;
-   return fetch(url, options);
-  };
-  window.removeClipboardProbe = () => {
-   delete navigator.clipboard.readText;
-   window.fetch = fetch;
-  };
- });
- try {
-  await pasteButton.click();
-  await pasteButton.click();
-  assert.equal(await page.evaluate(() => window.heldClipboardReads), 1, 'Repeated clicks must share one clipboard read');
-  await page.locator('#browser-url').click();
-  const writes = await page.evaluate(async () => {
-   window.releaseClipboardRead('late clipboard read');
-   await new Promise(requestAnimationFrame);
-   return window.devicePasteRequests;
-  });
-  assert.equal(writes, 0, 'Switching to another field must cancel the pending clipboard read');
- } finally {
-  await page.evaluate(() => window.removeClipboardProbe());
- }
-
- const delayedText = 'late clipboard upload';
- await page.evaluate(text => { navigator.clipboard.readText = async () => text; }, delayedText);
- const routeName = '**/api/sessions/*/browser/clipboard';
- let releaseUpload;
- const holdUpload = new Promise(resolve => { releaseUpload = resolve; });
- await page.route(routeName, async route => {
-  if (route.request().method() === 'POST') await holdUpload;
-  await route.continue();
- });
- try {
-  const isPaste = request => request.method() === 'POST' && request.url().endsWith('/browser/clipboard');
-  const result = page.waitForResponse(response => isPaste(response.request()) && response.ok());
-  await Promise.all([page.waitForRequest(isPaste), pasteButton.click()]);
-  // Another click in the same canvas moves Chrome's caret without changing the
-  // local element focused by noVNC.
-  await canvas.click({position});
-  releaseUpload();
-  await result;
-  await page.waitForTimeout(400);
-  const url = `${base}/api/sessions/${session}/file?path=browser-hits`;
-  const hits = await page.request.get(url, {headers:{Authorization:'Bearer '+token}});
-  assert.ok(!(await hits.text()).includes(encodeURIComponent(delayedText)), 'A late response must not paste at the new caret');
- } finally {
-  releaseUpload();
-  await page.unroute(routeName);
-  await page.evaluate(() => { delete navigator.clipboard.readText; });
- }
 }
 
 async function checkClipboardShortcuts(page, canvas) {
@@ -110,10 +49,10 @@ async function checkClipboardShortcuts(page, canvas) {
 
  const markerY = await chromeFrameHeight(page, 40, 220);
  const position = {x:105, y:markerY+214};
- async function openNativeMenu() {
+ async function openNativeMenu(open = () => canvas.click({button:'right',position})) {
   await Promise.all([
    page.waitForResponse(r => r.url().endsWith('/browser/clipboard?revision=1') && r.ok()),
-   canvas.click({button:'right',position}),
+   open(),
   ]);
   // The dark Copy label appears over a previously blank part of the textarea.
   await page.waitForFunction(({x,y}) => {
@@ -130,41 +69,44 @@ async function checkClipboardShortcuts(page, canvas) {
  await page.waitForFunction(text => window.acceptedClipboardWrites[1] === text, fromDevice);
  if (browserEngine() !== 'webkit') assert.equal(await readClipboard(page), fromDevice);
 
- const fresh = 'Кнопка вставки — 中文 ✓';
- await page.locator('#browser-clipboard').fill('Устаревший текст в панели');
- await setLocalClipboard(page, fresh);
- await canvas.focus();
- await page.keyboard.press('Control+a');
- if (browserEngine() === 'webkit') {
-  // The Windows WebKit port can't reliably read the app clipboard via the
-  // Clipboard API. Substitute only that read; its native paste ran above.
-  await page.evaluate(text => { navigator.clipboard.readText = async () => text; }, fresh);
+ if (browserEngine() === 'chromium') {
+  await page.evaluate(() => {
+   const read = navigator.clipboard.readText.bind(navigator.clipboard);
+   window.nativeClipboardReads = 0;
+   navigator.clipboard.readText = () => {
+    window.nativeClipboardReads++;
+    return read();
+   };
+  });
+  const readCount = () => page.evaluate(() => window.nativeClipboardReads);
+  const touch = touchNativePaste ? await page.context().newCDPSession(page) : null;
+  const bounds = await canvas.boundingBox();
+  try {
+   for (const [index, text] of ['Штатный Paste — 中文 ✓', 'Свежий буфер — français'].entries()) {
+    await setLocalClipboard(page, text);
+    await canvas.focus();
+    await page.keyboard.press('Control+a');
+    await openNativeMenu(touch ? async () => {
+     await touch.send('Input.dispatchTouchEvent', {type:'touchStart', touchPoints:[{
+      x:bounds.x+position.x, y:bounds.y+position.y,
+     }]});
+     await page.waitForTimeout(1100); // noVNC recognizes a long press after 1000 ms.
+     await touch.send('Input.dispatchTouchEvent', {type:'touchEnd', touchPoints:[]});
+    } : undefined);
+    assert.equal(await readCount(), index, 'Opening the native menu must not read the device clipboard');
+    if (touch) await page.touchscreen.tap(bounds.x+position.x+60,bounds.y+position.y+72);
+    else await canvas.click({position:{x:position.x+60,y:position.y+72}});
+    await expectRemoteInput(page, text);
+    assert.equal(await readCount(), index+1);
+   }
+  } finally {
+   if (touch) await touch.detach();
+   await page.evaluate(() => { delete navigator.clipboard.readText; });
+  }
+  console.log('Chrome native Paste via ' + (touch ? 'touch' : 'mouse') +
+   ' reads the current device clipboard once, after menu selection');
  }
- const pasteButton = page.getByRole('button', {name:'Paste from device', exact:true});
- const [response] = await Promise.all([
-  page.waitForResponse(r => r.url().endsWith('/browser/clipboard') && r.request().method() === 'POST' && r.ok()),
-  pasteButton.click(),
- ]);
- assert.deepEqual(response.request().postDataJSON(), {text:fresh});
- await expectRemoteInput(page, fresh);
- await checkDelayedDevicePaste(page, canvas, position, pasteButton);
- await page.evaluate(() => {
-  navigator.clipboard.readText = async () => { throw new DOMException('Denied', 'NotAllowedError'); };
- });
- let writesOnDenial = 0;
- const countClipboardWrite = request => {
-  if (request.url().endsWith('/browser/clipboard') && request.method() === 'POST') writesOnDenial++;
- };
- page.on('request', countClipboardWrite);
- try {
-  await pasteButton.click();
-  await page.locator('.toast').filter({hasText:'Cannot read the clipboard.'}).waitFor();
-  assert.equal(writesOnDenial, 0);
- } finally {
-  page.off('request', countClipboardWrite);
-  await page.evaluate(() => { delete navigator.clipboard.readText; });
- }
- console.log('Bidirectional UTF-8 keyboard clipboard, Chrome native Copy and direct device paste passed');
+ console.log('Bidirectional UTF-8 keyboard clipboard and Chrome native Copy passed');
 }
 async function waitForFittedDesktop(page, fillPortrait = false) {
  await page.waitForFunction(fillPortrait => {
@@ -289,7 +231,8 @@ async function checkFaviconBatches(page, picker) {
 const browser=await launchBrowser();
 try {
  const checkClipboard = process.env.AGENTBOX_REQUIRE_BROWSER_CLIPBOARD === '1';
- const page=await browser.newPage({locale:'en-US',viewport:{width:1600,height:1100},permissions:checkClipboard?clipboardPermissions():[]});
+ const page=await browser.newPage({locale:'en-US',viewport:{width:1600,height:1100},hasTouch:touchNativePaste,
+  permissions:checkClipboard?clipboardPermissions():[]});
  if (checkClipboard) await page.addInitScript(() => {
   const clipboard = navigator.clipboard;
   if (!clipboard?.write) return;

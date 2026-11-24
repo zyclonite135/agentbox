@@ -160,6 +160,8 @@ export default class RFB extends EventTargetMixin {
         this._extendedPointerEventSupported = false;
 
         this._clipboardText = null;
+        this._clipboardOffer = null;
+        this._clipboardOfferSequence = 0;
         this._clipboardServerCapabilitiesActions = {};
         this._clipboardServerCapabilitiesFormats = {};
 
@@ -504,9 +506,41 @@ export default class RFB extends EventTargetMixin {
         this._canvas.blur();
     }
 
+    // AgentBox: announce a clipboard format without reading its contents.
+    // Fence acknowledges that the server has processed the offer.
+    offerClipboard(provider) {
+        if (this._rfbConnectionState !== 'connected' || this._viewOnly || !this._supportsFence ||
+            !this._clipboardServerCapabilitiesFormats[extendedClipboardFormatText] ||
+            !this._clipboardServerCapabilitiesActions[extendedClipboardActionNotify] ||
+            !this._clipboardServerCapabilitiesActions[extendedClipboardActionProvide]) {
+            return Promise.resolve(false);
+        }
+        this.withdrawClipboardOffer(false);
+        this._clipboardText = null;
+        return new Promise(resolve => {
+            const tag = 'agentbox-clipboard:' + ++this._clipboardOfferSequence;
+            const timeout = setTimeout(() => this.withdrawClipboardOffer(), 1500);
+            this._clipboardOffer = {provider, tag, resolve, timeout, requested: false};
+            RFB.messages.extendedClipboardNotify(this._sock, [extendedClipboardFormatText]);
+            RFB.messages.clientFence(this._sock, (1 << 31) | (1 << 0), tag);
+        });
+    }
+
+    withdrawClipboardOffer(notify = true) {
+        const offer = this._clipboardOffer;
+        if (!offer) return;
+        this._clipboardOffer = null;
+        clearTimeout(offer.timeout);
+        offer.resolve(false);
+        if (notify && this._rfbConnectionState === 'connected') {
+            RFB.messages.extendedClipboardNotify(this._sock, []);
+        }
+    }
+
     clipboardPasteFrom(text) {
         if (this._rfbConnectionState !== 'connected' || this._viewOnly) { return; }
 
+        this.withdrawClipboardOffer(false);
         if (this._clipboardServerCapabilitiesFormats[extendedClipboardFormatText] &&
             this._clipboardServerCapabilitiesActions[extendedClipboardActionNotify]) {
 
@@ -613,6 +647,7 @@ export default class RFB extends EventTargetMixin {
     }
 
     _disconnect() {
+        this.withdrawClipboardOffer(false);
         Log.Debug(">> RFB.disconnect");
         this._cursor.detach();
         this._canvas.removeEventListener("gesturestart", this._eventHandlers.handleGesture);
@@ -1330,6 +1365,9 @@ export default class RFB extends EventTargetMixin {
         this._gestureLastTapTime = Date.now();
 
         this._fakeMouseMove(this._gestureFirstDoubleTapEv, pos.x, pos.y);
+        if (bmask === 0x1 || bmask === 0x4) {
+            this._target.dispatchEvent(new CustomEvent("rfb-touch-button", { detail: bmask === 0x4 ? 2 : 0 }));
+        }
         this._handleMouseButton(pos.x, pos.y, bmask);
         this._handleMouseButton(pos.x, pos.y, 0x0);
     }
@@ -1370,6 +1408,7 @@ export default class RFB extends EventTargetMixin {
                             this._viewportDragPos = {'x': pos.x, 'y': pos.y};
                         } else {
                             this._fakeMouseMove(ev, pos.x, pos.y);
+                            this._target.dispatchEvent(new CustomEvent("rfb-touch-button", { detail: 2 }));
                             this._handleMouseButton(pos.x, pos.y, 0x4);
                         }
                         break;
@@ -2411,6 +2450,20 @@ export default class RFB extends EventTargetMixin {
                     return true;
                 }
 
+                const offer = this._clipboardOffer;
+                if (offer && (formats & extendedClipboardFormatText)) {
+                    if (!offer.requested) {
+                        offer.requested = true;
+                        const reply = text => {
+                            if (this._clipboardOffer !== offer) return;
+                            if (text) RFB.messages.extendedClipboardProvide(this._sock, [extendedClipboardFormatText], [text]);
+                            else this.withdrawClipboardOffer();
+                        };
+                        Promise.resolve().then(offer.provider).then(reply, () => reply(null));
+                    }
+                    return true;
+                }
+
                 // Check if server has told us it can handle Provide and there is clipboard data to send.
                 if (this._clipboardText != null &&
                     this._clipboardServerCapabilitiesActions[extendedClipboardActionProvide]) {
@@ -2427,7 +2480,7 @@ export default class RFB extends EventTargetMixin {
 
                 if (this._clipboardServerCapabilitiesActions[extendedClipboardActionNotify]) {
 
-                    if (this._clipboardText != null) {
+                    if (this._clipboardText != null || this._clipboardOffer) {
                         RFB.messages.extendedClipboardNotify(this._sock, [extendedClipboardFormatText]);
                     } else {
                         RFB.messages.extendedClipboardNotify(this._sock, []);
@@ -2536,6 +2589,14 @@ export default class RFB extends EventTargetMixin {
          */
 
         if (!(flags & (1<<31))) {
+            if (payload.startsWith('agentbox-clipboard:')) {
+                const offer = this._clipboardOffer;
+                if (offer && offer.tag === payload) {
+                    clearTimeout(offer.timeout);
+                    offer.resolve(true);
+                }
+                return true;
+            }
             return this._fail("Unexpected fence response");
         }
 

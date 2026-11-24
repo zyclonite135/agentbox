@@ -5,10 +5,21 @@ import { $, toast } from "./util.js";
 type DesktopKeys = {
   focus(): void;
   sendKey(keysym: number, code: string, down?: boolean): void;
+  offerClipboard(provider: () => Promise<string | null>): Promise<boolean>;
+  withdrawClipboardOffer(): void;
 };
-type Target = {id: string; view: DesktopKeys; current(): boolean};
+type Target = {id: string; view: DesktopKeys; nativeClipboard: boolean; current(): boolean};
 type ClipboardReply = {text: string; revision?: number};
 type PendingPaste = {source?: HTMLElement; cancelled: boolean; uploading: boolean};
+type NativeMenu = {
+  target: Target;
+  revision: Promise<number | undefined>;
+  expires: number;
+  chosenAt?: number;
+  requested: boolean;
+  offered: boolean;
+  timer?: number;
+};
 
 function path(target: Target) { return "/sessions/" + encodeURIComponent(target.id) + "/browser/clipboard"; }
 function sendShortcut(view: DesktopKeys, key: "c" | "v") {
@@ -19,20 +30,28 @@ function sendShortcut(view: DesktopKeys, key: "c" | "v") {
 
 export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Target | null, signal: AbortSignal) {
   const textarea = $<HTMLTextAreaElement>("browser-clipboard");
-  let contextCopy: {target: Target; revision: Promise<number | undefined>; expires: number} | undefined;
+  let nativeMenu: NativeMenu | undefined;
+  let readPermission: PermissionStatus | undefined;
   let pendingPaste: PendingPaste | null = null;
+
+  if (typeof navigator.clipboard?.readText === "function" && navigator.permissions) {
+    // WebKit can require native confirmation for every new system clipboard
+    // value. Keep browser-native keyboard paste there.
+    void navigator.permissions.query({name:"clipboard-read" as PermissionName})
+      .then(status => { readPermission = status; }, () => {});
+  }
 
   const available = (target: Target) => !signal.aborted && target.current();
   const revisionOf = (target: Target) => api<ClipboardReply>(path(target) + "?revision=1", {signal})
     .then(result => result.revision, () => undefined);
 
-  async function readChange(target: Target, revision: number | undefined) {
+  async function readChange(target: Target, revision: number | undefined, stillCopying = () => true) {
     if (revision === undefined) return "";
     for (const delay of [60, 100, 170, 260, 400]) {
       await new Promise(resolve => window.setTimeout(resolve, delay));
-      if (!available(target) || !screen.contains(document.activeElement)) break;
+      if (!stillCopying() || !available(target) || !screen.contains(document.activeElement)) break;
       const result: ClipboardReply = await api<ClipboardReply>(path(target) + "?after=" + revision, {signal});
-      if (!available(target) || !screen.contains(document.activeElement)) break;
+      if (!stillCopying() || !available(target) || !screen.contains(document.activeElement)) break;
       if (result.revision !== revision) return result.text;
     }
     return "";
@@ -83,9 +102,15 @@ export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Targ
   }
 
   document.addEventListener("pointerdown", cancelOnInteraction, {capture:true, signal});
+  document.addEventListener("pointerdown", event => {
+    if (event.isTrusted && event.target instanceof Node && !screen.contains(event.target)) closeNativeMenu();
+  }, {capture:true, signal});
   document.addEventListener("keydown", cancelOnInteraction, {capture:true, signal});
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) cancelPaste();
+    if (document.hidden) {
+      cancelPaste();
+      closeNativeMenu();
+    }
   }, {signal});
 
   async function pasteRemote(target: Target, getText: () => string | Promise<string>, source?: HTMLElement) {
@@ -110,13 +135,48 @@ export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Targ
     }
   }
 
-  function fromDevice(source?: HTMLElement) {
-    const target = getTarget();
-    if (!target) return;
-    return pasteRemote(target, async () => {
-      try { return await navigator.clipboard.readText(); }
-      catch { throw new Error(t("没能读取剪贴板：请允许浏览器访问剪贴板后再试")); }
-    }, source);
+  function closeNativeMenu() {
+    const menu = nativeMenu;
+    nativeMenu = undefined;
+    if (!menu) return;
+    window.clearTimeout(menu.timer);
+    if (menu.offered) menu.target.view.withdrawClipboardOffer();
+  }
+
+  async function supplyNativePaste(menu: NativeMenu) {
+    const {target, chosenAt} = menu;
+    const valid = () => nativeMenu === menu && available(target) && screen.contains(document.activeElement);
+    if (!valid() || chosenAt === undefined || performance.now() - chosenAt > 2000) return null;
+    menu.requested = true;
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!valid() || !text) return null;
+      if (new TextEncoder().encode(text).byteLength > 48 * 1024) {
+        toast(t("剪贴板最多支持 48 KiB 的文字"), true);
+        return null;
+      }
+      return text;
+    } catch {
+      if (valid()) toast(t("没能读取剪贴板：请允许浏览器访问剪贴板后再试"), true);
+      return null;
+    }
+  }
+
+  function beginNativeMenu(target: Target) {
+    closeNativeMenu();
+    const offered = target.nativeClipboard && !!readPermission && readPermission.state !== "denied";
+    const menu: NativeMenu = {
+      target, offered, requested:false, expires:performance.now() + 12_000,
+      revision:Promise.resolve(undefined),
+    };
+    nativeMenu = menu;
+    menu.timer = window.setTimeout(() => {
+      if (nativeMenu === menu) closeNativeMenu();
+    }, 12_000);
+    // Read the baseline after TigerVNC has announced its own selection so
+    // that the announcement itself is never mistaken for a remote copy.
+    const ready = offered ? target.view.offerClipboard(() => supplyNativePaste(menu)) : Promise.resolve(false);
+    menu.revision = ready.then(() => nativeMenu === menu && available(target) ? revisionOf(target) : undefined);
   }
 
   screen.addEventListener("keydown", event => {
@@ -126,11 +186,12 @@ export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Targ
       // Let the browser deliver its privileged paste event instead of letting
       // noVNC forward the shortcut before the remote clipboard is ready.
       event.stopPropagation();
+      closeNativeMenu();
     } else if (event.code === "KeyC" && navigator.clipboard) {
       event.preventDefault();
       event.stopPropagation();
       if (event.repeat) return;
-      contextCopy = undefined;
+      closeNativeMenu();
       const copied = revisionOf(target).then(previous => {
         if (!available(target) || !screen.contains(document.activeElement)) return "";
         sendShortcut(target.view, "c");
@@ -148,24 +209,44 @@ export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Targ
     void pasteRemote(target, () => text);
   }, {capture:true, signal});
 
-  screen.addEventListener("mousedown", event => {
+  function menuButtonDown(button: number) {
     const target = getTarget();
-    if (!target || !navigator.clipboard || !event.isTrusted) return;
-    if (event.button === 2) {
-      // A right click arms one native menu selection. Read only a change
-      // caused by the subsequent click; ordinary right clicks read no text.
-      contextCopy = {target, revision:revisionOf(target), expires:performance.now() + 12_000};
-    } else if (event.button === 0 && contextCopy) {
-      const copy = contextCopy;
-      contextCopy = undefined;
-      if (copy.target.view === target.view && copy.expires >= performance.now()) {
-        void copyToDevice(target, copy.revision.then(previous => readChange(target, previous)));
+    if (!target || !navigator.clipboard) return;
+    if (button === 2) {
+      beginNativeMenu(target);
+    } else if (button === 0 && nativeMenu) {
+      const menu = nativeMenu;
+      if (menu.chosenAt !== undefined || menu.target.view !== target.view || menu.expires < performance.now()) {
+        closeNativeMenu();
+      } else {
+        menu.chosenAt = performance.now();
+        window.clearTimeout(menu.timer);
+        menu.timer = window.setTimeout(() => {
+          if (nativeMenu === menu) closeNativeMenu();
+        }, 12_000);
+        const copied = menu.revision.then(previous => readChange(target, previous,
+          () => nativeMenu === menu && !menu.requested));
+        if (menu.offered) {
+          // Chromium allows a focused page to write after the copy arrives.
+          // Don't start a pending OS clipboard write while Paste may read it.
+          void copied.then(text => {
+            if (text && nativeMenu === menu && !menu.requested) return copyToDevice(target, Promise.resolve(text));
+          }).catch(error => {
+            if (available(target) && nativeMenu === menu) toast((error as Error).message, true);
+          });
+        } else void copyToDevice(target, copied);
       }
     }
+  }
+
+  screen.addEventListener("mousedown", event => {
+    if (event.isTrusted) menuButtonDown(event.button);
   }, {capture:true, signal});
+  screen.addEventListener("rfb-touch-button", event => menuButtonDown((event as CustomEvent<number>).detail), {signal});
   screen.addEventListener("keydown", event => {
-    if (event.key === "Escape") contextCopy = undefined;
+    if (event.key === "Escape") closeNativeMenu();
   }, {capture:true, signal});
+  signal.addEventListener("abort", closeNativeMenu, {once:true});
 
   $("browser-copy").addEventListener("click", () => {
     const target = getTarget();
@@ -176,7 +257,4 @@ export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Targ
     const target = getTarget();
     if (target) void pasteRemote(target, () => textarea.value, pasteButton);
   }, {signal});
-  const deviceButton = $("browser-paste-device");
-  deviceButton.addEventListener("click", () => void fromDevice(deviceButton), {signal});
-  return {fromDevice};
 }

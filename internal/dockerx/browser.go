@@ -16,12 +16,13 @@ var browserSeccomp string
 
 // BrowserInfo never exposes the internal proxy credential or network hash.
 type BrowserInfo struct {
-	Available  bool   `json:"available"`
-	Running    bool   `json:"running"`
-	Browser    string `json:"browser,omitempty"`
-	Proxy      bool   `json:"proxy"`
-	Navigation bool   `json:"navigation,omitempty"`
-	NetworkKey string `json:"-"`
+	Available      bool   `json:"available"`
+	Running        bool   `json:"running"`
+	Browser        string `json:"browser,omitempty"`
+	Proxy          bool   `json:"proxy"`
+	Navigation     bool   `json:"navigation,omitempty"`
+	ClipboardOffer bool   `json:"clipboard_offer,omitempty"`
+	NetworkKey     string `json:"-"`
 }
 
 func (m *Manager) BrowserCommand(ctx context.Context, id, action, url string, env []string) (BrowserInfo, error) {
@@ -39,10 +40,7 @@ func (m *Manager) BrowserCommand(ctx context.Context, id, action, url string, en
 		return BrowserInfo{}, fmt.Errorf("浏览器操作失败，请检查镜像、内存和 Chrome 沙箱支持: %w", err)
 	}
 	var result struct {
-		Running    bool   `json:"running"`
-		Browser    string `json:"browser"`
-		Proxy      bool   `json:"proxy"`
-		Navigation bool   `json:"navigation"`
+		BrowserInfo
 		NetworkKey string `json:"network_key"`
 		Error      string `json:"error"`
 	}
@@ -52,7 +50,8 @@ func (m *Manager) BrowserCommand(ctx context.Context, id, action, url string, en
 	if result.Error != "" {
 		return BrowserInfo{}, browserHelperError(result.Error, "浏览器操作失败")
 	}
-	return BrowserInfo{Available: true, Running: result.Running, Browser: result.Browser, Proxy: result.Proxy, Navigation: result.Navigation, NetworkKey: result.NetworkKey}, nil
+	result.Available, result.BrowserInfo.NetworkKey = true, result.NetworkKey
+	return result.BrowserInfo, nil
 }
 
 type BrowserNavigationRequest struct {

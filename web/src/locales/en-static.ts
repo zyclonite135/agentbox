@@ -229,7 +229,6 @@ export default {
   "发行记录": "Releases",
   "发送": "Send",
   "发送并粘贴": "Send and paste",
-  "从本机粘贴": "Paste from device",
   "复制到本机": "Copy to device",
   "在这里输入或粘贴文字。": "Type or paste text here.",
   "取消": "Cancel",

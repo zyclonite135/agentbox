@@ -67,17 +67,14 @@ export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Targ
     }
   }
 
-  async function pasteRemote(target: Target, text: string, insert: boolean, keepScreenFocus = false) {
+  async function pasteRemote(target: Target, text: string, keepScreenFocus = false) {
     if (!text || pasteInProgress || !available(target)) return;
     pasteInProgress = true;
     try {
       await api(path(target), {method:"POST", body:JSON.stringify({text}), signal});
-      if (!available(target)) return;
-      if (insert) {
-        if (keepScreenFocus && !screen.contains(document.activeElement)) return;
-        target.view.focus();
-        sendShortcut(target.view, "v");
-      } else toast(t("远程剪贴板已更新"));
+      if (!available(target) || (keepScreenFocus && !screen.contains(document.activeElement))) return;
+      target.view.focus();
+      sendShortcut(target.view, "v");
     } catch (error) {
       if (available(target)) toast((error as Error).message, true);
     } finally {
@@ -85,12 +82,12 @@ export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Targ
     }
   }
 
-  async function fromDevice(insert = true) {
+  async function fromDevice() {
     const target = getTarget();
     if (!target) return;
     try {
       const text = await navigator.clipboard.readText();
-      await pasteRemote(target, text, insert);
+      await pasteRemote(target, text);
     } catch {
       if (available(target)) toast(t("没能读取剪贴板：请允许浏览器访问剪贴板后再试"), true);
     }
@@ -122,7 +119,7 @@ export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Targ
     const text = event.clipboardData?.getData("text/plain");
     if (!target || !text || !screen.contains(document.activeElement)) return;
     event.preventDefault();
-    void pasteRemote(target, text, true, true);
+    void pasteRemote(target, text, true);
   }, {capture:true, signal});
 
   screen.addEventListener("mousedown", event => {
@@ -150,13 +147,8 @@ export function setupBrowserClipboard(screen: HTMLElement, getTarget: () => Targ
   }, {signal});
   $("browser-paste").addEventListener("click", () => {
     const target = getTarget();
-    if (target) void pasteRemote(target, textarea.value, true);
+    if (target) void pasteRemote(target, textarea.value);
   }, {signal});
-  $("browser-stage-clipboard").addEventListener("click", () => {
-    const target = getTarget();
-    if (!target) return;
-    if (textarea.value) void pasteRemote(target, textarea.value, false);
-    else void fromDevice(false);
-  }, {signal});
+  $("browser-paste-device").addEventListener("click", () => void fromDevice(), {signal});
   return {fromDevice};
 }

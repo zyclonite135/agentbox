@@ -179,7 +179,7 @@ function controls() {
     }
     $("browser-paste").disabled = !connected;
     $("browser-copy").disabled = !connected;
-    $("browser-stage-clipboard").disabled = !connected;
+    $("browser-paste-device").disabled = !connected;
     renderNavigation();
 }
 function resetDesktop(closeTransport = false) {

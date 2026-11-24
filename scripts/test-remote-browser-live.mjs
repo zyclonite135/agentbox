@@ -68,18 +68,39 @@ async function checkClipboardShortcuts(page, canvas) {
  await page.waitForFunction(text => window.acceptedClipboardWrites[1] === text, fromDevice);
  if (browserEngine() !== 'webkit') assert.equal(await readClipboard(page), fromDevice);
 
- const staged = 'Меню Paste — 中文 ✓';
- await page.locator('#browser-clipboard').fill(staged);
- await Promise.all([
-  page.waitForResponse(r => r.url().endsWith('/browser/clipboard') && r.request().method() === 'POST' && r.ok()),
-  page.locator('#browser-stage-clipboard').click(),
- ]);
+ const fresh = 'Кнопка вставки — 中文 ✓';
+ await page.locator('#browser-clipboard').fill('Устаревший текст в панели');
+ await setLocalClipboard(page, fresh);
  await canvas.focus();
  await page.keyboard.press('Control+a');
- await openNativeMenu();
- await canvas.click({position:{x:position.x+60,y:position.y+72}});
- await expectRemoteInput(page, staged);
- console.log('Bidirectional UTF-8 keyboard clipboard, Chrome native Copy and prepared Paste passed');
+ if (browserEngine() === 'webkit') {
+  // The Windows WebKit port can't reliably read the app clipboard via the
+  // Clipboard API. Substitute only that read; its native paste ran above.
+  await page.evaluate(text => { navigator.clipboard.readText = async () => text; }, fresh);
+ }
+ const [response] = await Promise.all([
+  page.waitForResponse(r => r.url().endsWith('/browser/clipboard') && r.request().method() === 'POST' && r.ok()),
+  page.getByRole('button', {name:'Paste from device', exact:true}).click(),
+ ]);
+ assert.deepEqual(response.request().postDataJSON(), {text:fresh});
+ await expectRemoteInput(page, fresh);
+ await page.evaluate(() => {
+  navigator.clipboard.readText = async () => { throw new DOMException('Denied', 'NotAllowedError'); };
+ });
+ let writesOnDenial = 0;
+ const countClipboardWrite = request => {
+  if (request.url().endsWith('/browser/clipboard') && request.method() === 'POST') writesOnDenial++;
+ };
+ page.on('request', countClipboardWrite);
+ try {
+  await page.getByRole('button', {name:'Paste from device', exact:true}).click();
+  await page.locator('.toast').filter({hasText:'Cannot read the clipboard.'}).waitFor();
+  assert.equal(writesOnDenial, 0);
+ } finally {
+  page.off('request', countClipboardWrite);
+  await page.evaluate(() => { delete navigator.clipboard.readText; });
+ }
+ console.log('Bidirectional UTF-8 keyboard clipboard, Chrome native Copy and direct device paste passed');
 }
 async function waitForFittedDesktop(page, fillPortrait = false) {
  await page.waitForFunction(fillPortrait => {

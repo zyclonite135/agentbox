@@ -178,7 +178,7 @@ function controls() {
  }
  $<HTMLButtonElement>("browser-paste").disabled = !connected;
  $<HTMLButtonElement>("browser-copy").disabled = !connected;
- $<HTMLButtonElement>("browser-stage-clipboard").disabled = !connected;
+ $<HTMLButtonElement>("browser-paste-device").disabled = !connected;
  renderNavigation();
 }
 function resetDesktop(closeTransport = false) {

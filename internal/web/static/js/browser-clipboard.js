@@ -65,22 +65,16 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
             }
         }
     }
-    async function pasteRemote(target, text, insert, keepScreenFocus = false) {
+    async function pasteRemote(target, text, keepScreenFocus = false) {
         if (!text || pasteInProgress || !available(target))
             return;
         pasteInProgress = true;
         try {
             await api(path(target), { method: "POST", body: JSON.stringify({ text }), signal });
-            if (!available(target))
+            if (!available(target) || (keepScreenFocus && !screen.contains(document.activeElement)))
                 return;
-            if (insert) {
-                if (keepScreenFocus && !screen.contains(document.activeElement))
-                    return;
-                target.view.focus();
-                sendShortcut(target.view, "v");
-            }
-            else
-                toast(t("远程剪贴板已更新"));
+            target.view.focus();
+            sendShortcut(target.view, "v");
         }
         catch (error) {
             if (available(target))
@@ -90,13 +84,13 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
             pasteInProgress = false;
         }
     }
-    async function fromDevice(insert = true) {
+    async function fromDevice() {
         const target = getTarget();
         if (!target)
             return;
         try {
             const text = await navigator.clipboard.readText();
-            await pasteRemote(target, text, insert);
+            await pasteRemote(target, text);
         }
         catch {
             if (available(target))
@@ -133,7 +127,7 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
         if (!target || !text || !screen.contains(document.activeElement))
             return;
         event.preventDefault();
-        void pasteRemote(target, text, true, true);
+        void pasteRemote(target, text, true);
     }, { capture: true, signal });
     screen.addEventListener("mousedown", event => {
         const target = getTarget();
@@ -164,16 +158,8 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
     $("browser-paste").addEventListener("click", () => {
         const target = getTarget();
         if (target)
-            void pasteRemote(target, textarea.value, true);
+            void pasteRemote(target, textarea.value);
     }, { signal });
-    $("browser-stage-clipboard").addEventListener("click", () => {
-        const target = getTarget();
-        if (!target)
-            return;
-        if (textarea.value)
-            void pasteRemote(target, textarea.value, false);
-        else
-            void fromDevice(false);
-    }, { signal });
+    $("browser-paste-device").addEventListener("click", () => void fromDevice(), { signal });
     return { fromDevice };
 }

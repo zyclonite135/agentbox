@@ -5,6 +5,11 @@ import { mkdir } from 'node:fs/promises';
 // by test-remote-browser-live.py against Docker and the embedded noVNC module.
 export async function remoteBrowserSmoke(page) {
  let running = false, unavailable = false, clipboard = '', delayResolve;
+ let hasNavigation = false;
+ let browserTabs = Array.from({length:36}, (_, i) => ({
+  id:`tab-${i}`, title:`Тестовая вкладка ${i+1} с длинным названием`, url:`https://example.org/${i+1}`,
+ }));
+ let activeTab = browserTabs[0].id;
  const opened = [];
  const operationID = '0123456789abcdef0123456789abcdef';
  await page.route('**/vendor/novnc/core/rfb.js', route => route.fulfill({contentType:'text/javascript',body:`
@@ -28,7 +33,23 @@ export async function remoteBrowserSmoke(page) {
    running = true; opened.push(route.request().postDataJSON().url);
    if (delayResolve) await new Promise(resolve => { delayResolve(resolve); });
   } else if (method === 'DELETE') running = false;
-  await route.fulfill({json:{available:!unavailable,running,browser:'Google Chrome',proxy:false}});
+  await route.fulfill({json:{available:!unavailable,running,browser:'Google Chrome',proxy:false,navigation:hasNavigation}});
+ });
+ await page.route('**/api/sessions/*/browser/navigation*', async route => {
+  if (new URL(route.request().url()).searchParams.has('favicon')) {
+   await route.fulfill({json:{tabs:[]}});
+   return;
+  }
+  if (route.request().method() === 'POST') {
+   const {operation,tab} = route.request().postDataJSON();
+   if (operation === 'select') activeTab = tab;
+   if (operation === 'close') {
+    const index = browserTabs.findIndex(item => item.id === tab);
+    browserTabs.splice(index, 1);
+    if (activeTab === tab) activeTab = browserTabs[Math.min(index, browserTabs.length - 1)].id;
+   }
+  }
+  await route.fulfill({json:{tabs:browserTabs,active:activeTab,back:false,forward:false}});
  });
  await page.route('**/api/sessions/*/browser/clipboard',async route=>{
   if(route.request().method()==='POST')clipboard=route.request().postDataJSON().text;
@@ -58,7 +79,7 @@ export async function remoteBrowserSmoke(page) {
  assert.equal(await actions.isVisible(),false);
  await page.waitForFunction(() => document.getElementById('browser-url').placeholder === 'Адрес сайта');
  await fitsOnScreen('#browser-open');
- await fitsOnScreen('[data-browser-url="https://chatgpt.com/"]');
+ assert.equal(await page.locator('[data-browser-url], .browser-bookmark').count(),0);
  if (await page.evaluate(() => matchMedia('(pointer: coarse)').matches)) {
   await page.setViewportSize({width:844,height:320});
   assert.equal(await page.locator('#browser-start').isVisible(),false);
@@ -129,9 +150,10 @@ export async function remoteBrowserSmoke(page) {
  await page.evaluate(() => window.testRemoteDesktop.dispatchEvent(new Event('connect')));
  assert.equal(await actions.isVisible(),false);
  await page.evaluate(() => { window.holdRemoteHandshake=false; });
- await page.locator('[data-browser-url="https://chatgpt.com/"]').click();
+ await page.locator('#browser-url').fill('example.org/mobile-retry');
+ await open.click();
  await mobileState.getByText('Подключено',{exact:true}).waitFor();
- assert.deepEqual(opened.splice(0),['https://chatgpt.com/']);
+ assert.deepEqual(opened.splice(0),['https://example.org/mobile-retry']);
  await actions.click();
  await menu.getByRole('menuitem',{name:'Буфер обмена',exact:true}).click();
  await page.evaluate(() => window.testRemoteDesktop.dispatchEvent(new Event('securityfailure')));
@@ -161,9 +183,9 @@ export async function remoteBrowserSmoke(page) {
  await page.locator('.toast').filter({hasText:message}).waitFor();
  await setLanguage('zh-CN');
  unavailable = false;
- await page.locator('[data-browser-url="https://claude.ai/"]').click();
+ await page.locator('#browser-start').click();
  await page.locator('#browser-state').filter({hasText:'已连接'}).waitFor();
- assert.deepEqual(opened,['https://claude.ai/']);
+ assert.deepEqual(opened,['']);
  assert.equal(await page.locator('#browser-screen').getAttribute('data-quality'),'3');
  await page.locator('#browser-quality').evaluate(el=>{el.value='clear';el.dispatchEvent(new Event('change',{bubbles:true}));});
  assert.equal(await page.locator('#browser-screen').getAttribute('data-quality'),'9');
@@ -197,6 +219,66 @@ export async function remoteBrowserSmoke(page) {
  await page.locator('#browser-stop').click();
  await page.locator('#browser-state').filter({hasText:'浏览器已关闭'}).waitFor();
  assert.equal(running,false);
+
+ hasNavigation = true;
+ await setLanguage('ru');
+ await page.locator('#browser-start').click();
+ const strip = page.locator('#browser-tab-strip');
+ const list = strip.locator('#browser-tab-list');
+ const cards = list.locator('.browser-tab-card');
+ const picker = page.locator('#browser-tabs');
+ await cards.nth(35).waitFor();
+ assert.equal(await picker.isVisible(),false);
+ assert.equal(await list.evaluate(el=>el.scrollWidth > el.clientWidth),true);
+ assert.equal(await cards.first().locator('.browser-tab-close').evaluate(el=>getComputedStyle(el).opacity),'0');
+ const firstTitle = browserTabs[0].title;
+ const farTitle = browserTabs.at(-1).title;
+ await cards.last().locator('.browser-tab-select').click();
+ await strip.getByRole('button',{name:farTitle,pressed:true,exact:true}).waitFor();
+ assert.equal(await list.evaluate(el=>el.scrollLeft > 0),true);
+ assert.equal(await page.locator('#browser-url').inputValue(),'https://example.org/36');
+ await cards.last().hover();
+ const closeTab = strip.getByRole('button',{name:`Закрыть вкладку «${farTitle}»`});
+ assert.equal(await closeTab.evaluate(el=>getComputedStyle(el).opacity),'1');
+ await closeTab.click();
+ await strip.getByRole('button',{name:farTitle,exact:true}).waitFor({state:'detached'});
+ assert.equal(await cards.count(),35);
+ assert.equal(await cards.last().getByRole('button',{pressed:true}).count(),1);
+ await cards.first().scrollIntoViewIfNeeded();
+ await cards.first().hover();
+ await strip.getByRole('button',{name:`Закрыть вкладку «${firstTitle}»`}).click();
+ await strip.getByRole('button',{name:firstTitle,exact:true}).waitFor({state:'detached'});
+ assert.equal(await cards.last().getByRole('button',{pressed:true}).count(),1);
+ assert.equal(await cards.count(),34);
+ for (const width of [1440,900,780]) {
+  await page.setViewportSize({width,height:900});
+  const address = await page.locator('#browser-address').boundingBox();
+  const tabs = await strip.boundingBox();
+  assert.ok(address.x + address.width <= tabs.x && Math.abs(address.y - tabs.y) < 10,
+   `address and tabs share a row at ${width}px`);
+  await fitsOnScreen('#browser-new-tab');
+  await fitsOnScreen('#browser-fullscreen');
+  assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth <= innerWidth),true);
+  if (process.env.AGENTBOX_BROWSER_TAB_SCREENSHOTS === '1') {
+   await page.locator('.browser-toolbar').screenshot({path:`output/playwright/remote-browser-tabs-${width}.png`});
+  }
+ }
+ await page.setViewportSize({width:320,height:740});
+ await picker.waitFor();
+ assert.equal(await strip.isVisible(),false);
+ await picker.click();
+ const mobileTab = browserTabs[1];
+ await menu.getByRole('menuitemradio',{name:mobileTab.title,exact:true}).click();
+ await page.waitForFunction(url=>document.querySelector('#browser-url').value === url,mobileTab.url);
+ await picker.click();
+ await menu.getByRole('menuitem',{name:'Закрыть текущую вкладку',exact:true}).click();
+ await page.waitForFunction(url=>document.querySelector('#browser-url').value !== url,mobileTab.url);
+ assert.equal(browserTabs.length,33);
+ await page.setViewportSize({width:1440,height:900});
+ await page.locator('#browser-stop').click();
+ await page.waitForFunction(() => !document.getElementById('browser-start').disabled);
+ await setLanguage('zh-CN');
+ hasNavigation = false;
  // Late startup must not reconnect a desktop after switching workspace/tab.
  let release;
  delayResolve = resolve => {release=resolve;};
@@ -206,7 +288,9 @@ export async function remoteBrowserSmoke(page) {
  release(); delayResolve=null;
  await page.waitForTimeout(100);
  assert.equal(await page.locator('#browser-screen').innerText(),'');
+ console.log('Browser toolbar: 36 scrollable tabs, active and inactive close, narrow desktop and mobile tab menu passed');
  await page.unroute('**/vendor/novnc/core/rfb.js');
  await page.unroute('**/api/sessions/*/browser');
+ await page.unroute('**/api/sessions/*/browser/navigation*');
  await page.unroute('**/api/sessions/*/browser/clipboard');
 }

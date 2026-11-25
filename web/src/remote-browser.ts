@@ -1,5 +1,5 @@
 import { setAttr, setText, t as i18nText } from "./i18n.js";
-import { agentIcon } from "./brand.js";
+import { svgIcon } from "./icons.js";
 import { S, bus } from "./state.js";
 import { api, wsURL } from "./api.js";
 import { enhanceSelects, setSelectValue } from "./select.js";
@@ -33,6 +33,13 @@ let navigationBusy = false;
 let navigationReading = false;
 let navigationVersion = 0;
 const pendingFavicons = new Map<string, Promise<BrowserNavigation | null>>();
+type TabCard = {
+ item: HTMLDivElement; select: HTMLButtonElement; close: HTMLButtonElement;
+ label: HTMLSpanElement; icon: HTMLSpanElement; title?: string;
+ favicon?: {url: string; attempts: number; nextRead: number};
+};
+const tabCards = new Map<string, TabCard>();
+let shownActiveTab = "";
 let editingAddress = false;
 let fullscreenOwner = "";
 let fullscreenChanges = Promise.resolve();
@@ -81,12 +88,129 @@ function renderAddressHint() {
  setAttr($("browser-url"), "placeholder", navigationId || compactLayout.matches ? "网页地址" : "输入网址，在新标签页打开");
 }
 
+function createTabCard(id: string): TabCard {
+ const item = document.createElement("div");
+ item.className = "browser-tab-card";
+ const select = document.createElement("button");
+ select.type = "button";
+ select.className = "browser-tab-select";
+ const icon = document.createElement("span");
+ icon.className = "browser-tab-icon";
+ icon.setAttribute("aria-hidden", "true");
+ const label = document.createElement("span");
+ label.className = "browser-tab-title";
+ select.append(icon, label);
+ select.addEventListener("click", () => {
+  if (navigation?.active !== id) void updateNavigation({operation:"select", tab:id});
+ });
+ const close = document.createElement("button");
+ close.type = "button";
+ close.className = "browser-tab-close";
+ close.append(svgIcon("close", 14));
+ close.addEventListener("click", () => void updateNavigation({operation:"close", tab:id}));
+ item.append(select, close);
+ return {item, select, close, label, icon};
+}
+
+function revealActiveTab() {
+ const list = $("browser-tab-list");
+ const card = tabCards.get(shownActiveTab)?.item;
+ if (!card || !list.clientWidth) return;
+ const view = list.getBoundingClientRect();
+ const tab = card.getBoundingClientRect();
+ list.scrollLeft += Math.min(0, tab.left - view.left) || Math.max(0, tab.right - view.right);
+}
+
+function renderTabStrip(available: boolean) {
+ const strip = $("browser-tab-strip");
+ const picker = $("browser-tabs");
+ strip.hidden = !available || compactLayout.matches;
+ picker.hidden = available && !compactLayout.matches;
+ if (picker.hidden && picker.getAttribute("aria-expanded") === "true") closeMenu();
+ const list = $("browser-tab-list");
+ if (!available) {
+  if (tabCards.size) list.replaceChildren();
+  tabCards.clear();
+  shownActiveTab = "";
+ }
+ if (strip.hidden) return;
+ const tabs = navigation?.tabs ?? [];
+ const active = navigation?.active ?? "";
+ const live = new Set(tabs.map(tab => tab.id));
+ const hadFocus = list.contains(document.activeElement);
+ for (const [id, card] of tabCards) {
+  if (live.has(id)) continue;
+  card.item.remove();
+  tabCards.delete(id);
+ }
+ const iconsToRead: BrowserTab[] = [];
+ for (const tab of tabs) {
+  let card = tabCards.get(tab.id);
+  if (!card) {
+   card = createTabCard(tab.id);
+   tabCards.set(tab.id, card);
+   list.append(card.item);
+  }
+  const title = (tab.title || tab.url) === "about:blank" ? "" : tab.title || tab.url;
+  if (card.title !== title) {
+   card.title = title;
+   if (title) {
+    card.label.textContent = title;
+    card.select.title = title;
+    setAttr(card.close, "aria-label", "关闭标签页：{p0}", {p0:title});
+   } else {
+    setText(card.label, "新建标签页");
+    setAttr(card.select, "title", "新建标签页");
+    setAttr(card.close, "aria-label", "关闭标签页");
+   }
+  }
+  card.item.toggleAttribute("data-active", tab.id === active);
+  card.select.setAttribute("aria-pressed", String(tab.id === active));
+  card.select.setAttribute("aria-disabled", String(navigationBusy));
+  card.close.setAttribute("aria-disabled", String(navigationBusy));
+  card.close.disabled = tabs.length < 2;
+  if (card.favicon?.url !== tab.url) {
+   card.icon.replaceChildren(svgIcon("globe", 15));
+   card.favicon = {url:tab.url, attempts:0, nextRead:0};
+  }
+  if (/^https?:\/\//.test(tab.url) && card.favicon.nextRead <= Date.now()) iconsToRead.push(tab);
+ }
+ if (iconsToRead.length) {
+  const icons = readFavicons(navigationId, iconsToRead);
+  for (const tab of iconsToRead) {
+   const card = tabCards.get(tab.id)!;
+   const lookup = card.favicon!;
+   lookup.nextRead = Infinity;
+   lookup.attempts++;
+   void icons.get(tab.id)?.then(src => {
+    if (tabCards.get(tab.id) !== card || card.favicon !== lookup) return;
+    if (!src) {
+     if (lookup.attempts < 2) lookup.nextRead = Date.now() + 1800;
+     return;
+    }
+    const image = new Image(15, 15);
+    image.alt = "";
+    image.addEventListener("load", () => {
+     if (card.favicon === lookup) card.icon.replaceChildren(image);
+    }, {once:true});
+    image.src = src;
+   });
+  }
+ }
+ $<HTMLButtonElement>("browser-new-tab").disabled = navigationBusy || !navigation;
+ if (hadFocus && !list.contains(document.activeElement)) tabCards.get(active)?.select.focus({preventScroll:true});
+ if (shownActiveTab !== active) {
+  shownActiveTab = active;
+  revealActiveTab();
+ }
+}
+
 function renderNavigation() {
  const available = connected && !!navigationId;
  $("browser-nav").hidden = !available;
  const addressDisabled = pending() || navigationBusy;
  $<HTMLButtonElement>("browser-open").disabled = addressDisabled;
- for (const button of $("tab-browser").querySelectorAll<HTMLButtonElement>("[data-browser-url]")) button.disabled = addressDisabled;
+ renderTabStrip(available);
  const disabled = navigationBusy || !navigation;
  $<HTMLButtonElement>("browser-back").disabled = disabled || !navigation?.back;
  $<HTMLButtonElement>("browser-forward").disabled = disabled || !navigation?.forward;
@@ -304,10 +428,13 @@ export function initRemoteBrowser() {
   return view && id && active() ? {id, view, current:active, nativeClipboard} : null;
  }, signal);
  renderAddressHint();
- compactLayout.addEventListener("change", renderAddressHint, {signal});
- for (const button of document.querySelectorAll<HTMLButtonElement>("[data-browser-brand]")) {
-  if (!button.querySelector(".agent-ico")) button.prepend(agentIcon(button.dataset.browserBrand!, 16));
- }
+ compactLayout.addEventListener("change", () => {
+  renderAddressHint();
+  renderNavigation();
+ }, {signal});
+ const tabListObserver = new ResizeObserver(revealActiveTab);
+ tabListObserver.observe($("browser-tab-list"));
+ signal.addEventListener("abort", () => tabListObserver.disconnect(), {once:true});
  const quality = $<HTMLSelectElement>("browser-quality");
  let saved = "smooth";
  try { saved = localStorage.getItem("agentbox_browser_quality") || saved; } catch { /* private mode */ }
@@ -333,6 +460,7 @@ export function initRemoteBrowser() {
  for (const operation of ["back", "forward", "reload"] as const) {
   $(`browser-${operation}`).addEventListener("click", () => void updateNavigation({operation}), {signal});
  }
+ $("browser-new-tab").addEventListener("click", () => void updateNavigation({operation:"new"}), {signal});
  const tabPicker = $("browser-tabs");
  tabPicker.addEventListener("click", () => {
   if (!navigation) return;
@@ -368,12 +496,6 @@ export function initRemoteBrowser() {
   if (navigationId) void updateNavigation({operation:"navigate", url});
   else void startBrowser(url);
  }, {signal});
- for (const button of document.querySelectorAll<HTMLButtonElement>("[data-browser-url]")) {
-  button.addEventListener("click", () => {
-   if (navigationId) void updateNavigation({operation:"new",url:button.dataset.browserUrl});
-   else void startBrowser(button.dataset.browserUrl);
-  }, {signal});
- }
  const stop = async () => {
   if (!S.current || busy) return;
   const id = S.current.id;

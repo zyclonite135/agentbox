@@ -590,20 +590,22 @@
                 <button id="browser-start" class="btn btn-sm" data-icon="globe" aria-label="启动浏览器" data-tip="启动远程浏览器，继续上次的登录状态" data-i18n-text="[&quot;启动浏览器&quot;]" data-i18n-attrs="{&quot;aria-label&quot;:&quot;启动浏览器&quot;,&quot;data-tip&quot;:&quot;启动远程浏览器，继续上次的登录状态&quot;}">启动浏览器</button>
                 <button id="browser-stop" class="btn btn-sm hidden" data-icon="close" aria-label="关闭浏览器" data-tip="关闭远程浏览器，登录状态保留" data-i18n-text="[&quot;关闭浏览器&quot;]" data-i18n-attrs="{&quot;aria-label&quot;:&quot;关闭浏览器&quot;,&quot;data-tip&quot;:&quot;关闭远程浏览器，登录状态保留&quot;}">关闭浏览器</button>
               </div>
-              <form id="browser-address" class="browser-address">
-                <div id="browser-nav" class="browser-nav" hidden>
-                  <button id="browser-back" class="btn browser-tool" data-icon="arrow-left" type="button" data-i18n-attrs='{"aria-label":"后退","data-tip":"后退"}'></button>
-                  <button id="browser-forward" class="btn browser-tool" data-icon="arrow-right" type="button" data-i18n-attrs='{"aria-label":"前进","data-tip":"前进"}'></button>
-                  <button id="browser-reload" class="btn browser-tool" data-icon="refresh" type="button" data-i18n-attrs='{"aria-label":"刷新","data-tip":"刷新"}'></button>
-                  <button id="browser-tabs" class="btn browser-tool" data-icon="copy" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-attrs='{"aria-label":"浏览器标签页","data-tip":"浏览器标签页"}'></button>
+              <div class="browser-navigation">
+                <form id="browser-address" class="browser-address">
+                  <div id="browser-nav" class="browser-nav" hidden>
+                    <button id="browser-back" class="btn browser-tool" data-icon="arrow-left" type="button" data-i18n-attrs='{"aria-label":"后退","data-tip":"后退"}'></button>
+                    <button id="browser-forward" class="btn browser-tool" data-icon="arrow-right" type="button" data-i18n-attrs='{"aria-label":"前进","data-tip":"前进"}'></button>
+                    <button id="browser-reload" class="btn browser-tool" data-icon="refresh" type="button" data-i18n-attrs='{"aria-label":"刷新","data-tip":"刷新"}'></button>
+                    <button id="browser-tabs" class="btn browser-tool" data-icon="copy" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-attrs='{"aria-label":"浏览器标签页","data-tip":"浏览器标签页"}'></button>
+                  </div>
+                  <svg class="browser-address-icon" width="16" height="16" data-icon="globe" aria-hidden="true"></svg>
+                  <input id="browser-url" type="text" aria-label="网页地址" placeholder="输入网址，在新标签页打开" autocomplete="off" spellcheck="false" data-i18n-attrs="{&quot;aria-label&quot;:&quot;网页地址&quot;,&quot;placeholder&quot;:&quot;输入网址，在新标签页打开&quot;}">
+                  <button id="browser-open" class="btn browser-tool" data-icon="arrow-right" type="submit" aria-label="打开网页" data-tip="在远程浏览器新标签页打开" data-i18n-attrs="{&quot;aria-label&quot;:&quot;打开网页&quot;,&quot;data-tip&quot;:&quot;在远程浏览器新标签页打开&quot;}"></button>
+                </form>
+                <div id="browser-tab-strip" class="browser-tab-strip" role="group" data-i18n-attrs='{"aria-label":"浏览器标签页"}' hidden>
+                  <div id="browser-tab-list" class="browser-tab-list"></div>
+                  <button id="browser-new-tab" class="btn browser-tool" type="button" data-icon="plus" data-i18n-attrs='{"aria-label":"新建标签页","data-tip":"新建标签页"}'></button>
                 </div>
-                <svg class="browser-address-icon" width="16" height="16" data-icon="globe" aria-hidden="true"></svg>
-                <input id="browser-url" type="text" aria-label="网页地址" placeholder="输入网址，在新标签页打开" autocomplete="off" spellcheck="false" data-i18n-attrs="{&quot;aria-label&quot;:&quot;网页地址&quot;,&quot;placeholder&quot;:&quot;输入网址，在新标签页打开&quot;}">
-                <button id="browser-open" class="btn browser-tool" data-icon="arrow-right" type="submit" aria-label="打开网页" data-tip="在远程浏览器新标签页打开" data-i18n-attrs="{&quot;aria-label&quot;:&quot;打开网页&quot;,&quot;data-tip&quot;:&quot;在远程浏览器新标签页打开&quot;}"></button>
-              </form>
-              <div class="browser-shortcuts" role="group" aria-label="快捷网站" data-i18n-attrs="{&quot;aria-label&quot;:&quot;快捷网站&quot;}">
-                <button class="browser-bookmark" data-browser-brand="claude" data-browser-url="https://claude.ai/" aria-label="打开 Claude" data-tip="在远程浏览器打开 Claude" data-i18n-attrs="{&quot;aria-label&quot;:&quot;打开 Claude&quot;,&quot;data-tip&quot;:&quot;在远程浏览器打开 Claude&quot;}"><span>Claude</span></button>
-                <button class="browser-bookmark" data-browser-brand="codex" data-browser-url="https://chatgpt.com/" aria-label="打开 ChatGPT" data-tip="在远程浏览器打开 ChatGPT" data-i18n-attrs="{&quot;aria-label&quot;:&quot;打开 ChatGPT&quot;,&quot;data-tip&quot;:&quot;在远程浏览器打开 ChatGPT&quot;}"><span>ChatGPT</span></button>
               </div>
               <div class="browser-display" role="group" aria-label="画面设置" data-i18n-attrs="{&quot;aria-label&quot;:&quot;画面设置&quot;}">
                 <div class="browser-quality"><svg width="15" height="15" data-icon="sliders" aria-hidden="true"></svg><select id="browser-quality" aria-label="浏览器画质" data-i18n-attrs="{&quot;aria-label&quot;:&quot;浏览器画质&quot;}"><option value="smooth" data-i18n-text="[&quot;流畅&quot;]">流畅</option><option value="balanced" data-i18n-text="[&quot;均衡&quot;]">均衡</option><option value="clear" data-i18n-text="[&quot;清晰&quot;]">清晰</option></select></div>

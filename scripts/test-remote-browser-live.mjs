@@ -188,11 +188,10 @@ async function chromeFrameHeight(page, min, max) {
  return (await handle.jsonValue()).y;
 }
 
-async function expectTabFavicon(page) {
- const row = page.getByRole('menuitemradio', {name:'/navigated', exact:true});
+async function expectTabFavicon(page, row = page.getByRole('menuitemradio', {name:'/navigated', exact:true}), size = 16) {
  const image = row.locator('img');
  await image.waitFor({timeout:8000});
- assert.equal(await image.evaluate(el => el.getBoundingClientRect().width), 16);
+ assert.equal(await image.evaluate(el => el.getBoundingClientRect().width), size);
  const pixel = await image.evaluate(el => {
   const canvas = document.createElement('canvas');
   const drawing = canvas.getContext('2d');
@@ -311,9 +310,9 @@ try {
  await waitForFittedDesktop(page);
  await waitForRemotePageWidth(page, canvas);
  const address = page.locator('#browser-url');
- const chromeControl = page.locator('#browser-tabs');
- if (process.env.AGENTBOX_REQUIRE_BROWSER_NAVIGATION === '1') await chromeControl.waitFor({state:'visible'});
- const navigationSupported = await chromeControl.isVisible();
+ const strip = page.locator('#browser-tab-strip');
+ if (process.env.AGENTBOX_REQUIRE_BROWSER_NAVIGATION === '1') await strip.waitFor({state:'visible'});
+ const navigationSupported = await strip.isVisible();
  const requireFavicons = process.env.AGENTBOX_REQUIRE_BROWSER_FAVICONS === '1';
  let beforeFullscreen;
  if (navigationSupported) {
@@ -358,20 +357,24 @@ try {
  await waitForFittedDesktop(page);
  if (navigationSupported) {
   await chromeFrameHeight(page, 0, beforeFullscreen - 40);
-  await chromeControl.click();
-  assert.equal(await page.getByRole('menuitemradio', {name:'/navigated', exact:true}).getAttribute('aria-checked'), 'true');
-  if (requireFavicons) await expectTabFavicon(page);
-  await page.getByRole('menuitem', {name:'New tab', exact:true}).last().click();
+  const navigated = strip.getByRole('button', {name:'/navigated', exact:true});
+  await strip.getByRole('button', {name:'/navigated', exact:true, pressed:true}).waitFor();
+  if (requireFavicons) await expectTabFavicon(page, navigated, 15);
+  await page.locator('#browser-new-tab').click();
   await page.waitForFunction(() => document.querySelector('#browser-url').value === '');
-  await chromeControl.click();
+  const blank = strip.locator('.browser-tab-card').last();
+  const tabCount = await strip.locator('.browser-tab-card').count();
   if (requireFavicons) {
-   const blank = page.getByRole('menuitemradio', {checked:true});
-   await blank.locator('.glyph svg').waitFor();
-   await expectTabFavicon(page);
+   await blank.locator('.browser-tab-icon svg').waitFor();
+   await expectTabFavicon(page, navigated, 15);
    assert.equal(await blank.locator('img').count(), 0);
   }
-  await page.getByRole('menuitemradio', {name:'/navigated', exact:true}).click();
+  await navigated.click();
   await page.waitForFunction(() => document.querySelector('#browser-url').value.endsWith('/navigated'));
+  await blank.hover();
+  await blank.locator('.browser-tab-close').click();
+  await page.waitForFunction(count => document.querySelectorAll('#browser-tab-list .browser-tab-card').length < count, tabCount);
+  await strip.getByRole('button', {name:'/navigated', exact:true, pressed:true}).waitFor();
  }
  await page.locator('#browser-fullscreen').click();
  await page.waitForFunction(() => !document.fullscreenElement);
@@ -384,8 +387,12 @@ try {
   await waitForFittedDesktop(page);
   await chromeFrameHeight(page, 40, 220);
   if (requireFavicons) {
+   const viewport = page.viewportSize();
+   await page.setViewportSize({...viewport,width:740});
+   const chromeControl = page.locator('#browser-tabs');
    await checkFaviconMenuLifecycle(page, chromeControl);
    await checkFaviconBatches(page, chromeControl);
+   await page.setViewportSize(viewport);
    console.log('Favicon menu reopens, navigation away and batches over 24 tabs passed');
   }
   console.log('Real Chrome navigation, tabs and native toolbar visibility on fullscreen enter/exit passed');

@@ -1,28 +1,41 @@
 #tab-browser { display:flex; flex-direction:column; min-height:0; background:var(--page); container:browser-work / inline-size; }
 #tab-browser:fullscreen { height:100vh; width:100vw; }
-.browser-toolbar { display:grid; grid-template-columns:auto minmax(180px,1fr) auto auto; align-items:center; gap:12px; padding:10px 16px 6px; flex:none; }
+.browser-toolbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:10px; padding:10px 16px 6px; flex:none; }
 /* 顶部栏收起时最前面多一个空间名（head-fold.ts），网格让出一列 */
-.browser-toolbar.wb-peek-host { grid-template-columns:auto auto minmax(180px,1fr) auto auto; }
-.browser-lifecycle,.browser-shortcuts,.browser-display { display:flex; align-items:center; gap:4px; }
+.browser-toolbar.wb-peek-host { grid-template-columns:auto auto minmax(0,1fr) auto; }
+.browser-lifecycle,.browser-display { display:flex; align-items:center; gap:4px; }
 .browser-lifecycle { padding-right:10px; border-right:1px solid var(--line); }
 :root #tab-browser .btn.browser-tool { --action-size:36px; --action-inset:0px; border-radius:calc(8px * var(--radius-scale)); }
 :root #tab-browser .btn.browser-tool::before { border-radius:calc(8px * var(--radius-scale)); }
 :root #browser-stop:hover:not(:disabled) { color:var(--red); }
-.browser-address { min-width:0; display:flex; align-items:center; gap:8px; margin:0; padding:2px 3px 2px 12px; border:1px solid var(--line); border-radius:calc(10px * var(--radius-scale)); background:var(--panel); transition:border-color 140ms ease,box-shadow 140ms ease; }
+.browser-navigation { display:flex; align-items:center; gap:8px; min-width:0; }
+.browser-address { flex:1; min-width:0; display:flex; align-items:center; gap:8px; margin:0; padding:2px 3px 2px 12px; border:1px solid var(--line); border-radius:calc(10px * var(--radius-scale)); background:var(--panel); transition:border-color 140ms ease,box-shadow 140ms ease; }
+.browser-navigation:has(.browser-tab-strip:not([hidden])) .browser-address { flex:0 1 clamp(218px,32%,360px); }
 .browser-address:focus-within { border-color:var(--amber-dim); box-shadow:0 0 0 2px color-mix(in srgb,var(--amber) 10%,transparent); }
 .browser-address-icon { color:var(--muted); flex:none; }
 .browser-nav:not([hidden]) { display:flex; align-items:center; flex:none; gap:2px; }
+#browser-tabs[hidden] { display:none; }
 :root #tab-browser .browser-nav .browser-tool { --action-size:30px; }
 .browser-address:has(.browser-nav:not([hidden])) { padding-left:3px; }
 .browser-address:has(.browser-nav:not([hidden])) .browser-address-icon { display:none; }
 #browser-url { flex:1; width:0; min-width:0; height:32px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; outline:none; font-size:13px; }
 #browser-url::placeholder { color:var(--muted); }
 :root #tab-browser #browser-open { --action-size:32px; }
-.browser-bookmark { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:36px; padding:7px 9px; border:0; border-radius:calc(8px * var(--radius-scale)); background:transparent; color:var(--text); font:500 12px var(--sans); white-space:nowrap; cursor:pointer; transition:background 140ms ease,color 140ms ease; }
-.browser-bookmark .agent-ico { flex:none; }
-.browser-bookmark:hover:not(:disabled) { background:var(--panel-2); color:var(--text-hi); }
-.browser-bookmark:disabled { opacity:.55; cursor:wait; }
-.browser-bookmark:focus-visible { outline:2px solid var(--amber); outline-offset:2px; }
+.browser-tab-strip:not([hidden]) { display:flex; align-items:center; flex:1; min-width:0; gap:4px; }
+.browser-tab-list { display:flex; align-items:center; gap:3px; flex:0 1 auto; min-width:0; padding:3px 0; overflow-x:auto; scrollbar-width:thin; scrollbar-color:var(--muted) transparent; }
+.browser-tab-card { display:flex; align-items:center; flex:1 0 112px; max-width:184px; min-width:0; height:32px; padding-right:3px; border:1px solid transparent; border-radius:calc(9px * var(--radius-scale)); background:var(--panel); color:var(--muted); }
+.browser-tab-card:hover { background:var(--panel-2); color:var(--text); }
+.browser-tab-card[data-active] { background:var(--panel-2); border-color:var(--line); box-shadow:inset 0 -2px var(--amber-dim); color:var(--text-hi); }
+.browser-tab-select,.browser-tab-close { display:flex; align-items:center; border:0; background:transparent; color:inherit; cursor:pointer; border-radius:calc(6px * var(--radius-scale)); }
+.browser-tab-select { flex:1; min-width:0; align-self:stretch; gap:6px; padding:0 0 0 7px; font:500 12px var(--sans); }
+.browser-tab-select[aria-disabled="true"],.browser-tab-close[aria-disabled="true"] { cursor:wait; }
+.browser-tab-icon { display:flex; flex:none; color:var(--muted); }
+.browser-tab-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.browser-tab-close { flex:none; justify-content:center; width:24px; height:26px; padding:0; opacity:0; pointer-events:none; }
+.browser-tab-card:is(:hover,:has(:focus-visible)) .browser-tab-close:not(:disabled) { opacity:1; pointer-events:auto; }
+.browser-tab-close:hover { background:var(--line); color:var(--text-hi); }
+.browser-tab-card button:focus-visible { outline:2px solid var(--amber); outline-offset:-2px; }
+:root #tab-browser #browser-new-tab { --action-size:32px; flex:none; }
 .browser-display { gap:6px; padding-left:10px; border-left:1px solid var(--line); }
 .browser-quality { display:flex; align-items:center; gap:1px; color:var(--muted); }
 .browser-quality>svg { flex:none; }
@@ -46,18 +59,16 @@
 .browser-clipboard textarea { flex:1; min-width:0; resize:vertical; max-height:140px; }
 .browser-mobile-only { display:none; }
 @container browser-work (max-width:850px) {
- .browser-toolbar { grid-template-columns:auto 1fr auto; gap:6px 10px; padding:8px 12px 6px; }
- .browser-toolbar.wb-peek-host { grid-template-columns:auto auto 1fr auto; }
- .browser-address { grid-row:2; grid-column:1 / -1; }
- .browser-shortcuts { justify-content:flex-end; }
+ .browser-toolbar { grid-template-columns:minmax(0,1fr) auto; gap:6px 10px; padding:8px 12px 6px; }
+ .browser-toolbar.wb-peek-host { grid-template-columns:auto minmax(0,1fr) auto; }
+ .browser-navigation { grid-row:2; grid-column:1 / -1; }
+ .browser-lifecycle { justify-self:start; }
  .browser-status { padding-left:14px; }
 }
 @container browser-work (max-width:460px) {
  .browser-toolbar { gap:6px; padding-inline:8px; }
  .browser-lifecycle { padding-right:5px; gap:0; }
  .browser-display { padding-left:5px; gap:0; }
- .browser-bookmark { min-width:36px; padding:8px; }
- .browser-bookmark>span { display:none; }
  .browser-quality>svg { display:none; }
  .browser-quality .select-trigger { width:66px; }
  .browser-status { padding-left:10px; }
@@ -70,12 +81,9 @@
  }
  .browser-toolbar.wb-peek-host { grid-template-columns:auto minmax(0,1fr) auto; }
  .browser-toolbar > .wb-peek { grid-row:2; grid-column:1; }
- .browser-address { grid-row:1; grid-column:1 / -1; }
+ .browser-navigation { grid-row:1; grid-column:1 / -1; }
  #browser-url { font-size:16px; }
- .browser-shortcuts { grid-row:2; grid-column:1; justify-content:flex-start; }
- .browser-toolbar.wb-peek-host .browser-shortcuts { grid-column:2; }
- .browser-bookmark { min-width:36px; padding:8px; }
- .browser-bookmark>span, .browser-lifecycle, .browser-display, .browser-desktop-only, #browser-state { display:none; }
+ .browser-lifecycle, .browser-display, .browser-desktop-only, #browser-state { display:none; }
  .browser-mobile-only { display:revert; }
  #browser-more { display:inline-flex; grid-row:2; grid-column:-2; }
  #tab-browser:not([data-connected]) #browser-more,
@@ -100,5 +108,5 @@
  .browser-clipboard textarea { flex-basis:100%; }
 }
 @media(max-width:600px) { .tabs { overflow-x:auto; flex-shrink:0; } .tab { flex-shrink:0; white-space:nowrap; } }
-@media(pointer:coarse) { :root #tab-browser .btn.browser-tool { --action-size:36px; } .browser-bookmark { min-height:34px; } }
-@media(prefers-reduced-motion:reduce) { .browser-address,.browser-bookmark { transition:none; } }
+@media(pointer:coarse) { :root #tab-browser .btn.browser-tool { --action-size:36px; } }
+@media(prefers-reduced-motion:reduce) { .browser-address { transition:none; } }

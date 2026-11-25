@@ -161,6 +161,40 @@ class Upgrades(unittest.TestCase):
                 with self.assertRaises(ValueError): m.storage_dropin(Path('/config'), props, 123)
                 m.storage_dropin(Path('/config'), {'DropInPaths': ''}, 123)
 
+    def test_installer_whisper_dropin_is_supported_with_or_without_storage(self):
+        whisper = '/etc/systemd/system/agentbox.service.d/20-whisper.conf'
+        storage = '/etc/systemd/system/agentbox.service.d/storage.conf'
+        installer = (Path(__file__).resolve().parent.parent / 'install.sh').read_text(encoding='utf-8')
+        unit = installer.split('cat > "$dropin" <<\'UNIT\'\n', 1)[1].split('\nUNIT\n', 1)[0] + '\n'
+        files = {
+            whisper: unit,
+            storage: '[Unit]\nRequiresMountsFor=/data\nBindsTo=data.mount\nAfter=data.mount\n'
+                     '[Service]\nCapabilityBoundingSet=~CAP_SYS_RESOURCE\n',
+            '/proc/123/status': 'CapBnd: 1\nCapEff: 1\nCapPrm: 1\n',
+        }
+        props = {'DropInPaths': whisper, 'NeedDaemonReload': 'no',
+                 'Wants': 'agentbox-whisper.service', 'After': 'agentbox-whisper.service data.mount',
+                 'RequiresMountsFor': '/data', 'BindsTo': 'data.mount',
+                 'CapabilityBoundingSet': 'cap_chown'}
+        config = Path('/config')
+        with patch.object(m.release, 'read', return_value={}) as read_config, \
+             patch.object(m, 'command', return_value='data.mount'), \
+             patch.object(m.Path, 'lstat', return_value=os.stat_result((0o100644, 0, 0, 1, 0, 0, 0, 0, 0, 0))), \
+             patch.object(m.Path, 'read_text', autospec=True, side_effect=lambda path: files[str(path)]):
+            m.storage_dropin(config, props, 123)
+            for changes in [{'Wants': ''}, {'After': 'data.mount'}, {'NeedDaemonReload': 'yes'},
+                            {'DropInPaths': whisper + ' /etc/unknown.conf'}]:
+                with self.subTest(changes=changes), self.assertRaises(ValueError):
+                    m.storage_dropin(config, dict(props, **changes), 123)
+            files[whisper] = unit.replace('18088', '8080')
+            with self.assertRaises(ValueError):
+                m.storage_dropin(config, props, 123)
+            files[whisper] = unit
+            read_config.return_value = {'storage_policy': {'mount': '/data'}}
+            m.storage_dropin(config, dict(props, DropInPaths=f'{whisper} {storage}'), 123)
+            with self.assertRaises(ValueError):
+                m.storage_dropin(config, props, 123)
+
     def test_development_can_switch_to_stable(self):
         for current, revision in [('dev', 'fixture'), ('v2.0.0-dev.1', 'fixture'),
                                   ('v2.0.0-rc.1', 'fixture'), ('v2.0.0', 'fixture+dirty'),

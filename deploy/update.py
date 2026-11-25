@@ -50,11 +50,33 @@ def architecture():
     return {'x86_64': 'amd64', 'aarch64': 'arm64', 'arm64': 'arm64'}.get(platform.machine())
 
 
+def check_dropin_permissions(path, label):
+    for item in (path, *path.parents):
+        st = item.lstat()
+        if (st.st_uid != 0 or st.st_mode & 0o022 or stat.S_ISLNK(st.st_mode)
+                or (item == path and not stat.S_ISREG(st.st_mode))):
+            raise ValueError(label + '附加配置的属主或权限不安全，请使用手工升级。')
+
+
 def storage_dropin(config, props, pid):
-    """Accept only the quota guard we own, including its loaded systemd state."""
+    """Validate managed service drop-ins, including the loaded systemd state."""
     cfg = release.read(config)
     mount = (cfg.get('storage_policy') or {}).get('mount', '')
     paths = props.get('DropInPaths', '').split()
+    whisper = Path('/etc/systemd/system/agentbox.service.d/20-whisper.conf')
+    if str(whisper) in paths:
+        check_dropin_permissions(whisper, 'Whisper ')
+        service = 'agentbox-whisper.service'
+        expected = ('[Unit]\nWants=agentbox-whisper.service\n'
+                    'After=agentbox-whisper.service\n[Service]\n'
+                    'Environment=AGENTBOX_WHISPER_PORT=18088\n')
+        if whisper.read_text() != expected:
+            raise ValueError('Whisper 附加配置内容不匹配，请使用手工升级。')
+        if (props.get('NeedDaemonReload') != 'no'
+                or service not in props.get('Wants', '').split()
+                or service not in props.get('After', '').split()):
+            raise ValueError('Whisper 附加配置尚未实际生效，请使用手工升级。')
+        paths.remove(str(whisper))
     if not mount and not paths:
         return
     if (not isinstance(mount, str) or not re.fullmatch(r'/[A-Za-z0-9_./-]+', mount)
@@ -63,12 +85,7 @@ def storage_dropin(config, props, pid):
     path = Path('/etc/systemd/system/agentbox.service.d/storage.conf')
     if paths != [str(path)]:
         raise ValueError('存在未识别的服务附加配置，请使用手工升级。')
-    # Do not trust a replaceable user-owned file, directory or symlink.
-    for item in (path, *path.parents):
-        st = item.lstat()
-        if (st.st_uid != 0 or st.st_mode & 0o022 or stat.S_ISLNK(st.st_mode)
-                or (item == path and not stat.S_ISREG(st.st_mode))):
-            raise ValueError('存储附加配置的属主或权限不安全，请使用手工升级。')
+    check_dropin_permissions(path, '存储')
     mount_unit = command('systemd-escape', '--path', '--suffix=mount', mount)
     expected = ['[Unit]', 'RequiresMountsFor=' + mount, 'BindsTo=' + mount_unit,
                 'After=' + mount_unit, '[Service]', 'CapabilityBoundingSet=~CAP_SYS_RESOURCE']
@@ -109,7 +126,7 @@ def probe(app, config, pid, current):
     props = dict(line.split('=', 1) for line in command(
         'systemctl', 'show', 'agentbox.service', '-p', 'MainPID', '-p', 'FragmentPath',
         '-p', 'DropInPaths', '-p', 'NeedDaemonReload', '-p', 'RequiresMountsFor',
-        '-p', 'BindsTo', '-p', 'After', '-p', 'CapabilityBoundingSet').splitlines() if '=' in line)
+        '-p', 'BindsTo', '-p', 'Wants', '-p', 'After', '-p', 'CapabilityBoundingSet').splitlines() if '=' in line)
     if (props.get('MainPID') != str(pid) or props.get('FragmentPath') != str(unit)
             or Path(f'/proc/{pid}/exe').resolve() != package / 'agentbox'):
         raise ValueError('正在运行的服务与发布安装不一致，请使用手工升级。')

@@ -15,7 +15,7 @@ export async function remoteBrowserSmoke(page) {
  await page.route('**/vendor/novnc/core/rfb.js', route => route.fulfill({contentType:'text/javascript',body:`
  export default class extends EventTarget {
  constructor(el,url){
-  super();this.el=el;window.testRemoteDesktop=this;
+  super();this.el=el;el.tabIndex=0;window.testRemoteDesktop=this;
   if(!window.holdRemoteHandshake)this.timer=setTimeout(()=>{el.textContent='Synthetic remote desktop';this.dispatchEvent(new Event('connect'));},20);
  }
  disconnect(){clearTimeout(this.timer);this.dispatchEvent(new Event('disconnect'));}
@@ -55,9 +55,12 @@ export async function remoteBrowserSmoke(page) {
   }
   await route.fulfill({json:{tabs:browserTabs,active:activeTab,back:false,forward:false}});
  });
- await page.route('**/api/sessions/*/browser/clipboard',async route=>{
+ const clipboardRoute = /\/api\/sessions\/[^/]+\/browser\/clipboard(?:\?.*)?$/;
+ await page.route(clipboardRoute,async route=>{
   if(route.request().method()==='POST')clipboard=route.request().postDataJSON().text;
-  await route.fulfill({json:{text:clipboard}});
+  const query = new URL(route.request().url()).searchParams;
+  const revision = query.has('after') ? 2 : 1;
+  await route.fulfill({json:{text:clipboard,revision}});
  });
  await page.evaluate(()=>{location.hash='#/sessions/fixture-space/browser';});
  await page.locator('#tab-browser').waitFor({state:'visible'});
@@ -126,6 +129,16 @@ export async function remoteBrowserSmoke(page) {
  await menu.getByRole('menuitem',{name:'Буфер обмена',exact:true}).click();
  assert.equal(await clipboardPanel.isVisible(),true);
  assert.equal(await page.locator('#browser-paste').isEnabled(),true);
+ assert.equal(await page.locator('#browser-copy').isVisible(),true);
+ await fitsOnScreen('#browser-paste');
+ await fitsOnScreen('#browser-copy');
+ const clipboardText = '中文输入 ✓';
+ await page.locator('#browser-clipboard').fill(clipboardText);
+ await Promise.all([
+  page.waitForResponse(r=>r.url().endsWith('/browser/clipboard') && r.request().method()==='POST'),
+  page.locator('#browser-paste').click(),
+ ]);
+ assert.equal(clipboard,clipboardText);
  await clipboardPanel.locator('summary').click();
  assert.equal(await clipboardPanel.isVisible(),false);
  await page.setViewportSize({width:568,height:260});
@@ -199,13 +212,35 @@ export async function remoteBrowserSmoke(page) {
  await page.locator('#browser-open').click();
  await page.waitForFunction(()=>!document.querySelector('#browser-open').disabled);
  assert.equal(opened.at(-1),'https://example.org/test?q=中文');
- await page.locator('.browser-clipboard summary').click();
- await page.locator('#browser-clipboard').fill('中文输入 ✓');
- await page.locator('#browser-paste').click();
- await page.waitForResponse(r=>r.url().includes('/browser/clipboard')&&r.request().method()==='GET', {timeout:500}).catch(()=>{});
- await page.locator('#browser-copy').click();
- await page.waitForFunction(()=>document.querySelector('#browser-clipboard').value==='中文输入 ✓');
- assert.equal(clipboard,'中文输入 ✓');
+ assert.equal(await clipboardPanel.isVisible(),false);
+ await page.evaluate(() => {
+  Object.defineProperty(navigator,'clipboard',{configurable:true,value:{async writeText(text) {
+   window.remoteClipboardWrite = text;
+   if (window.rejectRemoteClipboardWrite) throw new DOMException('Denied','NotAllowedError');
+  }}});
+ });
+ const screen = page.locator('#browser-screen');
+ await screen.press('Control+c');
+ await page.waitForFunction(text=>window.remoteClipboardWrite === text,clipboardText);
+ assert.equal(await clipboardPanel.isVisible(),false);
+ await page.evaluate(() => { window.rejectRemoteClipboardWrite = true; });
+ await screen.press('Control+c');
+ await clipboardPanel.waitFor();
+ assert.equal(await page.locator('#browser-clipboard').inputValue(),clipboardText);
+ assert.equal(await page.locator('#browser-paste').isVisible(),false);
+ assert.equal(await page.locator('#browser-copy').isVisible(),false);
+ await fitsOnScreen('#browser-clipboard');
+ await page.setViewportSize({width:780,height:740});
+ await fitsOnScreen('#browser-clipboard');
+ await page.setViewportSize({width:1280,height:900});
+ await clipboardPanel.locator('summary').click();
+ await clipboardPanel.waitFor({state:'hidden'});
+ await screen.press('Control+c');
+ await clipboardPanel.waitFor();
+ await page.evaluate(() => { window.rejectRemoteClipboardWrite = false; });
+ await screen.press('Control+c');
+ await clipboardPanel.waitFor({state:'hidden'});
+ await page.evaluate(() => { delete navigator.clipboard; });
  for (const theme of ["light","dark"]) {
  await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
  for (const width of [1440,900,390,320]) {
@@ -319,9 +354,9 @@ export async function remoteBrowserSmoke(page) {
  release(); delayResolve=null;
  await page.waitForTimeout(100);
  assert.equal(await page.locator('#browser-screen').innerText(),'');
- console.log('Browser toolbar: scrolling, close and rejection, address draft, keyboard focus, native tab changes and responsive layouts passed');
+ console.log('Browser layouts: desktop clipboard fallback, mobile clipboard controls, responsive tab strip and keyboard focus passed');
  await page.unroute('**/vendor/novnc/core/rfb.js');
  await page.unroute('**/api/sessions/*/browser');
  await page.unroute('**/api/sessions/*/browser/navigation*');
- await page.unroute('**/api/sessions/*/browser/clipboard');
+ await page.unroute(clipboardRoute);
 }

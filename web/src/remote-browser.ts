@@ -308,6 +308,19 @@ function updateDot() {
  $("browser-dot").dataset.state = !$("browser-error-details").classList.contains("hidden") ? "error" :
   pending() ? "busy" : connected ? "connected" : "idle";
 }
+function setClipboardFallback(open: boolean) {
+ const panel = $<HTMLDetailsElement>("browser-clipboard-panel");
+ if (open && !compactLayout.matches) {
+  panel.setAttribute("data-copy-fallback", "");
+  panel.open = true;
+  return true;
+ }
+ if (!open && panel.hasAttribute("data-copy-fallback")) {
+  panel.removeAttribute("data-copy-fallback");
+  panel.open = false;
+ }
+ return false;
+}
 function controls() {
  updateDot();
  const pane = $("tab-browser");
@@ -333,6 +346,8 @@ function resetDesktop(closeTransport = false) {
  window.clearTimeout(connectTimer);
  window.clearInterval(navigationTimer);
  if ($("browser-tabs").getAttribute("aria-expanded") === "true") closeMenu();
+ setClipboardFallback(false);
+ $<HTMLTextAreaElement>("browser-clipboard").value = "";
  navigationVersion++;
  navigation = null; navigationId = "";
  navigationBusy = false; navigationReading = false; editingAddress = false;
@@ -447,9 +462,14 @@ export function initRemoteBrowser() {
   const active = () => connected && desktop === view && S.current?.id === id && S.tab === "browser"
    && ticket === generation && (!tab || tab === navigation?.active) && !document.hidden && document.hasFocus();
   return view && id && active() ? {id, view, current:active, nativeClipboard} : null;
- }, signal);
+ }, signal, setClipboardFallback);
+ const clipboard = $<HTMLDetailsElement>("browser-clipboard-panel");
+ clipboard.addEventListener("toggle", () => {
+  if (!clipboard.open) clipboard.removeAttribute("data-copy-fallback");
+ }, {signal});
  renderAddressHint();
  compactLayout.addEventListener("change", () => {
+  setClipboardFallback(false);
   renderAddressHint();
   renderNavigation();
  }, {signal});
@@ -545,7 +565,6 @@ export function initRemoteBrowser() {
  const more = $<HTMLButtonElement>("browser-more");
  more.addEventListener("click", () => {
   if (!connected || pending()) return;
-  const clipboard = $<HTMLDetailsElement>("browser-clipboard-panel");
   openMenu(more, [
    ...Array.from(quality.options, option => ({
     label: i18nText("画质：{p0}", {p0:option.textContent}),
@@ -564,5 +583,5 @@ export function initRemoteBrowser() {
    {label:i18nText("关闭浏览器"), icon:"close", danger:true, run:stop},
   ]);
  }, {signal});
- return () => { controller?.abort(); controller = null; browserDisconnect(); $<HTMLTextAreaElement>("browser-clipboard").value = ""; };
+ return () => { controller?.abort(); controller = null; browserDisconnect(); };
 }

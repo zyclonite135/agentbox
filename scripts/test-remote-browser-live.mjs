@@ -296,16 +296,11 @@ try {
  const canvas=page.locator('#browser-screen canvas');
  const rect=await canvas.boundingBox();
  await canvas.click({position:{x:rect.width*.25,y:rect.height*.38}});
- await page.locator('.browser-clipboard summary').click();
- await waitForFittedDesktop(page);
- await page.locator('#browser-clipboard').fill('真实远程桌面 ✓');
- await Promise.all([page.waitForResponse(r=>r.url().endsWith('/browser/clipboard')&&r.request().method()==='POST'),page.locator('#browser-paste').click()]);
- await expectRemoteInput(page, '真实远程桌面 ✓');
+ assert.equal(await page.locator('#browser-clipboard-panel').isVisible(),false);
  if (checkClipboard) await checkClipboardShortcuts(page, canvas);
  await page.waitForTimeout(300);
  await mkdir('output/playwright',{recursive:true});
  await page.screenshot({path:'output/playwright/remote-browser-live.png'});
- await page.locator('.browser-clipboard summary').click();
  await page.setViewportSize({width:2120,height:920});
  await waitForFittedDesktop(page);
  await waitForRemotePageWidth(page, canvas);
@@ -399,12 +394,23 @@ try {
  }
  const storageState = await page.context().storageState();
  await page.close();
- const phone = await browser.newPage({storageState, isMobile:true, hasTouch:true, deviceScaleFactor:3, viewport:{width:360,height:780}});
+ const phone = await browser.newPage({storageState, locale:'en-US', isMobile:true, hasTouch:true, deviceScaleFactor:3, viewport:{width:360,height:780}});
  phone.on('pageerror',e=>errors.push(e.message));
  await phone.goto(`${base}/#/sessions/${session}/browser`);
  await phone.locator('#tab-browser[data-connected]').waitFor({timeout:30000});
  await waitForFittedDesktop(phone, true);
  await waitForRemotePageWidth(phone, phone.locator('#browser-screen canvas'));
+ await phone.locator('#browser-more').click();
+ await phone.getByRole('menuitem',{name:'Clipboard',exact:true}).click();
+ const clipboard = phone.locator('#browser-clipboard');
+ await clipboard.fill('真实远程桌面 ✓');
+ const [write] = await Promise.all([
+  phone.waitForResponse(r=>r.url().endsWith('/browser/clipboard') && r.request().method()==='POST'),
+  phone.locator('#browser-paste').click(),
+ ]);
+ assert.equal((await write.json()).text,'真实远程桌面 ✓');
+ await waitForFittedDesktop(phone, true);
+ await phone.locator('.browser-clipboard summary').click();
  if (requireFavicons) {
   await phone.locator('#browser-tabs').click();
   await expectTabFavicon(phone);

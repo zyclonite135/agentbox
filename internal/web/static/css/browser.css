@@ -53,9 +53,11 @@
 #browser-empty h3 { color:var(--text-hi); margin:0 0 12px; font-size:18px; font-weight:500; }
 #browser-empty p { color:var(--muted); font-size:13px; line-height:1.8; margin:4px 0; }
 #browser-launch { pointer-events:auto; margin:14px 0 6px; }
-.browser-clipboard { flex:none; padding:8px 12px; border-top:1px solid var(--line); }
+.browser-clipboard { display:none; flex:none; padding:8px 12px; border-top:1px solid var(--line); }
+.browser-clipboard[data-copy-fallback][open] { display:block; }
 .browser-clipboard summary { font-size:12px; color:var(--muted); cursor:pointer; }
 .browser-clipboard>div { display:flex; gap:8px; margin-top:8px; align-items:center; }
+.browser-clipboard>div>button { display:none; }
 .browser-clipboard textarea { flex:1; min-width:0; resize:vertical; max-height:140px; }
 .browser-mobile-only { display:none; }
 @container browser-work (max-width:850px) {
@@ -88,7 +90,7 @@
  #browser-more { display:inline-flex; grid-row:2; grid-column:-2; }
  #tab-browser:not([data-connected]) #browser-more,
  #tab-browser:not([data-connected]) .browser-clipboard,
- .browser-clipboard:not([open]), .browser-status:not([data-mobile-text]) { display:none; }
+ .browser-status:not([data-mobile-text]) { display:none; }
  .browser-status { flex-wrap:wrap; padding:0 12px 8px; }
  .browser-dot[data-state="error"] { background:var(--red); }
  .browser-state { flex:1; font-size:12px; }
@@ -104,7 +106,9 @@
  #browser-empty { padding:12px; justify-content:safe center; overflow:auto; pointer-events:auto; }
  #browser-launch { flex:none; margin:0 0 6px; }
  .browser-clipboard { max-height:40dvh; overflow:auto; }
+ .browser-clipboard[open] { display:block; }
  .browser-clipboard>div { flex-wrap:wrap; }
+ .browser-clipboard>div>button { display:inline-flex; }
  .browser-clipboard textarea { flex-basis:100%; }
 }
 @media(max-width:600px) { .tabs { overflow-x:auto; flex-shrink:0; } .tab { flex-shrink:0; white-space:nowrap; } }

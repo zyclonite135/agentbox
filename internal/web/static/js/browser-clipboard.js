@@ -7,11 +7,12 @@ function sendShortcut(view, key) {
     view.sendKey(key.charCodeAt(0), "Key" + key.toUpperCase());
     view.sendKey(0xffe3, "ControlLeft", false);
 }
-export function setupBrowserClipboard(screen, getTarget, signal) {
+export function setupBrowserClipboard(screen, getTarget, signal, setCopyFallback) {
     const textarea = $("browser-clipboard");
     let nativeMenu;
     let readPermission;
     let pendingPaste = null;
+    let copyAttempt = 0;
     if (typeof navigator.clipboard?.readText === "function" && navigator.permissions) {
         // WebKit can require native confirmation for every new system clipboard
         // value. Keep browser-native keyboard paste there.
@@ -37,8 +38,10 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
         return "";
     }
     async function copyToDevice(target, pendingText) {
+        const attempt = ++copyAttempt;
+        const current = () => attempt === copyAttempt && available(target);
         const text = pendingText.then(value => {
-            if (!available(target) || !value)
+            if (!current() || !value)
                 throw new DOMException("No copied text", "AbortError");
             textarea.value = value;
             return value;
@@ -56,17 +59,20 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
                 if (!clipboard)
                     throw new Error();
             }
-            if (available(target))
+            if (current()) {
+                setCopyFallback(false);
                 toast(t("已复制"));
+            }
         }
         catch {
             try {
                 await text;
-                if (available(target))
-                    toast(t("浏览器拒绝写入剪贴板"), true);
+                if (current()) {
+                    toast(t(setCopyFallback(true) ? "浏览器不允许直接写入剪贴板，请手动复制下面的文字。" : "浏览器拒绝写入剪贴板"), true);
+                }
             }
             catch (error) {
-                if (available(target) && !(error instanceof DOMException && error.name === "AbortError")) {
+                if (current() && !(error instanceof DOMException && error.name === "AbortError")) {
                     toast(error.message, true);
                 }
             }
@@ -208,7 +214,7 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
             event.stopPropagation();
             closeNativeMenu();
         }
-        else if (event.code === "KeyC" && navigator.clipboard) {
+        else if (event.code === "KeyC") {
             event.preventDefault();
             event.stopPropagation();
             if (event.repeat)
@@ -233,7 +239,7 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
     }, { capture: true, signal });
     function menuButtonDown(button) {
         const target = getTarget();
-        if (!target || !navigator.clipboard)
+        if (!target)
             return;
         if (button === 2) {
             beginNativeMenu(target);

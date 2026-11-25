@@ -741,10 +741,11 @@
 #view-settings { --settings-gap:14px; --settings-radius:calc(12px * var(--radius-scale)); }
 #view-settings .set-head { padding-block:8px; }
 #view-settings .set-body { gap:20px; }
-#view-settings .set-nav { width:174px; overflow-y:auto; scrollbar-width:thin; }
+#view-settings .set-nav { width:max-content; min-width:174px; overflow-y:auto; scrollbar-width:thin; scrollbar-gutter:stable; }
 .settings-nav-group,.section-menu-heading {
   margin:10px 0 2px; padding-inline:10px; color:var(--muted);
   font-size:11px; line-height:1.4; font-weight:600; letter-spacing:.045em; text-transform:uppercase;
+  white-space:nowrap;
 }
 .settings-nav-group:first-child,.section-menu-heading:first-child { margin-top:2px; }
 .section-menu-heading { padding-block:4px; }

@@ -16,7 +16,7 @@ class Uninstall(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name).resolve()
-        for name in ('APP','CONFIG','DATA','CACHE','BACKUPS'):
+        for name in ('APP','CONFIG','DATA','CACHE','BACKUPS','WHISPER_HOME'):
             setattr(m,name,root/name.lower())
         m.UNIT = root/'agentbox.service'
         m.CONFIG.mkdir()
@@ -32,9 +32,10 @@ class Uninstall(unittest.TestCase):
         dropin = m.UNIT.parent / 'agentbox.service.d/20-whisper.conf'
         dropin.parent.mkdir()
         dropin.write_text(m.WHISPER_DROPIN)
-        unit.write_text('ExecStart=/opt/agentbox/whisper/whisper-server --host 127.0.0.1 --port 18088 -l auto\n')
-        with patch.object(m, 'run', side_effect=[str(dropin), str(unit), '']):
-            self.assertEqual(m.whisper_files(), (unit, dropin))
+        for home in (m.WHISPER_HOME, m.APP / 'whisper'):
+            unit.write_text(f'ExecStart={home}/whisper-server --host 127.0.0.1 --port 18088 -l auto\n')
+            with patch.object(m, 'run', side_effect=[str(dropin), str(unit), '']):
+                self.assertEqual(m.whisper_files(), (unit, dropin))
         dropin.write_text(m.WHISPER_DROPIN + 'Environment=OTHER_SETTING=1\n')
         with patch.object(m, 'run', return_value=str(dropin)):
             with self.assertRaises(ValueError):

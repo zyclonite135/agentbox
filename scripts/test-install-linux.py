@@ -45,11 +45,12 @@ def inside():
         hashlib.sha256(model.read_bytes()).hexdigest()), encoding='utf-8')
     mocks = root / 'bin'; mocks.mkdir()
     commands = {
-        'curl': '''import shutil,sys,time,urllib.request
+        'curl': '''import os,shutil,sys,time,urllib.request
 from pathlib import Path
 url=next(arg for arg in sys.argv if arg.startswith(('https://','http://')))
 if url == 'http://127.0.0.1:18088/health':
  assert Path('/tmp/install-test/whisper-active').exists()
+ if os.environ.get('FAIL_WHISPER_HEALTH'): raise SystemExit(22)
  raise SystemExit(0)
 if url == 'http://127.0.0.1:18189/api/ping':
  for _ in range(30):
@@ -89,7 +90,7 @@ whisper=Path('/tmp/install-test/whisper-active')
 dropin=units/'agentbox.service.d/20-whisper.conf'
 if 'agentbox-whisper.service' in args and args[0] != 'show':
  if args[0]=='start':
-  assert (Path('/opt/agentbox/whisper')/'ggml-base.bin').is_file()
+  assert (Path('/opt/agentbox-whisper')/'ggml-base.bin').is_file()
   assert (units/'agentbox-whisper.service').is_file()
   whisper.touch()
  elif args[0]=='stop': whisper.unlink()
@@ -146,6 +147,15 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
     assert not Path('/etc/agentbox').exists()
     assert set(Path('/tmp').glob('tmp.*')) == original_staging, 'failed download staging was not cleaned: ' + result.stderr
     (fixture / 'SHA256SUMS').write_text(digest + '  ' + archive.name + '\n')
+    bad_whisper = subprocess.run(command, env=dict(env, FAIL_WHISPER_HEALTH='1'),
+                                 capture_output=True, text=True)
+    assert bad_whisper.returncode != 0 and 'Whisper did not become ready' in bad_whisper.stderr
+    for path in ('/opt/agentbox', '/etc/agentbox', '/opt/agentbox-whisper',
+                 '/etc/systemd/system/agentbox-whisper.service',
+                 '/etc/systemd/system/agentbox.service.d/20-whisper.conf'):
+        assert not Path(path).exists(), path
+    assert not (root / 'whisper-active').exists()
+    assert set(Path('/tmp').glob('tmp.*')) == original_staging
     result = subprocess.run(command, env=env, capture_output=True, text=True)
     if result.returncode:
         print(result.stderr)
@@ -178,6 +188,7 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
     assert result.returncode == 0, result.stderr
     assert not config_path.exists() and not Path('/opt/agentbox').exists()
     assert not Path('/etc/systemd/system/agentbox-whisper.service').exists()
+    assert not Path('/opt/agentbox-whisper').exists()
     assert not Path('/etc/systemd/system/agentbox.service.d/20-whisper.conf').exists()
     retained = list(Path('/var/backups/agentbox-uninstall').glob('*/config/config.json'))
     assert len(retained) == 1 and retained[0].read_bytes() == original

@@ -18,6 +18,7 @@ APP = Path('/opt/agentbox')
 CONFIG = Path('/etc/agentbox')
 DATA = Path('/var/lib/agentbox')
 CACHE = Path('/var/cache/agentbox')
+WHISPER_HOME = Path('/opt/agentbox-whisper')
 UNIT = Path('/etc/systemd/system/agentbox.service')
 BACKUPS = Path('/var/backups/agentbox-uninstall')
 WHISPER_DROPIN = """[Unit]
@@ -38,11 +39,14 @@ def whisper_files():
     loaded = run('systemctl', 'show', 'agentbox.service', '--property=DropInPaths', '--value')
     if not loaded and not any(path.exists() or path.is_symlink() for path in (dropin, unit)):
         return ()
+    unit_text = unit.read_text() if unit.is_file() and not unit.is_symlink() else ''
+    homes = (WHISPER_HOME, APP / 'whisper')
+    home = next((path for path in homes if
+                 f'ExecStart={path}/whisper-server --host 127.0.0.1 --port 18088 ' in unit_text), None)
     if (loaded not in ('', str(dropin)) or
             any(path.resolve() != path for path in (dropin, unit)) or
             (dropin.exists() and dropin.read_text() != WHISPER_DROPIN) or
-            not unit.is_file() or
-            'ExecStart=/opt/agentbox/whisper/whisper-server --host 127.0.0.1 --port 18088 ' not in unit.read_text()):
+            home is None or home.resolve() != home or (home.exists() and not home.is_dir())):
         raise ValueError('Service has custom overrides; review them before uninstalling')
     if run('systemctl', 'show', 'agentbox-whisper.service', '--property=FragmentPath', '--value') != str(unit):
         raise ValueError('Loaded Whisper service does not match the release installation')
@@ -75,13 +79,13 @@ def validate():
     return cfg
 
 
-def containers():
+def containers(extra_roots=()):
     # Refuse unrelated containers using these files instead of deleting their data.
     ids = run('docker', 'ps', '-aq').split()
     if not ids:
         return []
     selected = []
-    roots = (APP, CONFIG, DATA, CACHE)
+    roots = (APP, CONFIG, DATA, CACHE, *extra_roots)
     for item in json.loads(run('docker', 'inspect', *ids)):
         mounts = [Path(m['Source']).resolve() for m in item.get('Mounts', []) if m.get('Type') == 'bind']
         touches = any(m == root or root in m.parents or m in root.parents for root in roots for m in mounts)
@@ -118,11 +122,16 @@ def main():
         os.environ['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
         validate()
         whisper = whisper_files()
-        selected = containers()
+        paths = [('app', APP), ('config', CONFIG), ('data', DATA), ('cache', CACHE)]
+        external_whisper = (WHISPER_HOME,) if whisper and (
+            f'ExecStart={WHISPER_HOME}/whisper-server ' in whisper[0].read_text()) else ()
+        if external_whisper:
+            paths.append(('whisper', WHISPER_HOME))
+        selected = containers(external_whisper)
         print('Stop and disable agentbox.service; remove its %d workspace containers.' % len(selected))
         if whisper:
             print('Stop and remove the local Whisper service.')
-        print(('PERMANENTLY DELETE: ' if args.purge else 'Move to a private backup: ') + ', '.join(map(str, (APP, CONFIG, DATA, CACHE))))
+        print(('PERMANENTLY DELETE: ' if args.purge else 'Move to a private backup: ') + ', '.join(str(path) for _, path in paths))
         print('Docker, images, other containers and firewall rules are retained.')
         if args.dry_run:
             return
@@ -133,13 +142,13 @@ def main():
             BACKUPS.mkdir(parents=True, exist_ok=True, mode=0o700)
             backup = Path(tempfile.mkdtemp(prefix=datetime.datetime.now().strftime('%Y%m%d-%H%M%S-'), dir=BACKUPS))
             # Default retention uses renames: no full copy or partial deletion on low disk.
-            if any(p.exists() and p.stat().st_dev != backup.stat().st_dev for p in (APP, CONFIG, DATA, CACHE)):
+            if any(p.exists() and p.stat().st_dev != backup.stat().st_dev for _, p in paths):
                 backup.rmdir()
                 raise ValueError('Backup is on another filesystem; make a verified backup and use --purge explicitly')
         run('systemctl', 'stop', 'agentbox.service')
         if whisper:
             run('systemctl', 'stop', 'agentbox-whisper.service')
-        selected = containers()  # Recheck after stopping new workspace creation.
+        selected = containers(external_whisper)  # Recheck after stopping new workspace creation.
         if selected:
             run('docker', 'rm', '-f', *selected)
         run('systemctl', 'disable', 'agentbox.service')
@@ -152,7 +161,7 @@ def main():
         UNIT.unlink()
         run('systemctl', 'daemon-reload')
         subprocess.run(['systemctl', 'reset-failed', 'agentbox.service'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        for name, path in [('app', APP), ('config', CONFIG), ('data', DATA), ('cache', CACHE)]:
+        for name, path in paths:
             if path.exists():
                 if backup:
                     os.rename(path, backup / name)

@@ -23,6 +23,44 @@ INSTALLER = (ROOT / 'install.sh').read_text(encoding='utf-8')
 EXTRACTOR = INSTALLER.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 
 
+class WhisperSetup(unittest.TestCase):
+    def test_failed_health_check_cleans_service_and_allows_retry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            build = root / 'stage/whisper-build/bin'
+            build.mkdir(parents=True)
+            (build / 'whisper-server').write_text('synthetic binary')
+            (root / 'stage/ggml-base.bin').write_text('synthetic model')
+            (root / 'units').mkdir()
+            script, _ = INSTALLER.rsplit('\nmain "$@"', 1)
+            script = script.replace('/opt/agentbox-whisper', str(root / 'whisper'))
+            script = script.replace('/etc/systemd/system/', str(root / 'units') + '/')
+            script += r'''
+command() { [[ "$*" != '-v restorecon' ]] && builtin command "$@"; }
+curl() { [[ "$health" == ok ]]; }
+language=en
+health=$2
+systemctl() { printf '%s\n' "$*" >> "$logs"; }
+logs="$1/calls"
+install_whisper "$1/stage"
+printf 'AgentBox bootstrap reached\n'
+'''
+            failed = subprocess.run(['bash', '-c', script, 'fixture', tmp, 'fail'],
+                                    capture_output=True, text=True)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertIn('Whisper did not become ready', failed.stderr)
+            self.assertNotIn('AgentBox bootstrap reached', failed.stdout)
+            self.assertIn('stop agentbox-whisper.service', (root / 'calls').read_text())
+            self.assertFalse((root / 'whisper').exists())
+            self.assertFalse(list((root / 'units').iterdir()))
+            ready = subprocess.run(['bash', '-c', script, 'fixture', tmp, 'ok'],
+                                   capture_output=True, text=True)
+            self.assertEqual(ready.returncode, 0, ready.stderr)
+            self.assertIn('AgentBox bootstrap reached', ready.stdout)
+            self.assertTrue((root / 'whisper/ggml-base.bin').is_file())
+            self.assertTrue((root / 'units/agentbox.service.d/20-whisper.conf').is_file())
+
+
 class DockerRepository(unittest.TestCase):
     def run_setup(self, distro, os_release, arch, engine='absent', fail_key=False, fail_update=False,
                   daemon_config=None, config_event='normal'):

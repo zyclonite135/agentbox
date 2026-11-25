@@ -143,15 +143,25 @@ prepare_whisper() {
     fail 'Whisper base model checksum mismatch' 'Контрольная сумма модели Whisper base не совпадает'
 }
 
-install_whisper() {
-  local stage=$1 listen=$2 host
-  local whisper_home=/opt/agentbox/whisper
+install_whisper() (
+  local stage=$1
+  local whisper_home=/opt/agentbox-whisper
   local unit=/etc/systemd/system/agentbox-whisper.service
   local dropin=/etc/systemd/system/agentbox.service.d/20-whisper.conf
-  # The release bootstrap uses umask 077. Allow the dynamic service user to
-  # traverse the application directory without listing the release layout.
-  chmod 0711 /opt/agentbox
-  install -d -m 0755 "$whisper_home" "$whisper_home/public" "${dropin%/*}"
+  local dropin_dir_created=0
+  # Reserve the directory before arming cleanup so an existing installation
+  # (including a concurrent installer) cannot be removed by this attempt.
+  mkdir -m 0755 -- "$whisper_home"
+  trap '
+    if [[ -f "$unit" ]]; then
+      systemctl stop agentbox-whisper.service || :
+    fi
+    rm -f -- "$dropin" "$unit" "$whisper_home/ggml-base.bin" "$whisper_home/whisper-server"
+    rmdir -- "$whisper_home/public" "$whisper_home" 2>/dev/null || :
+    if ((dropin_dir_created)); then rmdir -- "${dropin%/*}" 2>/dev/null || :; fi
+    systemctl daemon-reload || :
+  ' EXIT
+  install -d -m 0755 "$whisper_home/public"
   install -m 0755 "$stage/whisper-build/bin/whisper-server" "$whisper_home/whisper-server"
   install -m 0644 "$stage/ggml-base.bin" "$whisper_home/ggml-base.bin"
   cat > "$unit" <<'UNIT'
@@ -160,8 +170,8 @@ Description=AgentBox local Whisper speech recognition
 [Service]
 Type=simple
 DynamicUser=yes
-WorkingDirectory=/opt/agentbox/whisper
-ExecStart=/opt/agentbox/whisper/whisper-server --host 127.0.0.1 --port 18088 --public /opt/agentbox/whisper/public -m /opt/agentbox/whisper/ggml-base.bin -l auto -ng -nc
+WorkingDirectory=/opt/agentbox-whisper
+ExecStart=/opt/agentbox-whisper/whisper-server --host 127.0.0.1 --port 18088 --public /opt/agentbox-whisper/public -m /opt/agentbox-whisper/ggml-base.bin -l auto -ng -nc
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=yes
@@ -178,6 +188,10 @@ UNIT
     fail 'Whisper did not become ready; see journalctl -u agentbox-whisper' \
          'Whisper не запустился. Проверьте журнал: journalctl -u agentbox-whisper'
   systemctl is-active --quiet agentbox-whisper.service
+  if [[ ! -d "${dropin%/*}" ]]; then
+    mkdir -m 0755 -- "${dropin%/*}"
+    dropin_dir_created=1
+  fi
   cat > "$dropin" <<'UNIT'
 [Unit]
 Wants=agentbox-whisper.service
@@ -188,18 +202,9 @@ UNIT
   chmod 0644 "$dropin"
   if command -v restorecon >/dev/null; then restorecon -R "${dropin%/*}"; fi
   systemctl daemon-reload
-  systemctl restart agentbox.service
-  host=${listen%:*}
-  case "$host" in
-    ''|0.0.0.0) host=127.0.0.1 ;;
-    '[::]') host='[::1]' ;;
-  esac
-  curl --noproxy '*' -fsS --retry 15 --retry-connrefused --retry-delay 1 --max-time 2 \
-    "http://$host:${listen##*:}/api/ping" >/dev/null || \
-    fail 'AgentBox did not become ready after connecting Whisper' 'AgentBox не запустился после подключения Whisper'
-  systemctl is-active --quiet agentbox.service
+  trap - EXIT
   message 'Local Whisper base is ready on 127.0.0.1:18088.' 'Локальный Whisper base готов на 127.0.0.1:18088.'
-}
+)
 
 main() {
   local repository='zyclonite135/agentbox'
@@ -248,11 +253,15 @@ main() {
   [[ -z $(systemctl show agentbox.service --property=FragmentPath --value) ]] || \
     fail 'An agentbox service already exists; use the migration/upgrade instructions' \
          'Служба agentbox уже существует. Воспользуйтесь инструкцией по миграции или обновлению.'
-  for path in /etc/systemd/system/agentbox-whisper.service /etc/systemd/system/agentbox.service.d/20-whisper.conf; do
+  for path in /opt/agentbox-whisper /etc/systemd/system/agentbox-whisper.service /etc/systemd/system/agentbox.service.d/20-whisper.conf; do
     [[ ! -e "$path" && ! -L "$path" ]] || \
       fail "Whisper installation path already exists: $path" "Обнаружен существующий путь Whisper: $path"
   done
-  [[ ${listen##*:} != 18088 ]] || \
+  [[ ! -L /etc/systemd/system/agentbox.service.d ]] || \
+    fail 'AgentBox service override directory is a symlink' 'Каталог настроек службы AgentBox является символической ссылкой'
+  [[ -z $(systemctl show agentbox-whisper.service --property=FragmentPath --value) ]] || \
+    fail 'A Whisper service already exists' 'Служба Whisper уже существует'
+  [[ ! ${listen##*:} =~ ^0*18088$ ]] || \
     fail 'Port 18088 is reserved for local Whisper' 'Порт 18088 зарезервирован для локального Whisper'
 
   distro=''
@@ -358,10 +367,10 @@ with open(sys.argv[1], "rb") as binary, mmap.mmap(binary.fileno(), 0, access=mma
   prepare_whisper "$distro" "$task_tmp"
   # Pin every Docker operation to the same local daemon used by systemd.
   ensure_docker "$distro" "$task_tmp"
+  install_whisper "$task_tmp"
   # Older packages ignore the language selector but still need UTF-8.
   AGENTBOX_INSTALL_LANG="$language" PYTHONUTF8=1 PYTHONIOENCODING=utf-8 \
     python3 "$package/deploy/bootstrap.py" --package "$package" --listen "$listen"
-  install_whisper "$task_tmp" "$listen"
   # Run cleanup while task_tmp is still in scope, then disarm EXIT.
   rm -rf -- "$task_tmp"
   trap - EXIT

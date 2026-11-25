@@ -617,6 +617,7 @@ def serve():
             pass  # Manual clipboard operations remain available.
         launch(['openbox'])
         flags = ['--user-data-dir=' + str(PROFILE / 'profile'), '--no-first-run',
+                 '--disable-infobars',
                  '--no-default-browser-check', '--restore-last-session',
                  '--disable-session-crashed-bubble', '--password-store=basic',
                  '--disable-quic', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp',

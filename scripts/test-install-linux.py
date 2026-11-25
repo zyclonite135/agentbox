@@ -37,15 +37,44 @@ def inside():
     digest = hashlib.sha256(archive.read_bytes()).hexdigest()
     (fixture / 'SHA256SUMS').write_text('0' * 64 + '  ' + archive.name + '\n')
     latest = fixture / 'latest.json'
+    model = fixture / 'ggml-base.bin'
+    model.write_bytes(b'synthetic whisper model')
+    installer = root / 'install.sh'
+    installer.write_text(installer.read_text(encoding='utf-8').replace(
+        '60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe',
+        hashlib.sha256(model.read_bytes()).hexdigest()), encoding='utf-8')
     mocks = root / 'bin'; mocks.mkdir()
     commands = {
-        'curl': '''import shutil,sys
+        'curl': '''import shutil,sys,time,urllib.request
 from pathlib import Path
-url=next(arg for arg in sys.argv if arg.startswith('https://'))
-assert url.startswith(('https://api.github.com/repos/zyclonite135/agentbox/releases/', 'https://github.com/zyclonite135/agentbox/releases/')), url
+url=next(arg for arg in sys.argv if arg.startswith(('https://','http://')))
+if url == 'http://127.0.0.1:18088/health':
+ assert Path('/tmp/install-test/whisper-active').exists()
+ raise SystemExit(0)
+if url == 'http://127.0.0.1:18189/api/ping':
+ for _ in range(30):
+  try:
+   with urllib.request.urlopen(url,timeout=1): pass
+   raise SystemExit(0)
+  except OSError: time.sleep(.1)
+ raise SystemExit(1)
+assert url.startswith(('https://api.github.com/repos/zyclonite135/agentbox/releases/', 'https://github.com/zyclonite135/agentbox/releases/', 'https://huggingface.co/ggerganov/whisper.cpp/resolve/')), url
 name='latest.json' if url.endswith('/latest') else url.rsplit('/',1)[1]
 shutil.copyfile(Path('/tmp/install-test/fixture')/name,sys.argv[sys.argv.index('-o')+1])
 ''',
+        'git': '''import sys
+assert sys.argv[1] == 'init' or sys.argv[1] == '-C', sys.argv
+''',
+        'cmake': '''import sys
+from pathlib import Path
+if '--build' in sys.argv:
+ assert '--target' in sys.argv and 'whisper-server' in sys.argv
+ binary=Path(sys.argv[2])/'bin/whisper-server'
+ binary.parent.mkdir(parents=True)
+ binary.write_text('synthetic whisper binary')
+''',
+        'make': 'pass',
+        'g++': 'pass',
         'docker': '''import json,sys
 if sys.argv[1:4]==['network','inspect','bridge']:
  print(json.dumps([{'IPAM':{'Config':[{'Gateway':'172.17.0.1'}]}}]))
@@ -55,11 +84,31 @@ elif sys.argv[1] not in ('info','build'): raise SystemExit('unexpected Docker CL
         'systemctl': '''import os,signal,subprocess,sys,time,socket
 from pathlib import Path
 args=sys.argv[1:];pid=Path('/tmp/install-test/server.pid')
+units=Path('/etc/systemd/system')
+whisper=Path('/tmp/install-test/whisper-active')
+dropin=units/'agentbox.service.d/20-whisper.conf'
+if 'agentbox-whisper.service' in args and args[0] != 'show':
+ if args[0]=='start':
+  assert (Path('/opt/agentbox/whisper')/'ggml-base.bin').is_file()
+  assert (units/'agentbox-whisper.service').is_file()
+  whisper.touch()
+ elif args[0]=='stop': whisper.unlink()
+ elif args[0]=='is-active': assert whisper.is_file()
+ else: raise SystemExit('unexpected Whisper operation')
+ raise SystemExit(0)
 if args[0]=='show':
- if '--property=DropInPaths' not in args and Path('/etc/systemd/system/agentbox.service').exists(): print('/etc/systemd/system/agentbox.service')
+ if '--property=DropInPaths' in args:
+  if args[1]=='agentbox.service' and dropin.exists(): print(dropin)
+ elif (units/args[1]).exists(): print(units/args[1])
+elif args[0]=='restart':
+ for action in ('stop','start'): subprocess.run([sys.argv[0],action,*args[1:]],check=True)
 elif args[0]=='start':
+ env=dict(os.environ)
+ if dropin.exists():
+  assert 'Environment=AGENTBOX_WHISPER_PORT=18088' in dropin.read_text()
+  env['AGENTBOX_WHISPER_PORT']='18088'
  with open('/tmp/install-test/server.log','ab') as log:
-  proc=subprocess.Popen(['/opt/agentbox/current/agentbox','--config','/etc/agentbox/config.json'],stdout=log,stderr=log,start_new_session=True)
+  proc=subprocess.Popen(['/opt/agentbox/current/agentbox','--config','/etc/agentbox/config.json'],stdout=log,stderr=log,start_new_session=True,env=env)
  pid.write_text(str(proc.pid))
 elif args[0]=='stop':
  if pid.exists():
@@ -114,6 +163,8 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
         headers={'Content-Type':'application/json'})
     with urllib.request.urlopen(req, timeout=5) as response:
         token = json.load(response)['token']
+    with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:18189/api/voice', headers={'Authorization':'Bearer '+token}), timeout=5) as response:
+        assert json.load(response) == {'enabled': True}
     with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:18189/api/tunnel/clients', headers={'Authorization':'Bearer '+token}), timeout=5) as response:
         clients = json.load(response)
         assert len(clients) == 5, clients
@@ -126,6 +177,8 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
     result = subprocess.run(['bash', str(root / 'uninstall.sh'), '--yes'], env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert not config_path.exists() and not Path('/opt/agentbox').exists()
+    assert not Path('/etc/systemd/system/agentbox-whisper.service').exists()
+    assert not Path('/etc/systemd/system/agentbox.service.d/20-whisper.conf').exists()
     retained = list(Path('/var/backups/agentbox-uninstall').glob('*/config/config.json'))
     assert len(retained) == 1 and retained[0].read_bytes() == original
     ascii_env = dict(env, LC_ALL='C', PYTHONCOERCECLOCALE='0', PYTHONUTF8='0')

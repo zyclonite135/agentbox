@@ -116,6 +116,91 @@ EOF
   docker info >/dev/null || fail 'Local Docker Engine is unavailable' 'Локальный Docker Engine недоступен'
 }
 
+prepare_whisper() {
+  local distro=$1 stage=$2
+  local source_revision=96ec4d9823e9d0211944172da35f9f29134af990 # v1.9.6
+  local model_revision=fb5ed9369c26eaf08392504d8446da431e0fffb9
+  local model_sha256=60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe
+  if ! command -v cmake >/dev/null || ! command -v g++ >/dev/null || ! command -v make >/dev/null; then
+    case "$distro" in
+      ubuntu|debian)
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-remove build-essential cmake ;;
+      *) fail 'Install cmake, g++ and make for Whisper' 'Установите cmake, g++ и make для Whisper' ;;
+    esac
+  fi
+  message 'Building whisper.cpp and downloading the multilingual base model...' \
+          'Сборка whisper.cpp и загрузка многоязычной модели base…'
+  git init --quiet "$stage/whisper-src"
+  git -C "$stage/whisper-src" fetch --quiet --depth 1 https://github.com/ggml-org/whisper.cpp.git "$source_revision"
+  git -C "$stage/whisper-src" checkout --quiet --detach "$source_revision"
+  cmake -S "$stage/whisper-src" -B "$stage/whisper-build" -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=ON
+  cmake --build "$stage/whisper-build" --target whisper-server --parallel 2
+  curl --proto '=https' --proto-redir '=https' -fsSL --retry 3 --connect-timeout 15 --max-time 600 \
+    "https://huggingface.co/ggerganov/whisper.cpp/resolve/$model_revision/ggml-base.bin" -o "$stage/ggml-base.bin"
+  printf '%s  %s\n' "$model_sha256" "$stage/ggml-base.bin" | sha256sum --check --status || \
+    fail 'Whisper base model checksum mismatch' 'Контрольная сумма модели Whisper base не совпадает'
+}
+
+install_whisper() {
+  local stage=$1 listen=$2 host
+  local whisper_home=/opt/agentbox/whisper
+  local unit=/etc/systemd/system/agentbox-whisper.service
+  local dropin=/etc/systemd/system/agentbox.service.d/20-whisper.conf
+  # The release bootstrap uses umask 077. Allow the dynamic service user to
+  # traverse the application directory without listing the release layout.
+  chmod 0711 /opt/agentbox
+  install -d -m 0755 "$whisper_home" "$whisper_home/public" "${dropin%/*}"
+  install -m 0755 "$stage/whisper-build/bin/whisper-server" "$whisper_home/whisper-server"
+  install -m 0644 "$stage/ggml-base.bin" "$whisper_home/ggml-base.bin"
+  cat > "$unit" <<'UNIT'
+[Unit]
+Description=AgentBox local Whisper speech recognition
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/agentbox/whisper
+ExecStart=/opt/agentbox/whisper/whisper-server --host 127.0.0.1 --port 18088 --public /opt/agentbox/whisper/public -m /opt/agentbox/whisper/ggml-base.bin -l auto -ng -nc
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+UNIT
+  chmod 0644 "$unit"
+  if command -v restorecon >/dev/null; then restorecon -R "$whisper_home" "$unit"; fi
+  systemctl daemon-reload
+  systemctl start agentbox-whisper.service
+  curl --noproxy '*' -fsS --retry 15 --retry-connrefused --retry-delay 1 --max-time 2 \
+    http://127.0.0.1:18088/health >/dev/null || \
+    fail 'Whisper did not become ready; see journalctl -u agentbox-whisper' \
+         'Whisper не запустился. Проверьте журнал: journalctl -u agentbox-whisper'
+  systemctl is-active --quiet agentbox-whisper.service
+  cat > "$dropin" <<'UNIT'
+[Unit]
+Wants=agentbox-whisper.service
+After=agentbox-whisper.service
+[Service]
+Environment=AGENTBOX_WHISPER_PORT=18088
+UNIT
+  chmod 0644 "$dropin"
+  if command -v restorecon >/dev/null; then restorecon -R "${dropin%/*}"; fi
+  systemctl daemon-reload
+  systemctl restart agentbox.service
+  host=${listen%:*}
+  case "$host" in
+    ''|0.0.0.0) host=127.0.0.1 ;;
+    '[::]') host='[::1]' ;;
+  esac
+  curl --noproxy '*' -fsS --retry 15 --retry-connrefused --retry-delay 1 --max-time 2 \
+    "http://$host:${listen##*:}/api/ping" >/dev/null || \
+    fail 'AgentBox did not become ready after connecting Whisper' 'AgentBox не запустился после подключения Whisper'
+  systemctl is-active --quiet agentbox.service
+  message 'Local Whisper base is ready on 127.0.0.1:18088.' 'Локальный Whisper base готов на 127.0.0.1:18088.'
+}
+
 main() {
   local repository='zyclonite135/agentbox'
   local version='' listen='0.0.0.0:8180' arch task_tmp distro missing path dependency asset cleanup_cmd
@@ -163,6 +248,12 @@ main() {
   [[ -z $(systemctl show agentbox.service --property=FragmentPath --value) ]] || \
     fail 'An agentbox service already exists; use the migration/upgrade instructions' \
          'Служба agentbox уже существует. Воспользуйтесь инструкцией по миграции или обновлению.'
+  for path in /etc/systemd/system/agentbox-whisper.service /etc/systemd/system/agentbox.service.d/20-whisper.conf; do
+    [[ ! -e "$path" && ! -L "$path" ]] || \
+      fail "Whisper installation path already exists: $path" "Обнаружен существующий путь Whisper: $path"
+  done
+  [[ ${listen##*:} != 18088 ]] || \
+    fail 'Port 18088 is reserved for local Whisper' 'Порт 18088 зарезервирован для локального Whisper'
 
   distro=''
   if [[ -r /etc/os-release ]]; then
@@ -257,11 +348,20 @@ PY
   [[ -f "$package/deploy/bootstrap.py" ]] || \
     fail 'This release predates the one-command installer; select a newer release' \
          'Этот релиз не поддерживает установку одной командой. Выберите более новый релиз.'
+  python3 -c 'import mmap,sys
+with open(sys.argv[1], "rb") as binary, mmap.mmap(binary.fileno(), 0, access=mmap.ACCESS_READ) as data:
+    sys.exit(data.find(b"AGENTBOX_WHISPER_PORT") < 0)' "$package/agentbox" || \
+    fail 'This AgentBox release does not support local Whisper; select a compatible release' \
+         'Этот релиз AgentBox не поддерживает локальный Whisper. Выберите совместимый релиз.'
+  python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 18088))' || \
+    fail 'Local Whisper port 18088 is unavailable' 'Порт 18088 для локального Whisper недоступен'
+  prepare_whisper "$distro" "$task_tmp"
   # Pin every Docker operation to the same local daemon used by systemd.
   ensure_docker "$distro" "$task_tmp"
   # Older packages ignore the language selector but still need UTF-8.
   AGENTBOX_INSTALL_LANG="$language" PYTHONUTF8=1 PYTHONIOENCODING=utf-8 \
     python3 "$package/deploy/bootstrap.py" --package "$package" --listen "$listen"
+  install_whisper "$task_tmp" "$listen"
   # Run cleanup while task_tmp is still in scope, then disarm EXIT.
   rm -rf -- "$task_tmp"
   trap - EXIT

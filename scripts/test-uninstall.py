@@ -26,6 +26,18 @@ class Uninstall(unittest.TestCase):
         with patch.object(m,'run',side_effect=[str(m.UNIT),'']):return m.validate()
     def test_accepts_default_layout(self):
         self.assertEqual(self.validate(),self.cfg)
+    def test_recognizes_installer_whisper_files_and_rejects_custom_overrides(self):
+        unit = m.UNIT.parent / 'agentbox-whisper.service'
+        dropin = m.UNIT.parent / 'agentbox.service.d/20-whisper.conf'
+        dropin.parent.mkdir()
+        dropin.write_text(m.WHISPER_DROPIN)
+        unit.write_text('ExecStart=/opt/agentbox/whisper/whisper-server --host 127.0.0.1 --port 18088 -l auto\n')
+        with patch.object(m, 'run', side_effect=[str(dropin), str(unit), '']):
+            self.assertEqual(m.whisper_files(), (unit, dropin))
+        dropin.write_text(m.WHISPER_DROPIN + 'Environment=OTHER_SETTING=1\n')
+        with patch.object(m, 'run', return_value=str(dropin)):
+            with self.assertRaises(ValueError):
+                m.whisper_files()
     def test_refuses_foreign_unit(self):
         m.UNIT.write_text('ExecStart=/other/app\n')
         with self.assertRaises(ValueError):self.validate()

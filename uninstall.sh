@@ -20,10 +20,35 @@ DATA = Path('/var/lib/agentbox')
 CACHE = Path('/var/cache/agentbox')
 UNIT = Path('/etc/systemd/system/agentbox.service')
 BACKUPS = Path('/var/backups/agentbox-uninstall')
+WHISPER_DROPIN = """[Unit]
+Wants=agentbox-whisper.service
+After=agentbox-whisper.service
+[Service]
+Environment=AGENTBOX_WHISPER_PORT=18088
+"""
 
 
 def run(*args):
     return subprocess.check_output([str(a) for a in args], text=True).strip()
+
+
+def whisper_files():
+    dropin = UNIT.parent / 'agentbox.service.d/20-whisper.conf'
+    unit = UNIT.parent / 'agentbox-whisper.service'
+    loaded = run('systemctl', 'show', 'agentbox.service', '--property=DropInPaths', '--value')
+    if not loaded and not any(path.exists() or path.is_symlink() for path in (dropin, unit)):
+        return ()
+    if (loaded not in ('', str(dropin)) or
+            any(path.resolve() != path for path in (dropin, unit)) or
+            (dropin.exists() and dropin.read_text() != WHISPER_DROPIN) or
+            not unit.is_file() or
+            'ExecStart=/opt/agentbox/whisper/whisper-server --host 127.0.0.1 --port 18088 ' not in unit.read_text()):
+        raise ValueError('Service has custom overrides; review them before uninstalling')
+    if run('systemctl', 'show', 'agentbox-whisper.service', '--property=FragmentPath', '--value') != str(unit):
+        raise ValueError('Loaded Whisper service does not match the release installation')
+    if run('systemctl', 'show', 'agentbox-whisper.service', '--property=DropInPaths', '--value'):
+        raise ValueError('Whisper service has custom overrides; review them before uninstalling')
+    return (unit, dropin) if dropin.is_file() else (unit,)
 
 
 def validate():
@@ -39,8 +64,7 @@ def validate():
     fragment = run('systemctl', 'show', 'agentbox.service', '--property=FragmentPath', '--value')
     if fragment != str(UNIT):
         raise ValueError('Loaded service does not match the release unit')
-    if run('systemctl', 'show', 'agentbox.service', '--property=DropInPaths', '--value'):
-        raise ValueError('Service has custom overrides; review them before uninstalling')
+    whisper_files()
     config_file = CONFIG / 'config.json'
     if config_file.is_symlink():
         raise ValueError('Refusing symlinked config')
@@ -85,8 +109,11 @@ def main():
             os.environ.pop(key, None)
         os.environ['DOCKER_HOST'] = 'unix:///var/run/docker.sock'
         validate()
+        whisper = whisper_files()
         selected = containers()
         print('Stop and disable agentbox.service; remove its %d workspace containers.' % len(selected))
+        if whisper:
+            print('Stop and remove the local Whisper service.')
         print(('PERMANENTLY DELETE: ' if args.purge else 'Move to a private backup: ') + ', '.join(map(str, (APP, CONFIG, DATA, CACHE))))
         print('Docker, images, other containers and firewall rules are retained.')
         if args.dry_run:
@@ -105,12 +132,18 @@ def main():
                 backup.rmdir()
                 raise ValueError('Backup is on another filesystem; make a verified backup and use --purge explicitly')
         run('systemctl', 'stop', 'agentbox.service')
+        if whisper:
+            run('systemctl', 'stop', 'agentbox-whisper.service')
         selected = containers()  # Recheck after stopping new workspace creation.
         if selected:
             run('docker', 'rm', '-f', *selected)
         run('systemctl', 'disable', 'agentbox.service')
         if backup:
             shutil.copy2(UNIT, backup / 'agentbox.service')
+            for path in whisper:
+                shutil.copy2(path, backup / path.name)
+        for path in whisper:
+            path.unlink()
         UNIT.unlink()
         run('systemctl', 'daemon-reload')
         subprocess.run(['systemctl', 'reset-failed', 'agentbox.service'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

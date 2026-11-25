@@ -97,9 +97,24 @@
 .interface-label { display:flex; align-items:center; gap:9px; min-width:0; color:var(--text-hi); font-size:13.5px; overflow-wrap:anywhere; }
 .interface-label > svg { flex:none; color:var(--accent); }
 .interface-copy { display:grid; gap:2px; min-width:0; }
-.interface-copy > span,.interface-status,.interface-autosave { color:var(--muted); font-size:12.5px; line-height:1.45; }
-.interface-status,.interface-autosave { margin:0; }
-.interface-autosave { text-align:center; }
+.interface-copy > span,.interface-status { color:var(--muted); font-size:12.5px; line-height:1.45; }
+.interface-status { margin:0; }
+.interface-preferences {
+  display:grid; grid-template-columns:minmax(0,1fr); align-items:start;
+  gap:var(--settings-gap);
+}
+.interface-preferences .interface-entry > :is(.interface-details,.interface-warning,.interface-status) {
+  margin-inline-start:25px;
+}
+@container (min-width:740px) {
+  .interface-preferences { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@container (min-width:1120px) {
+  .interface-preferences { grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+@media (min-width:761px) {
+  .interface-preferences .interface-select-row { grid-template-columns:minmax(0,1fr) minmax(0,min(44%,11rem)); }
+}
 .interface-switch {
   appearance:none; -webkit-appearance:none; position:relative; width:44px; height:26px; margin:0;
   padding:0; border:1px solid var(--line); border-radius:var(--radius-pill);
@@ -742,6 +757,7 @@
 #view-settings .set-head { padding-block:8px; }
 #view-settings .set-body { gap:20px; }
 #view-settings .set-nav { width:max-content; min-width:174px; overflow-y:auto; scrollbar-width:thin; scrollbar-gutter:stable; }
+#view-settings.personal-settings :is(#set-nav,#sec-interface > .sec-intro) { display:none; }
 .settings-nav-group,.section-menu-heading {
   margin:10px 0 2px; padding-inline:10px; color:var(--muted);
   font-size:11px; line-height:1.4; font-weight:600; letter-spacing:.045em; text-transform:uppercase;
@@ -781,11 +797,12 @@
 .settings-toggle { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; min-height:44px; cursor:pointer; }
 .settings-toggle-label { min-width:0; overflow-wrap:anywhere; }
 #view-settings .field :is(input,select,.select-trigger,textarea) { min-width:0; max-width:100%; }
+#view-settings .field .tag { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
 #view-settings :is(.card-desc,.note,.field-hint,.kv dd,.acct-proxy,.u-meta) { overflow-wrap:anywhere; }
 #view-settings .settings-form .field-row { gap:10px 14px; }
 #view-settings .settings-form .field-row > * { min-width:0; }
 #view-settings :is(.ann-form,.update-product,.component-head,.card-foot,.acct-actions) { min-width:0; }
-#view-settings .mdl-tabs { flex-wrap:wrap; max-width:100%; overflow:visible; }
+#view-settings .mdl-tabs { flex-wrap:wrap; max-width:100%; overflow:clip; }
 #view-settings .mdl-tabs .scope-btn { min-width:0; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
 #view-settings .mdl-toolbar > .mdl-toolbar-end { min-width:0; max-width:100%; }
 @media (min-width:1000px) {
@@ -799,6 +816,7 @@
 }
 @media (max-width:760px) {
   #view-settings .set-body { gap:0; padding-inline:12px; }
+  #view-settings.personal-settings > .set-head { display:flex; }
   #view-settings .set-section { gap:12px; }
   #view-settings #sec-interface { max-width:680px; }
   #view-settings .sec-intro { gap:8px; }

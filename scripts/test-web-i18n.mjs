@@ -87,6 +87,7 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
  let sockets=0, writes=0, usageReads=0, terminalSocket;
  let timezone='Asia/Tokyo';
  let meTimezone;
+ let meRole='admin';
  let usageDates;
  let holdUsageRead;
  let upgradeJob=null;
@@ -109,7 +110,7 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
   }
   let body={};
   if(path==='/api/login')body={token:'synthetic-locale-token'};
-  else if(path==='/api/me')body={user:'保存',role:'admin',timezone:meTimezone??timezone,models:{claude:[],codex:[]},quota:{metered:false},terminal_tips:terminalTips};
+  else if(path==='/api/me')body={user:'保存',role:meRole,timezone:meTimezone??timezone,models:{claude:[],codex:[]},quota:{metered:false},terminal_tips:terminalTips};
   else if(path==='/api/sessions')body=[space];
   else if(path==='/api/session-creations')body={version:1,actor_key:'a'.repeat(64),creations:[]};
   else if(path==='/api/onboarding')body={version:1,can_configure:true,can_create:true,has_workspaces:true,accounts:[{id:'fixture',label:'取消',type:'codex',credentials_present:true}],default_models:{codex:'fixture'},container_resources:{cpus:1,memory_mb:512,pids_limit:128}};
@@ -151,6 +152,49 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
   await route.fulfill({json:body});
  });
  const language=async value=>{await page.evaluate(async value=>{const {i18n}=await import('/_v/{{BUILD}}/js/i18n.js');i18n.setLanguage(value);},value);};
+ const checkPersonalSettings=async()=>{
+  meRole='user';
+  await page.goto(base+'/?personal-settings#/settings/container');
+  await page.locator('#sec-interface').waitFor();
+  await language('ru');
+  const title=page.locator('#set-title');
+  const description=page.locator('#set-description');
+  const grid=page.locator('.interface-preferences');
+  for (const [width,columns] of [[1720,3],[1080,2],[320,1]]) {
+   await page.setViewportSize({width,height:900});
+   assert.equal(await title.isVisible(),true);
+   assert.equal(await title.textContent(),'Личные настройки');
+   assert.equal(await description.textContent(),'Изменения применяются сразу в этом браузере.');
+   assert.equal(await page.locator('#set-nav').isVisible(),false);
+   assert.equal(await page.locator('#mobile-section-btn').isVisible(),false);
+   assert.equal(await page.locator('#interface-admin-title').isVisible(),false);
+   const layout=await grid.evaluate(el=>({
+    columns:getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length,
+    overflow:el.scrollWidth-el.clientWidth,
+   }));
+   assert.equal(layout.columns,columns,`personal settings at ${width}px`);
+   assert.ok(layout.overflow<=1,`personal settings overflow at ${width}px`);
+  }
+  const details=grid.locator('.interface-details').first();
+  assert.equal(await details.evaluate(el=>el.open),false);
+  await details.locator('summary').click();
+  assert.equal(await details.evaluate(el=>el.open),true);
+  assert.equal(await grid.locator('.interface-warning:visible').count(),2);
+  const suggestion=grid.locator('#chat-suggest-enabled');
+  const enabled=await suggestion.isChecked();
+  const writesBefore=writes;
+  await suggestion.press('Space');
+  const followup=grid.locator('#chat-followup-mode');
+  await grid.locator('#chat-followup-mode + .select-trigger').click();
+  await page.getByRole('option').last().click();
+  await page.reload();
+  await grid.waitFor();
+  assert.equal(await suggestion.isChecked(),!enabled);
+  assert.equal(await followup.inputValue(),'steer');
+  assert.equal(writes,writesBefore,'personal preferences only change local state');
+  await language('en');
+  assert.equal(await title.textContent(),'Personal settings');
+ };
  try {
   await page.goto(base);
   await page.locator('#login').waitFor({state:'visible'});
@@ -179,6 +223,7 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
   if (settingsOnly) {
    await language('ru');
    await checkSettingsLayout(page,base,language);
+   await checkPersonalSettings();
    assert.deepEqual(errors,[]);
    console.log('Settings layout, navigation, disclosures and switches passed');
    return;
@@ -572,6 +617,7 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
   usageDates=undefined;
   meTimezone=undefined;
 
+  await checkPersonalSettings();
   await page.evaluate(async()=>{const {emit}=await import('/_v/{{BUILD}}/js/state.js');emit('unauthorized');});
   await page.locator('#login').waitFor({state:'visible'});
   await language('zh-TW'); await language('en');

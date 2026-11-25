@@ -68,7 +68,10 @@ const wrapper = byId("mobile-section");
 const sectionButton = byId("mobile-section-btn");
 const sectionLabel = byId("mobile-section-label");
 const sectionMenu = byId("mobile-section-menu");
-const currentNav = () => S.view === "settings" ? byId("set-nav") : S.view === "git" ? byId("git-nav") : null;
+function currentNav() {
+  if (S.view === "settings" && S.role === "admin") return byId("set-nav");
+  return S.view === "git" ? byId("git-nav") : null;
+}
 const menuItems = () => [...sectionMenu.querySelectorAll<HTMLButtonElement>("[role=menuitemradio]:not(:disabled)")];
 function syncNavigation() {
   const nav = currentNav();

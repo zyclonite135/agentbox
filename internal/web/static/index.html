@@ -834,7 +834,7 @@
       <!-- 系统设置视图 -->
       <div id="view-settings" class="view hidden">
         <header class="set-head">
-          <h1 data-i18n-text="[&quot;系统设置&quot;]">系统设置</h1>
+          <h1 id="set-title">系统设置</h1>
           <p id="set-description"></p>
         </header>
 
@@ -1333,90 +1333,96 @@
 
             <!-- 界面与提示 -->
             <section id="sec-interface" class="set-section hidden">
-              <div class="sec-intro"><h2 data-i18n="界面与提示">界面与提示</h2></div>
-              <section class="interface-group" aria-labelledby="interface-storage-title">
-                <h3 id="interface-storage-title" data-i18n="存储数据">存储数据</h3>
-                <div class="interface-card" id="set-local-saving">
-                  <div class="interface-entry">
-                    <label class="interface-toggle">
-                      <span class="interface-label">
-                        <svg width="16" height="16" data-icon="save" aria-hidden="true"></svg>
-                        <span class="interface-copy"><strong id="interface-draft-title" data-i18n="保存草稿">保存草稿</strong><span data-i18n="在此浏览器保存最多 7 天">在此浏览器保存最多 7 天</span></span>
-                      </span>
-                      <input id="chat-draft-enabled" class="interface-switch" type="checkbox" role="switch" aria-labelledby="interface-draft-title">
-                    </label>
-                    <details class="learn-more interface-details">
-                      <summary data-i18n="了解更多">了解更多</summary>
-                      <p data-i18n="草稿保存在此浏览器 7 天；退出登录会清除。">草稿保存在此浏览器 7 天；退出登录会清除。</p>
-                      <p data-i18n="按用户、空间和对话隔离；只保存文字和附件引用，不保存文件内容。关闭后清除本机副本，当前页面输入仍保留。">按用户、空间和对话隔离；只保存文字和附件引用，不保存文件内容。关闭后清除本机副本，当前页面输入仍保留。</p>
-                      <p data-i18n="待确认正文过期后保留查询标识；关闭保存或退出不会取消服务器已接收的任务。">待确认正文过期后保留查询标识；关闭保存或退出不会取消服务器已接收的任务。</p>
-                    </details>
-                    <p id="chat-draft-settings-status" class="interface-status hidden" role="status"></p>
-                  </div>
-                  <div class="interface-delete-row"><button id="chat-draft-clear" type="button" class="btn btn-sm btn-ghost btn-danger interface-delete" data-icon="trash" data-i18n="清除本机副本并关闭保存">清除本机副本并关闭保存</button></div>
+              <div class="sec-intro">
+                <div>
+                  <h2 data-i18n="界面与提示">界面与提示</h2>
+                  <p data-i18n="此浏览器的个人偏好，修改后即时生效。">此浏览器的个人偏好，修改后即时生效。</p>
                 </div>
-              </section>
-              <section class="interface-group" aria-labelledby="interface-claude-title">
-                <h3 id="interface-claude-title" data-i18n="Claude 功能">Claude 功能</h3>
-                <div class="interface-card">
-                  <div class="interface-entry" id="set-chat-suggestions">
-                    <label class="interface-toggle">
-                      <span class="interface-label">
-                        <svg width="16" height="16" data-icon="sparkles" aria-hidden="true"></svg>
-                        <span class="interface-copy"><strong id="interface-suggest-title" data-i18n="下一步提示">下一步提示</strong><span data-i18n="建议如何继续对话">建议如何继续对话</span></span>
-                      </span>
-                      <input id="chat-suggest-enabled" class="interface-switch" type="checkbox" role="switch" aria-labelledby="interface-suggest-title" aria-describedby="interface-suggest-cost">
-                    </label>
-                    <p id="interface-suggest-cost" class="interface-warning"><svg width="13" height="13" data-icon="info" aria-hidden="true"></svg><span data-i18n="消耗额外 token">消耗额外 token</span></p>
-                    <details class="learn-more interface-details">
-                      <summary data-i18n="了解更多">了解更多</summary>
-                      <p data-i18n="Claude 回合结束后，在空输入框里显示下一步提示，按 Tab 填入">Claude 回合结束后，在空输入框里显示下一步提示，按 Tab 填入</p>
-                      <p data-i18n="生成提示会在每轮结束后多调用一次模型，费用计入你的额度，在使用记录里单独列为「下一步提示」。">生成提示会在每轮结束后多调用一次模型，费用计入你的额度，在使用记录里单独列为「下一步提示」。</p>
-                      <p data-i18n="仅影响此浏览器，从下一条消息开始生效。">仅影响此浏览器，从下一条消息开始生效。</p>
-                    </details>
-                  </div>
-                  <div class="interface-entry" id="set-chat-tasks">
-                    <label class="interface-toggle">
-                      <span class="interface-label">
-                        <svg width="16" height="16" data-icon="list-check" aria-hidden="true"></svg>
-                        <span class="interface-copy"><strong id="interface-tasks-title" data-i18n="Claude 5 任务列表">Claude 5 任务列表</strong><span data-i18n="显示任务和执行进度">显示任务和执行进度</span></span>
-                      </span>
-                      <input id="chat-tasks-claude5" class="interface-switch" type="checkbox" role="switch" aria-labelledby="interface-tasks-title" aria-describedby="interface-tasks-cost">
-                    </label>
-                    <p id="interface-tasks-cost" class="interface-warning"><svg width="13" height="13" data-icon="info" aria-hidden="true"></svg><span data-i18n="可能增加 token 用量">可能增加 token 用量</span></p>
-                    <details class="learn-more interface-details">
-                      <summary data-i18n="了解更多">了解更多</summary>
-                      <p data-i18n="Claude Code 只给较早的模型（如 Opus 4.7、Sonnet 4.6）默认开启任务列表，Claude 5 默认关闭。开启后 Claude 5 也会在输入框上方列出任务和进度。">Claude Code 只给较早的模型（如 Opus 4.7、Sonnet 4.6）默认开启任务列表，Claude 5 默认关闭。开启后 Claude 5 也会在输入框上方列出任务和进度。</p>
-                      <p data-i18n="开启后可能多花 token：每次请求都会多带任务工具的说明，模型也会多调用几次来建立和更新任务，费用计入你的额度。">开启后可能多花 token：每次请求都会多带任务工具的说明，模型也会多调用几次来建立和更新任务，费用计入你的额度。</p>
-                      <p data-i18n="仅影响此浏览器，从下一条消息开始生效。">仅影响此浏览器，从下一条消息开始生效。</p>
-                    </details>
-                  </div>
-                </div>
-              </section>
-              <section class="interface-group" aria-labelledby="interface-chat-title">
-                <h3 id="interface-chat-title" data-i18n="对话">对话</h3>
-                <div class="interface-card" id="set-chat-followups">
-                  <div class="interface-entry">
-                    <div class="interface-select-row">
-                      <label class="interface-label" for="chat-followup-mode">
-                        <svg width="16" height="16" data-icon="list" aria-hidden="true"></svg>
-                        <strong data-i18n="运行中发消息">运行中发消息</strong>
+              </div>
+              <div class="interface-preferences">
+                <section class="interface-group" aria-labelledby="interface-storage-title">
+                  <h3 id="interface-storage-title" data-i18n="存储数据">存储数据</h3>
+                  <div class="interface-card" id="set-local-saving">
+                    <div class="interface-entry">
+                      <label class="interface-toggle">
+                        <span class="interface-label">
+                          <svg width="16" height="16" data-icon="save" aria-hidden="true"></svg>
+                          <span class="interface-copy"><strong id="interface-draft-title" data-i18n="保存草稿">保存草稿</strong><span data-i18n="在此浏览器保存最多 7 天">在此浏览器保存最多 7 天</span></span>
+                        </span>
+                        <input id="chat-draft-enabled" class="interface-switch" type="checkbox" role="switch" aria-labelledby="interface-draft-title">
                       </label>
-                      <select id="chat-followup-mode">
-                        <option value="queue" data-i18n="排队">排队</option>
-                        <option value="steer" data-i18n="引导">引导</option>
-                      </select>
+                      <details class="learn-more interface-details">
+                        <summary data-i18n="了解更多">了解更多</summary>
+                        <p data-i18n="草稿保存在此浏览器 7 天；退出登录会清除。">草稿保存在此浏览器 7 天；退出登录会清除。</p>
+                        <p data-i18n="按用户、空间和对话隔离；只保存文字和附件引用，不保存文件内容。关闭后清除本机副本，当前页面输入仍保留。">按用户、空间和对话隔离；只保存文字和附件引用，不保存文件内容。关闭后清除本机副本，当前页面输入仍保留。</p>
+                        <p data-i18n="待确认正文过期后保留查询标识；关闭保存或退出不会取消服务器已接收的任务。">待确认正文过期后保留查询标识；关闭保存或退出不会取消服务器已接收的任务。</p>
+                      </details>
+                      <p id="chat-draft-settings-status" class="interface-status hidden" role="status"></p>
                     </div>
-                    <details class="learn-more interface-details">
-                      <summary data-i18n="了解更多">了解更多</summary>
-                      <p data-i18n="排队：这一轮结束后作为新一轮执行">排队：这一轮结束后作为新一轮执行</p>
-                      <p data-i18n="引导会在 Agent 当前这一步（比如正在跑的命令）结束后生效，只支持 Claude；来不及插入或是 Codex 时自动改为排队。排队的消息可以在状态栏里撤回。">引导会在 Agent 当前这一步（比如正在跑的命令）结束后生效，只支持 Claude；来不及插入或是 Codex 时自动改为排队。排队的消息可以在状态栏里撤回。</p>
-                      <p data-i18n="仅影响此浏览器。按 Ctrl+Enter（Mac 上 ⌘+Enter）对单条消息使用另一种方式。">仅影响此浏览器。按 Ctrl+Enter（Mac 上 ⌘+Enter）对单条消息使用另一种方式。</p>
-                    </details>
+                    <div class="interface-delete-row"><button id="chat-draft-clear" type="button" class="btn btn-sm btn-ghost btn-danger interface-delete" data-icon="trash" data-i18n="清除本机副本并关闭保存">清除本机副本并关闭保存</button></div>
                   </div>
-                </div>
-              </section>
-              <p class="interface-autosave" data-i18n="个人偏好自动保存。">个人偏好自动保存。</p>
+                </section>
+                <section class="interface-group" aria-labelledby="interface-claude-title">
+                  <h3 id="interface-claude-title" data-i18n="Claude 功能">Claude 功能</h3>
+                  <div class="interface-card">
+                    <div class="interface-entry" id="set-chat-suggestions">
+                      <label class="interface-toggle">
+                        <span class="interface-label">
+                          <svg width="16" height="16" data-icon="sparkles" aria-hidden="true"></svg>
+                          <span class="interface-copy"><strong id="interface-suggest-title" data-i18n="下一步提示">下一步提示</strong><span data-i18n="建议如何继续对话">建议如何继续对话</span></span>
+                        </span>
+                        <input id="chat-suggest-enabled" class="interface-switch" type="checkbox" role="switch" aria-labelledby="interface-suggest-title" aria-describedby="interface-suggest-cost">
+                      </label>
+                      <p id="interface-suggest-cost" class="interface-warning"><svg width="13" height="13" data-icon="info" aria-hidden="true"></svg><span data-i18n="消耗额外 token">消耗额外 token</span></p>
+                      <details class="learn-more interface-details">
+                        <summary data-i18n="了解更多">了解更多</summary>
+                        <p data-i18n="Claude 回合结束后，在空输入框里显示下一步提示，按 Tab 填入">Claude 回合结束后，在空输入框里显示下一步提示，按 Tab 填入</p>
+                        <p data-i18n="生成提示会在每轮结束后多调用一次模型，费用计入你的额度，在使用记录里单独列为「下一步提示」。">生成提示会在每轮结束后多调用一次模型，费用计入你的额度，在使用记录里单独列为「下一步提示」。</p>
+                        <p data-i18n="仅影响此浏览器，从下一条消息开始生效。">仅影响此浏览器，从下一条消息开始生效。</p>
+                      </details>
+                    </div>
+                    <div class="interface-entry" id="set-chat-tasks">
+                      <label class="interface-toggle">
+                        <span class="interface-label">
+                          <svg width="16" height="16" data-icon="list-check" aria-hidden="true"></svg>
+                          <span class="interface-copy"><strong id="interface-tasks-title" data-i18n="Claude 5 任务列表">Claude 5 任务列表</strong><span data-i18n="显示任务和执行进度">显示任务和执行进度</span></span>
+                        </span>
+                        <input id="chat-tasks-claude5" class="interface-switch" type="checkbox" role="switch" aria-labelledby="interface-tasks-title" aria-describedby="interface-tasks-cost">
+                      </label>
+                      <p id="interface-tasks-cost" class="interface-warning"><svg width="13" height="13" data-icon="info" aria-hidden="true"></svg><span data-i18n="可能增加 token 用量">可能增加 token 用量</span></p>
+                      <details class="learn-more interface-details">
+                        <summary data-i18n="了解更多">了解更多</summary>
+                        <p data-i18n="Claude Code 只给较早的模型（如 Opus 4.7、Sonnet 4.6）默认开启任务列表，Claude 5 默认关闭。开启后 Claude 5 也会在输入框上方列出任务和进度。">Claude Code 只给较早的模型（如 Opus 4.7、Sonnet 4.6）默认开启任务列表，Claude 5 默认关闭。开启后 Claude 5 也会在输入框上方列出任务和进度。</p>
+                        <p data-i18n="开启后可能多花 token：每次请求都会多带任务工具的说明，模型也会多调用几次来建立和更新任务，费用计入你的额度。">开启后可能多花 token：每次请求都会多带任务工具的说明，模型也会多调用几次来建立和更新任务，费用计入你的额度。</p>
+                        <p data-i18n="仅影响此浏览器，从下一条消息开始生效。">仅影响此浏览器，从下一条消息开始生效。</p>
+                      </details>
+                    </div>
+                  </div>
+                </section>
+                <section class="interface-group" aria-labelledby="interface-chat-title">
+                  <h3 id="interface-chat-title" data-i18n="对话">对话</h3>
+                  <div class="interface-card" id="set-chat-followups">
+                    <div class="interface-entry">
+                      <div class="interface-select-row">
+                        <label class="interface-label" for="chat-followup-mode">
+                          <svg width="16" height="16" data-icon="list" aria-hidden="true"></svg>
+                          <strong data-i18n="运行中发消息">运行中发消息</strong>
+                        </label>
+                        <select id="chat-followup-mode">
+                          <option value="queue" data-i18n="排队">排队</option>
+                          <option value="steer" data-i18n="引导">引导</option>
+                        </select>
+                      </div>
+                      <details class="learn-more interface-details">
+                        <summary data-i18n="了解更多">了解更多</summary>
+                        <p data-i18n="排队：这一轮结束后作为新一轮执行">排队：这一轮结束后作为新一轮执行</p>
+                        <p data-i18n="引导会在 Agent 当前这一步（比如正在跑的命令）结束后生效，只支持 Claude；来不及插入或是 Codex 时自动改为排队。排队的消息可以在状态栏里撤回。">引导会在 Agent 当前这一步（比如正在跑的命令）结束后生效，只支持 Claude；来不及插入或是 Codex 时自动改为排队。排队的消息可以在状态栏里撤回。</p>
+                        <p data-i18n="仅影响此浏览器。按 Ctrl+Enter（Mac 上 ⌘+Enter）对单条消息使用另一种方式。">仅影响此浏览器。按 Ctrl+Enter（Mac 上 ⌘+Enter）对单条消息使用另一种方式。</p>
+                      </details>
+                    </div>
+                  </div>
+                </section>
+              </div>
               <section class="interface-group" data-settings-admin aria-labelledby="interface-admin-title">
                 <h3 id="interface-admin-title" data-i18n="服务器设置">服务器设置</h3>
                 <div class="interface-card">

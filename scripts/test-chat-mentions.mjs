@@ -188,59 +188,43 @@ export async function chatMentionsSmoke(page, { setHistory, messages, socket, se
  await menu.locator('.cmd-note', {hasText:'暂时读不到工作区文件'}).waitFor();
  failing = false;
 
- // An attachment placeholder is blue too, the caret lands after a space, and the delete
- // keys take it (and its attachment) in one piece; undo brings both back.
+ // Attachments leave the prompt and caret alone, whether picked or pasted.
  let uploaded = 0;
- const upload = async route => { uploaded++; await route.fulfill({json:{path:`/shared/.images/shot-${uploaded}.png`,name:`shot-${uploaded}.png`,orig:'shot.png'}}).catch(() => {}); };
+ const upload = route => {
+  uploaded++;
+  const file = route.request().postData().includes('report.xlsx');
+  const name = file ? 'upload.xlsx' : 'shot-' + uploaded + '.png';
+  return route.fulfill({json:{path:'/shared/' + (file ? '.file' : '.images') + '/' + name, name, orig:file ? 'report.xlsx' : 'shot.png'}});
+ };
  await page.route('**/api/sessions/*/images', upload);
  const thumbs = page.locator('#chat-attach .attach-thumb');
- const attach = async () => {
-  const before = uploaded;
-  await page.locator('#attach-input').setInputFiles({name:'shot.png',mimeType:'image/png',buffer:Buffer.from('synthetic image')});
-  for (let i = 0; uploaded === before || await page.locator('#chat-attach .up').count(); i++) { assert.ok(i < 100, 'upload did not finish'); await page.waitForTimeout(20); }
- };
- const caret = () => input.evaluate(el => [el.selectionStart, el.selectionEnd]);
- await input.fill('看这张');
+ await input.fill('看这张哪里不对');
  await input.press('Escape');
- await attach();
- assert.equal(await input.inputValue(), '看这张[Image #1] ');
- assert.deepEqual(await caret(), [14, 14]);
- assert.deepEqual(await marks(), [['mark-attachment','[Image #1]']]);
- await page.locator('.composer').screenshot({path:'output/playwright/chat-input-attachment.png', animations:'disabled'});
- await input.pressSequentially('哪里不对');
- assert.equal(await input.inputValue(), '看这张[Image #1] 哪里不对');
- await input.evaluate(el => el.setSelectionRange(14, 14));
- await input.press('Backspace');
- assert.equal(await input.inputValue(), '看这张[Image #1]哪里不对', 'the space before the caret goes on its own');
- await input.press('Backspace');
+ await input.evaluate(el => el.setSelectionRange(3, 5));
+ await page.locator('#attach-input').setInputFiles({name:'shot.png',mimeType:'image/png',buffer:Buffer.from('synthetic image')});
+ await thumbs.locator('img').waitFor();
  assert.equal(await input.inputValue(), '看这张哪里不对');
- assert.equal(await thumbs.count(), 0, 'the attachment goes with its placeholder');
+ assert.deepEqual(await input.evaluate(el => [el.selectionStart, el.selectionEnd]), [3, 5]);
  assert.deepEqual(await marks(), []);
- await input.press('ControlOrMeta+z');
- assert.equal(await input.inputValue(), '看这张[Image #1]哪里不对');
- assert.equal(await thumbs.count(), 1, 'undo brings the attachment back');
- assert.deepEqual(await marks(), [['mark-attachment','[Image #1]']]);
- // Delete from in front, a caret inside, a selection over part of it: always the whole placeholder.
- await input.evaluate(el => el.setSelectionRange(3, 3));
- await input.press('Delete');
+ await input.evaluate(el => {
+  const data = new DataTransfer();
+  data.items.add(new File(['fixture'], 'report.xlsx', {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  el.dispatchEvent(new ClipboardEvent('paste', {clipboardData:data,bubbles:true,cancelable:true}));
+ });
+ const fileCard = page.locator('#chat-attach .attach-file').filter({hasText:'report.xlsx'});
+ await fileCard.waitFor();
+ await page.waitForFunction(() => !document.querySelector('#chat-send').disabled);
+ assert.equal(await fileCard.locator('.attach-file-type').innerText(), 'XLSX');
  assert.equal(await input.inputValue(), '看这张哪里不对');
- await input.press('ControlOrMeta+z');
- await input.evaluate(el => el.setSelectionRange(8, 8));
- await input.press('Backspace');
+ await page.locator('.composer').screenshot({path:'output/playwright/chat-input-attachment.png', animations:'disabled'});
+ await fileCard.locator('.attach-remove').click();
  assert.equal(await input.inputValue(), '看这张哪里不对');
- await input.press('ControlOrMeta+z');
- await input.evaluate(el => el.setSelectionRange(10, 15));
- await input.press('Backspace');
- assert.equal(await input.inputValue(), '看这张不对');
- assert.equal(await thumbs.count(), 0);
- await input.fill('看这张 ');
- await input.press('End');
- await attach();
- assert.equal(await input.inputValue(), '看这张 [Image #2] ');
- // Removing the attachment takes its placeholder and the space after it.
- await thumbs.filter({hasText:'#2'}).locator('.attach-remove').click();
- assert.equal(await input.inputValue(), '看这张 ');
- while (await page.locator('#chat-attach .attach-remove').count()) await page.locator('#chat-attach .attach-remove').first().click();
+ await input.fill('');
+ assert.equal(await thumbs.count(), 1);
+ const beforeSend = messages().length;
+ await page.locator('#chat-send').click();
+ await thumbs.waitFor({state:'detached'});
+ assert.match(messages().slice(beforeSend).find(m => m.type === 'user_message')?.text || '', /^\[图片#\d+ \/shared\/\.images\/shot-1\.png name=shot\.png\]$/);
  await page.unroute('**/api/sessions/*/images', upload);
 
  // A finished @path deletes in one piece too; one still being typed goes letter by letter.
@@ -284,16 +268,24 @@ export async function chatMentionsSmoke(page, { setHistory, messages, socket, se
   {kind:'user',ts:'2026-10-14T08:01:00Z',text:'解释一下 @src/main.go 和 @"docs/demo notes.md"，再看看 @src/ 目录，发邮件给 me@x.com',turn:{id:'m2',model:'claude-opus-5'}},
   {kind:'event',ts:'2026-10-14T08:01:01Z',event:{type:'assistant',message:{id:'a2',model:'claude-opus-5',content:[{type:'text',text:'好的'}]}}},
   {kind:'user',ts:'2026-10-14T08:02:00Z',text:'/etc/hosts 是什么文件',turn:{id:'m3',model:'claude-opus-5'}},
+  {kind:'user',ts:'2026-10-14T08:03:00Z',text:'Сравни файлы\n\n[图片#1 /shared/.images/example.png name=shot.png]\n[附件#2 /shared/.file/upload.xlsx name=long-spreadsheet-name-for-the-mobile-layout.xlsx]',turn:{id:'m4',model:'claude-opus-5'}},
  ]);
  await reload();
  const bubbles = page.locator('#chat-log .msg.user');
- await bubbles.nth(2).waitFor();
- assert.deepEqual(await bubbles.evaluateAll(list => list.map(b => b.classList.contains('cmd'))), [true, false, false]);
+ await bubbles.nth(3).waitFor();
+ assert.deepEqual(await bubbles.evaluateAll(list => list.map(b => b.classList.contains('cmd'))), [true, false, false, false]);
  assert.equal(await bubbles.first().locator('.msg-cmd').innerText(), '/compact');
  assert.equal(await bubbles.first().locator('.msg-cmd-icon').count(), 1);
  assert.deepEqual(await bubbles.nth(1).locator('.msg-mention').allInnerTexts(), ['src/main.go', 'docs/demo notes.md', 'src/']);
  assert.equal(await bubbles.nth(1).locator('.msg-mention').nth(2).locator('svg').getAttribute('data-icon-name'), 'file.folder');
  assert.equal(await bubbles.nth(2).locator('.msg-cmd, .msg-mention').count(), 0, 'a path at the start is not a command');
+ const attachedPrompt = bubbles.nth(3);
+ const attachedStrip = page.locator('#chat-log .user-main > .msg-attach');
+ assert.equal(await attachedPrompt.innerText(), 'Сравни файлы');
+ assert.equal(await attachedStrip.locator('.msg-thumb').count(), 1);
+ assert.equal(await attachedStrip.locator('.msg-file').getAttribute('download'), 'long-spreadsheet-name-for-the-mobile-layout.xlsx');
+ assert.equal(await attachedStrip.locator('.attach-file-type').innerText(), 'XLSX');
+ assert.equal(await attachedStrip.evaluate(el => el.nextElementSibling.matches('.msg.user')), true);
  await page.locator('#chat-log').evaluate(el => { el.scrollTop = 0; });
  await page.screenshot({path:'output/playwright/chat-syntax-bubbles.png', animations:'disabled'});
  await page.emulateMedia({colorScheme:'dark'});
@@ -302,6 +294,11 @@ export async function chatMentionsSmoke(page, { setHistory, messages, socket, se
  await page.setViewportSize({width:390,height:844});
  await page.screenshot({path:'output/playwright/chat-syntax-bubbles-mobile.png', animations:'disabled'});
  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+ await page.setViewportSize({width:320,height:740});
+ assert.equal(await attachedStrip.evaluate(el => [...el.children].every(card => {
+  const rect = card.getBoundingClientRect();
+  return rect.left >= 0 && rect.right <= innerWidth;
+ })), true);
  await page.setViewportSize({width:1280,height:900});
  setHistory([]);
 

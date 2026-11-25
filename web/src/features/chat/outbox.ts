@@ -9,6 +9,7 @@ import {keyboardInput} from "../../modality.js";
 import type {ChatRequestInput,ChatRequestReceipt,ChatRequestResponse,ChatRequestList} from "../../types.js";
 import type {Draft} from "./draft-store.js";
 import {OutboxStore,receiptActive,draftFromRequest,type Outgoing} from "./outbox-store.js";
+import {cleanDraftText} from "./attachments.js";
 
 type Tone="busy"|"attention"|"error"|"done"|"quiet";
 type Look={title:string;reason:string;tone:Tone;icon:IconSlot|""};
@@ -279,18 +280,19 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
    const label=document.createElement("span");label.className="delivery-label";setTextRender(label,()=>t(rowView.title)+other(row));line.append(label);
    if(rowView.reason){const why=document.createElement("span");why.className="delivery-reason";setTextRender(why,()=>t(rowView.reason));line.append(why);}
    main.append(line);
-   const text=row.draft?.text||row.input?.text||c?.request?.text||"";
+   const frozen=row.input||c?.request;
+   const draft=row.draft||(frozen?draftFromRequest(frozen):undefined);
+   const text=draft?cleanDraftText(draft):"";
    if(text){
     // One line until asked: long prompts must not push the composer away.
     const open=fullText.has(id),body=document.createElement("button");body.type="button";body.className="delivery-text";body.dataset.deliveryAction="text";body.textContent=text;
     body.classList.toggle("full",open);body.setAttribute("aria-expanded",String(open));
     body.addEventListener("click",()=>{if(!owns())return;if(fullText.has(id))fullText.delete(id);else fullText.add(id);render();});
     main.append(body);
-   }else{const gone=document.createElement("p");gone.className="delivery-text expired";setTextRender(gone,()=>t("待确认正文已过期；仍可查询结果或放弃原消息编号。"));main.append(gone);}
-   const frozen=row.input||c?.request;
-   if(frozen||row.draft?.attachments.length){
+   }else if(!draft){const gone=document.createElement("p");gone.className="delivery-text expired";setTextRender(gone,()=>t("待确认正文已过期；仍可查询结果或放弃原消息编号。"));main.append(gone);}
+   if(frozen||draft?.attachments.length){
     const meta=document.createElement("p");meta.className="delivery-settings";
-    const files=row.draft?.attachments.map(a=>a.orig||a.name).join(" · ")||"";
+    const files=draft?.attachments.map(a=>a.orig||a.name).join(" · ")||"";
     setTextRender(meta,()=>[frozen?t("模型：{model}；推理强度：{effort}",{model:frozen.model,effort:frozen.effort||t("默认")}):"",files].filter(Boolean).join(" · "));
     main.append(meta);
    }
@@ -305,8 +307,6 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
     const generation=epoch;
     if(context.thread!==row.thread&&!await confirm("这条消息属于另一对话。复制到当前对话的输入框？不会自动发送，也不会覆盖已有草稿。"))return;
     if(!current(row.session,generation))return;
-    const frozen=row.input||c?.request;
-    const draft=row.draft||(frozen?draftFromRequest(frozen):undefined);
     if(draft)hooks.restore(structuredClone(draft));
    })(),working||!row.draft&&!row.input&&!c?.request));
    if(settled(row.state))actions.append(control("","从列表移除","close",()=>{dismiss(row);render();},working));

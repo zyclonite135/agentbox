@@ -1,7 +1,7 @@
 export const DRAFT_TTL = 7 * 24 * 60 * 60 * 1000;
 const MAX_RECORD = 150_000, MAX_TOTAL = 1_000_000, MAX_RECORDS = 500;
 const empty = () => ({ text: "", attachments: [] });
-const clean = (draft) => ({ text: draft.text, attachments: draft.attachments.map(({ id, path, name, orig, kind }) => ({ id, path, name, orig, kind })) });
+const clean = (draft) => ({ text: draft.text, attachments: draft.attachments.map(({ id, path, name, orig, kind }) => ({ id, path, name, orig, kind })), ...(draft.separateAttachments === true ? { separateAttachments: true } : {}) });
 /** One record per page writer prevents one tab from overwriting another.
  * Per-tab hints contain only writer IDs and survive reload/duplicated tabs. */
 export class DraftStore {

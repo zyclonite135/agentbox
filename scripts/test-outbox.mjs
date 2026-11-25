@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {OutboxStore,draftFromRequest} from '../internal/web/static/js/features/chat/outbox-store.js';
+import {attachmentPrompt,cleanDraftText,splitAttachmentPrompt} from '../internal/web/static/js/features/chat/attachments.js';
 import {DRAFT_TTL} from '../internal/web/static/js/features/chat/draft-store.js';
 import {rememberChatIdentity,clearPreviousChatIdentity} from '../internal/web/static/js/features/chat/local-identity.js';
 
@@ -82,15 +83,31 @@ test('a payload accepted under the record limit remains readable after reload',(
  assert.equal(restored.input.text,row.input.text);assert.equal(restored.draft.text,row.draft.text);
 });
 
-test('server-only recovery restores attachment references as unverified, without overwriting literal placeholders',()=>{
- const input={...outgoing().input,text:'Keep [File #2]; inspect [图片#3 /shared/.images/a.png] and [附件#2 /shared/.file/b.txt]; also /shared/.file/b.txt-extra.',attachments:['/shared/.images/a.png','/shared/.file/b.txt']};
+test('server-only recovery restores attachment cards as unverified and keeps typed text',()=>{
+ const input={...outgoing().input,text:'Keep [File #2]\n\n[图片#3 /shared/.images/a.png]\n[附件#2 /shared/.file/b.txt name=example.txt]',attachments:['/shared/.images/a.png','/shared/.file/b.txt']};
  const restored=draftFromRequest(input);
- assert.equal(restored.attachments.length,2);assert.equal(restored.attachments[0].id,3);assert.notEqual(restored.attachments[1].id,2);
- assert.ok(restored.attachments.every(a=>a.valid===false));assert.ok(restored.text.includes('Keep [File #2]'));assert.ok(restored.text.includes('[Image #3]'));assert.ok(restored.text.includes('/shared/.file/b.txt-extra.'));
+ assert.deepEqual(restored.attachments.map(a=>a.id),[3,2]);
+ assert.ok(restored.attachments.every(a=>a.valid===false));assert.equal(cleanDraftText(restored),'Keep [File #2]');
  assert.equal(restored.attachments[1].path,'/shared/.file/b.txt');
+ assert.equal(restored.attachments[1].orig,'example.txt');
  const plain=draftFromRequest({...input,text:'Read /shared/.file/b.txt',attachments:['/shared/.file/b.txt']});
- assert.equal(plain.text,'Read [File #1]');assert.equal(plain.attachments[0].valid,false);
- assert.equal(draftFromRequest({...input,text:'Read /shared/.file/b.txt.',attachments:['/shared/.file/b.txt']}).text,'Read [File #1].');
+ assert.equal(plain.text,'Read');assert.equal(plain.attachments[0].valid,false);
+ assert.equal(draftFromRequest({...input,text:'Read /shared/.file/b.txt.',attachments:['/shared/.file/b.txt']}).text,'Read.');
+ const other='Read /shared/.file/b.txt-extra';
+ assert.equal(draftFromRequest({...input,text:other,attachments:['/shared/.file/b.txt']}).text,other);
+});
+
+test('attachment prompts round-trip Unicode filenames, multiline text, and uploads without a prompt',()=>{
+ const attachments=[{id:1,path:'/shared/.file/fixture.xlsx',name:'fixture.xlsx',orig:'Отчёт [2026].xlsx',kind:'file'}];
+ const text='Сравни отчёты\n\nПо строкам';
+ const wire=attachmentPrompt(text,attachments);
+ assert.equal(splitAttachmentPrompt(wire).text,text);
+ assert.equal(splitAttachmentPrompt(wire).attachments[0].orig,attachments[0].orig);
+ assert.equal(splitAttachmentPrompt(attachmentPrompt('',attachments)).text,'');
+ const legacy=splitAttachmentPrompt('Проверь [附件#1 /shared/.file/fixture.xlsx]\nещё раз');
+ assert.equal(legacy.text,'Проверь\nещё раз');
+ assert.equal(legacy.attachments[0].orig,'fixture.xlsx');
+ assert.equal(cleanDraftText({text:'Проверь [File #1]',attachments}),'Проверь');
 });
 
 test('login replacement clears the previous actor once, without touching tokens, preferences or the new login copies',()=>{

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile,mkdir} from 'node:fs/promises';
-import {resolve,extname} from 'node:path';
+import {resolve,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {launchBrowser} from './playwright-launch.mjs';
 
@@ -12,7 +12,7 @@ const server=createServer(async(req,res)=>{
  try{
   const rel=new URL(req.url,'http://fixture').pathname.replace(/^\/_v\/[^/]+/,'');const file=resolve(root,'.'+(rel==='/'?'/index.html':rel));
   if(rel==='/storage-helper'){res.setHeader('Content-Type','text/html');res.end('<!doctype html><title>Storage fixture</title>');return;}
-  if(!file.startsWith(root+'/')){res.writeHead(403).end();return;}
+  if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}
   res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml'})[extname(file)]||'application/octet-stream');res.end(await readFile(file));
  }catch{res.writeHead(404).end();}
 });
@@ -96,8 +96,8 @@ try{
    await page.locator('#attach-input').setInputFiles({name:'attachment.txt',mimeType:'text/plain',buffer:Buffer.from('fixture')});await upload;
    await go('space-b');holdUpload=false;for(const release of uploads.splice(0))release();
    assert.equal(await input.inputValue(),'B private draft');assert.equal(await page.locator('#chat-attach').isVisible(),false);
-   await go('space-a');assert.ok((await input.inputValue()).includes('[File #1]'));assert.equal(await page.locator('#chat-send').isDisabled(),true);
-   await page.locator('.attachment-invalid button').click();assert.ok(!(await input.inputValue()).includes('[File #1]'));
+   await go('space-a');assert.equal(await input.inputValue(),'A revised draft');assert.equal(await page.locator('#chat-send').isDisabled(),true);
+   await page.locator('.attachment-invalid button').click();assert.equal(await input.inputValue(),'A revised draft');
    await page.locator('#attach-input').setInputFiles({name:'attachment.txt',mimeType:'text/plain',buffer:Buffer.from('fixture')});
    await page.waitForFunction(()=>!document.querySelector('#chat-send').disabled);
    await page.reload();await ready(page);assert.equal(await page.locator('.attachment-invalid').count(),0);

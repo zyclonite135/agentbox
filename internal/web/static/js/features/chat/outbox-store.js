@@ -1,5 +1,6 @@
 import { chatStates } from "../../contracts/chat.js";
 import { DRAFT_TTL } from "./draft-store.js";
+import { attachmentName, splitAttachmentPrompt } from "./attachments.js";
 const scopePattern = /^[a-f0-9]{64}$/, idPattern = /^[a-f0-9]{32}$/;
 const states = new Set(["unconfirmed", ...chatStates]);
 const MAX_RECORD = 400_000, MAX_TOTAL = 2_000_000, MAX_RECORDS = 500;
@@ -7,32 +8,34 @@ export const receiptActive = (state) => ["accepted", "starting", "running", "unc
 /** Server-only recovery (local saving off/expired) must recreate attachment
  * metadata too; plain text paths alone would bypass composer revalidation. */
 export function draftFromRequest(input) {
-    let text = input.text;
-    const markers = [...text.matchAll(/\[(?:图片|附件)#(\d+) (\/shared\/\.(?:images|file)\/[A-Za-z0-9._-]+)\]/g)];
-    const used = new Set([...text.matchAll(/\[(?:Image|File) #(\d+)\]/g)].map(m => Number(m[1])));
-    const attachments = [], tokens = new Map();
+    const parsed = splitAttachmentPrompt(input.text);
+    const byPath = new Map(parsed.attachments.map(a => [a.path, a]));
+    const used = new Set(parsed.attachments.map(a => a.id));
+    const attachments = [], unmarked = new Set();
     let next = 1;
     for (const path of input.attachments || []) {
-        if (tokens.has(path) || !/^\/shared\/\.(images|file)\/[A-Za-z0-9][A-Za-z0-9._-]{0,255}$/.test(path))
+        if (attachments.some(a => a.path === path) || !/^\/shared\/\.(images|file)\/[A-Za-z0-9][A-Za-z0-9._-]{0,255}$/.test(path))
             continue;
-        const preferred = Number(markers.find(m => m[2] === path)?.[1]);
+        const existing = byPath.get(path);
+        if (existing) {
+            attachments.push(existing);
+            continue;
+        }
         while (used.has(next))
             ++next;
-        const id = Number.isInteger(preferred) && preferred > 0 && preferred <= 1_000_000 && !used.has(preferred) ? preferred : next++;
-        used.add(id);
-        const kind = path.startsWith("/shared/.images/") ? "img" : "file", name = path.split("/").at(-1);
+        const id = next++, kind = path.startsWith("/shared/.images/") ? "img" : "file", name = attachmentName(path);
         attachments.push({ id, path, name, orig: name, kind, valid: false });
-        tokens.set(path, `[${kind === "img" ? "Image" : "File"} #${id}]`);
+        unmarked.add(path);
     }
-    text = text.replace(/\[(?:图片|附件)#\d+ (\/shared\/\.(?:images|file)\/[A-Za-z0-9._-]+)\]/g, (whole, path) => tokens.get(path) || whole);
-    text = text.replace(/\/shared\/\.(?:images|file)\/[A-Za-z0-9][A-Za-z0-9._-]{0,255}(?![A-Za-z0-9._/-])/g, path => {
-        const exact = tokens.get(path);
-        if (exact)
-            return exact;
-        const leaf = path.replace(/\.+$/, "");
-        return tokens.has(leaf) ? tokens.get(leaf) + path.slice(leaf.length) : path;
-    });
-    return { text, attachments };
+    let text = parsed.text;
+    if (unmarked.size)
+        text = text.replace(/ ?(\/shared\/\.(?:images|file)\/[A-Za-z0-9][A-Za-z0-9._-]{0,255})(?![A-Za-z0-9._/-])/g, (whole, path) => {
+            if (unmarked.has(path))
+                return "";
+            const leaf = path.replace(/\.+$/, "");
+            return unmarked.has(leaf) ? path.slice(leaf.length) : whole;
+        }).trim();
+    return { ...parsed, text, attachments };
 }
 /** Immutable envelopes, keyed by ID across tabs. Payload expiry preserves the
  * ID fence: an expired unknown request can still be queried or abandoned. */

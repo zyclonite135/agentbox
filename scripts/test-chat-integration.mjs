@@ -202,7 +202,7 @@ try {
   passed('unprivileged native attachment upload reports actual chown denial (successful upload requires Linux fixture)');
  } else {
  assert.equal(upload.status(), 200); assert.ok(uploaded.path.startsWith('/shared/.file/'));
- await input.fill('attachment draft [File #1]'); await page.reload(); await ready();
+ await input.fill('attachment draft'); await page.reload(); await ready();
  await page.waitForFunction(() => !document.querySelector('#chat-send').disabled); assert.equal(await page.locator('.attachment-invalid').count(), 0);
  const beforeAttachment = (await turns()).length;
  assert.equal((await api('/sessions/space-a/files?scope=shared&path=' + encodeURIComponent(uploaded.path.slice('/shared/'.length)), undefined, 'DELETE')).status, 200);

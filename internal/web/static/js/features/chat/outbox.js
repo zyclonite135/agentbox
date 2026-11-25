@@ -7,6 +7,7 @@ import { t, setTextRender, setAttrRender } from "../../i18n.js";
 import { APIError, problemMessages } from "../../problems.js";
 import { keyboardInput } from "../../modality.js";
 import { OutboxStore, receiptActive, draftFromRequest } from "./outbox-store.js";
+import { cleanDraftText } from "./attachments.js";
 // Why a turn's outcome is unknown, by receipt code. Shown so "review" is not a
 // riddle: each names what the server could not confirm.
 const unknownReasons = { server_restarted: "服务重启时任务正在运行", server_upgraded: "服务升级时任务正在运行", chat_turn_timed_out: "超过时长上限后没有确认停下", execution_incomplete: "没有收到任务结束信号", history_write_failed: "对话记录没有完整保存", usage_write_failed: "用量没有记账成功", receipt_write_failed: "任务状态没有保存成功", chat_failed: "任务报错结束" };
@@ -464,7 +465,9 @@ export function initChatOutbox(hooks) {
                 line.append(why);
             }
             main.append(line);
-            const text = row.draft?.text || row.input?.text || c?.request?.text || "";
+            const frozen = row.input || c?.request;
+            const draft = row.draft || (frozen ? draftFromRequest(frozen) : undefined);
+            const text = draft ? cleanDraftText(draft) : "";
             if (text) {
                 // One line until asked: long prompts must not push the composer away.
                 const open = fullText.has(id), body = document.createElement("button");
@@ -481,17 +484,16 @@ export function initChatOutbox(hooks) {
                     fullText.add(id); render(); });
                 main.append(body);
             }
-            else {
+            else if (!draft) {
                 const gone = document.createElement("p");
                 gone.className = "delivery-text expired";
                 setTextRender(gone, () => t("待确认正文已过期；仍可查询结果或放弃原消息编号。"));
                 main.append(gone);
             }
-            const frozen = row.input || c?.request;
-            if (frozen || row.draft?.attachments.length) {
+            if (frozen || draft?.attachments.length) {
                 const meta = document.createElement("p");
                 meta.className = "delivery-settings";
-                const files = row.draft?.attachments.map(a => a.orig || a.name).join(" · ") || "";
+                const files = draft?.attachments.map(a => a.orig || a.name).join(" · ") || "";
                 setTextRender(meta, () => [frozen ? t("模型：{model}；推理强度：{effort}", { model: frozen.model, effort: frozen.effort || t("默认") }) : "", files].filter(Boolean).join(" · "));
                 main.append(meta);
             }
@@ -515,8 +517,6 @@ export function initChatOutbox(hooks) {
                         return;
                     if (!current(row.session, generation))
                         return;
-                    const frozen = row.input || c?.request;
-                    const draft = row.draft || (frozen ? draftFromRequest(frozen) : undefined);
                     if (draft)
                         hooks.restore(structuredClone(draft));
                 })(), working || !row.draft && !row.input && !c?.request));

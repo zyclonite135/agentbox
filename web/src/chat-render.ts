@@ -5,7 +5,7 @@ import { setAttrRender, setText, setTextRender, t as i18nText } from "./i18n.js"
  * 全部通过 DOM 构建输出，模型文本永远走 textContent，不存在注入面。 */
 "use strict";
 
-import { openLightbox, fmtTime, fmtDateTime, toast } from "./util.js";
+import { openLightbox, fmtTime, fmtDateTime, spinEl, toast } from "./util.js";
 import { imgURLFromPath } from "./api.js";
 import type {
   AgentEvent, APIProblem, ContentBlock, HistoryEntry, LiveNode, RateLimitInfo, SteerView,
@@ -25,8 +25,8 @@ import { breakClaudeGroup, claudeTaskProgress, claudeToolResults, claudeToolTitl
 import { heartbeatNode } from "./features/chat/folds.js";
 import { markActivity } from "./features/chat/activity.js";
 import { markdownFences } from "./features/chat/markdown-fences.js";
-
-export const USER_ATTACH_RE = /\[(图片|附件)#(\d+) (\/shared\/\.(?:images|file)\/[A-Za-z0-9._-]+)\]/g;
+import { attachmentMarker, attachmentName, splitAttachmentPrompt } from "./features/chat/attachments.js";
+import type { DraftAttachment } from "./features/chat/draft-store.js";
 
 /* 复制到剪贴板：clipboard API 优先，非安全上下文回退 execCommand */
 export async function copyText(text: string) {
@@ -97,37 +97,17 @@ export function divider(label: string) {
   return d;
 }
 
-export function renderUserMsg(text: string | undefined) {
+function renderUserMsg(text: string) {
   const d = document.createElement("div");
   d.className = "msg user";
-  const str = String(text);
-  // 图片按编号（即粘贴顺序）排在气泡顶部，和输入框的附件条一个样子；正文里原位置只留一个可点的引用
-  const thumbs = new Map<string, HTMLButtonElement>();
-  for (const m of [...str.matchAll(USER_ATTACH_RE)].sort((a, b) => Number(a[2]) - Number(b[2]))) {
-    if (m[1] === "图片" && !thumbs.has(m[2])) thumbs.set(m[2], chatThumb(d, m[3], m[2]));
-  }
-  if (thumbs.size) {
-    const strip = document.createElement("div");
-    strip.className = "msg-attach";
-    strip.append(...thumbs.values());
-    d.append(strip);
-  }
-  // 发给 CLI 的斜杠命令整条换成命令样式，@路径 换成文件引用标签（原文不变，复制、填回仍用原文）
-  const marks = syntaxMarks(str, S.current?.agent || "claude");
+  const marks = syntaxMarks(text, S.current?.agent || "claude");
   if (marks[0]?.kind === "command") {
     d.classList.add("cmd");
     const icon = svgIcon("chat.tool", 14);
     icon.classList.add("msg-cmd-icon");
     d.append(icon);
   }
-  let last = 0;
-  for (const m of str.matchAll(USER_ATTACH_RE)) {
-    if (m.index > last) appendMarked(d, str, last, m.index, marks);
-    if (m[1] === "图片") d.appendChild(imageRef(thumbs.get(m[2])!, m[2]));
-    else d.appendChild(fileLink(m[3], i18nText("附件 #") + m[2]));
-    last = m.index + m[0].length;
-  }
-  if (last < str.length) appendMarked(d, str, last, str.length, marks);
+  appendMarked(d, text, 0, text.length, marks);
   return d;
 }
 
@@ -155,8 +135,8 @@ function appendMarked(box: HTMLElement, str: string, from: number, to: number, m
 
 /* 复制出去给人看：附件标记换成「[图片 #1]」「[附件 #2 report.pdf]」，不带容器路径 */
 export function readableUserText(text: string) {
-  return text.replace(USER_ATTACH_RE, (_m, kind: string, n: string, path: string) =>
-    kind === "图片" ? `[${i18nText("图片 #")}${n}]` : `[${i18nText("附件 #")}${n} ${path.split("/").pop()}]`);
+  return text.replace(attachmentMarker, (_m, kind: string, n: string, path: string, orig?: string) =>
+    kind === "图片" ? `[${i18nText("图片 #")}${n}]` : `[${i18nText("附件 #")}${n} ${attachmentName(path, orig)}]`);
 }
 
 function userActionButton(label: () => string, icon: IconSlot, run: (btn: HTMLButtonElement) => void) {
@@ -171,7 +151,7 @@ function userActionButton(label: () => string, icon: IconSlot, run: (btn: HTMLBu
 }
 
 /* 用户消息一行：气泡 + 右侧首字头像，气泡下方是悬停才出现的时间 / 复制 / 填回输入框
- * （窄屏不显示头像，触屏没有悬停就常驻）。引导消息只用 renderUserMsg 的气泡，不走这里。 */
+ * （窄屏不显示头像，触屏没有悬停就常驻）。 */
 export function renderUserTurn(text: string | undefined, ts?: string) {
   const str = String(text ?? "");
   const row = document.createElement("div");
@@ -209,7 +189,8 @@ export function renderUserTurn(text: string | undefined, ts?: string) {
   const restore = userActionButton(() => i18nText("填回输入框"), "chat.refill",
     () => document.dispatchEvent(new CustomEvent("chat-restore-text", { detail: str })));
   actions.append(copy, restore);
-  main.append(renderUserMsg(str), actions);
+  appendUserContent(main, str);
+  main.append(actions);
   const avatar = document.createElement("span");
   avatar.className = "user-avatar";
   avatar.setAttribute("aria-hidden", "true");
@@ -220,59 +201,76 @@ export function renderUserTurn(text: string | undefined, ts?: string) {
   return row;
 }
 
-/* 消息气泡顶部的图片缩略图：与输入框附件条同款（左上角 #n 角标），只是没有删除钮。
- * 图片已被清理时整格换成「已过期」，正文里对应的引用一并置灰 */
-function chatThumb(msg: HTMLElement, containerPath: string, n: string) {
-  const title = () => i18nText("图片 #") + n;
+function appendUserContent(parent: HTMLElement, raw: string, steer = false) {
+  const { text, attachments } = splitAttachmentPrompt(raw);
+  if (attachments.length) {
+    const strip = document.createElement("div");
+    strip.className = "msg-attach";
+    for (const attachment of attachments.sort((a, b) => a.id - b.id)) {
+      strip.append(attachment.kind === "img" ? chatThumb(attachment) : fileCard(attachment));
+    }
+    parent.append(strip);
+  }
+  if (text) {
+    const body = renderUserMsg(text);
+    if (steer) body.classList.replace("user", "steer-text");
+    parent.append(body);
+  }
+}
+
+function chatThumb({ path, orig }: DraftAttachment) {
   const box = document.createElement("button");
   box.type = "button";
   box.className = "attach-thumb msg-thumb";
-  setAttrRender(box, "aria-label", title);
-  setTip(box, () => title() + i18nText("（点击查看大图）"));
-  const badge = document.createElement("span");
-  badge.className = "badge";
-  badge.textContent = "#" + n;
+  box.setAttribute("aria-label", orig);
+  setTip(box, () => orig + i18nText("（点击查看大图）"));
   const img = document.createElement("img");
   img.className = "chat-thumb";
-  img.src = imgURLFromPath(containerPath);
   img.alt = "";
-  box.append(badge, img);
-  box.addEventListener("click", () => openLightbox(imgURLFromPath(containerPath), i18nText("图片 #{p0} · {p1}", { p0: n, p1: containerPath })));
+  img.loading = "lazy";
+  box.append(img);
+  box.addEventListener("click", () => openLightbox(img.src, orig));
   img.addEventListener("error", () => {
     const gone = document.createElement("span");
     gone.className = "img-gone";
     setText(gone, "已过期");
     img.replaceWith(gone);
     box.disabled = true;
-    setTip(box, () => i18nText("[{p0} 已过期]", { p0: title() }));
-    for (const ref of msg.querySelectorAll<HTMLElement>(`.msg-img-ref[data-n="${n}"]`)) ref.classList.add("gone");
+    setTip(box, () => i18nText("[{p0} 已过期]", { p0: orig }));
   });
+  img.src = imgURLFromPath(path);
   return box;
 }
 
-/* 正文里的图片引用：链接样式，点了和点顶部那张缩略图一样 */
-function imageRef(thumb: HTMLButtonElement, n: string) {
-  const ref = document.createElement("button");
-  ref.type = "button";
-  ref.className = "msg-img-ref";
-  ref.dataset.n = n;
-  setTextRender(ref, () => i18nText("图片 #") + n);
-  setTip(ref, () => {
-    const title = i18nText("图片 #") + n;
-    return thumb.disabled ? i18nText("[{p0} 已过期]", { p0: title }) : title + i18nText("（点击查看大图）");
-  });
-  ref.addEventListener("click", () => thumb.click());
-  return ref;
+export function attachmentFileLabel(card: HTMLElement, name: string, loading = false) {
+  const icon = document.createElement("span");
+  icon.className = "attach-file-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const ext = /\.([a-z0-9]{1,10})$/i.exec(name)?.[1].toUpperCase();
+  const slot = ext && /^(XLSX?|CSV|ODS)$/.test(ext) ? "chat.result-sheet" : fileIconName(name);
+  icon.append(loading ? spinEl() : svgIcon(slot, 17));
+  const label = document.createElement("span");
+  label.className = "attach-file-label";
+  const filename = document.createElement("span");
+  filename.className = "fn";
+  filename.textContent = name;
+  label.append(filename);
+  if (ext) {
+    const type = document.createElement("span");
+    type.className = "attach-file-type";
+    type.textContent = ext;
+    label.append(type);
+  }
+  card.append(icon, label);
+  setTip(card, name);
 }
 
-/* 消息里的附件：可点击下载的文件条 */
-function fileLink(containerPath: string, title: string) {
+function fileCard({ path, orig }: DraftAttachment) {
   const a = document.createElement("a");
-  a.className = "file-link mono";
-  a.append(svgIcon("chat.attachment", 13), containerPath.split("/").pop() || "");
-  setTip(a, title + " · " + containerPath);
-  a.href = imgURLFromPath(containerPath);
-  a.target = "_blank";
+  a.className = "attach-file msg-file";
+  a.href = imgURLFromPath(path);
+  a.download = orig;
+  attachmentFileLabel(a, orig);
   return a;
 }
 
@@ -758,9 +756,8 @@ export function renderSteer(view: SteerView | undefined) {
   const label = document.createElement("span");
   setText(label, view.state === "dropped" ? "引导未生效" : "引导");
   tag.append(svgIcon("chat.steer", 12), label);
-  const body = renderUserMsg(view.text);
-  body.classList.replace("user", "steer-text");
-  box.append(tag, body);
+  box.append(tag);
+  appendUserContent(box, view.text ?? "", true);
   if (view.state === "dropped") {
     const note = document.createElement("p");
     note.className = "steer-note";

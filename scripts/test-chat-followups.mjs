@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile,mkdir} from 'node:fs/promises';
-import {resolve,extname} from 'node:path';
+import {resolve,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {cancelledFetchError,launchBrowser} from './playwright-launch.mjs';
 
@@ -12,7 +12,7 @@ const shots=process.env.AGENTBOX_FOLLOWUP_SHOTS||'';
 const server=createServer(async(req,res)=>{
  try{
   const path=new URL(req.url,'http://fixture').pathname.replace(/^\/_v\/[^/]+/,'');
-  const file=resolve(root,'.'+(path==='/'?'/index.html':path));if(!file.startsWith(root+'/')){res.writeHead(403).end();return;}
+  const file=resolve(root,'.'+(path==='/'?'/index.html':path));if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}
   res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml'})[extname(file)]||'application/octet-stream');res.end(await readFile(file));
  }catch{res.writeHead(404).end();}
 });
@@ -150,7 +150,7 @@ async function scenario(browser,{mobile}={}){
  await page.waitForFunction(()=>{const i=document.querySelector('.steer-msg .chat-thumb');return i&&i.complete&&i.naturalWidth>0;});
  const box=await pic.boundingBox();
  assert.ok(box.width<=201&&box.height<=111,`steer thumbnail is capped: ${box.width}x${box.height}`);
- const [log,steerBox]=await Promise.all([page.locator('#chat-log').boundingBox(),pic.locator('xpath=ancestor::*[contains(@class,"steer-text")]').boundingBox()]);
+ const [log,steerBox]=await Promise.all([page.locator('#chat-log').boundingBox(),pic.locator('xpath=ancestor::div[contains(@class,"steer-msg")]').boundingBox()]);
  assert.ok(steerBox.x>=log.x&&steerBox.x+steerBox.width<=log.x+log.width+1,'steer bubble stays inside the chat column');
  if(shots)await page.locator('#chat-log').screenshot({path:`${shots}/${mobile?'mobile':'desktop'}-steer.png`});
  // A queued follow-up that starts later updates in place.

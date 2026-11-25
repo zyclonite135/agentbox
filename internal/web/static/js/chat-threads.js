@@ -10,13 +10,14 @@ import { setAttrRender, setText, setTextRender, t as i18nText } from "./i18n.js"
 import { S, emit } from "./state.js";
 import { $, fmtSize, fmtTime, toast, askConfirm, askPrompt } from "./util.js";
 import { api } from "./api.js";
-import { svgIcon, USER_ATTACH_RE } from "./chat-render.js";
+import { svgIcon } from "./chat-render.js";
+import { outlineQuestion } from "./features/chat/outline-text.js";
 import { setTip } from "./tip.js";
 import { keepCount, skelBar, skelShell } from "./skeleton.js";
 import { onRunningChange, runningIDs, runningThread } from "./features/chat/running.js";
 /* 预览文案：附件占位符只留类别名，不展示容器内路径 */
 function previewText(s) {
-    return String(s || "").replace(USER_ATTACH_RE, "[$1]") || i18nText("（无文字消息）");
+    return outlineQuestion(s || "", kind => `[${i18nText(kind)}]`) || i18nText("（无文字消息）");
 }
 /* ---- 顶部切换栏 ---- */
 /* 切换栏上挂的是不是正式标题（模型总结好的 / 用户重命名的）。新线程是服务端

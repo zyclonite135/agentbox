@@ -1,11 +1,11 @@
 export interface DraftAttachment {id:number;path:string;name:string;orig:string;kind:"img"|"file";valid?:boolean;}
-export interface Draft {text:string;attachments:DraftAttachment[];}
+export interface Draft {text:string;attachments:DraftAttachment[];separateAttachments?:true;}
 interface Record extends Draft {version:1;session:string;thread:string;writer:string;updated:number;}
 export interface DraftStorage {readonly length:number;key(index:number):string|null;getItem(key:string):string|null;setItem(key:string,value:string):void;removeItem(key:string):void;}
 export const DRAFT_TTL=7*24*60*60*1000;
 const MAX_RECORD=150_000,MAX_TOTAL=1_000_000,MAX_RECORDS=500;
 const empty=():Draft=>({text:"",attachments:[]});
-const clean=(draft:Draft):Draft=>({text:draft.text,attachments:draft.attachments.map(({id,path,name,orig,kind})=>({id,path,name,orig,kind}))});
+const clean=(draft:Draft):Draft=>({text:draft.text,attachments:draft.attachments.map(({id,path,name,orig,kind})=>({id,path,name,orig,kind})),...(draft.separateAttachments===true?{separateAttachments:true}:{})});
 
 /** One record per page writer prevents one tab from overwriting another.
  * Per-tab hints contain only writer IDs and survive reload/duplicated tabs. */

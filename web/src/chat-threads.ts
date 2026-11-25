@@ -14,14 +14,15 @@ import type {
 } from "./types.js";
 import { $, fmtSize, fmtTime, toast, askConfirm, askPrompt } from "./util.js";
 import { api } from "./api.js";
-import { svgIcon, USER_ATTACH_RE } from "./chat-render.js";
+import { svgIcon } from "./chat-render.js";
+import { outlineQuestion } from "./features/chat/outline-text.js";
 import { setTip } from "./tip.js";
 import { keepCount, skelBar, skelShell } from "./skeleton.js";
 import { onRunningChange, runningIDs, runningThread } from "./features/chat/running.js";
 
 /* 预览文案：附件占位符只留类别名，不展示容器内路径 */
 function previewText(s: string | undefined) {
-  return String(s || "").replace(USER_ATTACH_RE, "[$1]") || i18nText("（无文字消息）");
+  return outlineQuestion(s || "", kind => `[${i18nText(kind)}]`) || i18nText("（无文字消息）");
 }
 
 /* ---- 顶部切换栏 ---- */

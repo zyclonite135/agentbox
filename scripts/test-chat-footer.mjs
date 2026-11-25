@@ -207,7 +207,9 @@ export async function chatFooterSmoke(page, { setHistory, send }) {
  await userRow.locator('.user-action.copied').waitFor();
  assert.equal(await clipboard(),'看下这张图 [图片 #1]\n还有 [附件 #2 b2.pdf]');
  await userActions.getByRole('button',{name:'填回输入框',exact:true}).click();
- assert.equal(await page.locator('#chat-input').inputValue(),'看下这张图 [Image #1]\n还有 [File #2]');
+ assert.equal(await userRow.locator('.msg.user').innerText(),'看下这张图\n还有');
+ assert.equal(await userRow.locator('.msg-attach > *').count(),2);
+ assert.equal(await page.locator('#chat-input').inputValue(),'看下这张图\n还有');
  assert.equal(await page.locator('#chat-attach .attach-remove').count(),2);
  while (await page.locator('#chat-attach .attach-remove').count()) await page.locator('#chat-attach .attach-remove').first().click();
  await page.locator('#chat-input').fill('');

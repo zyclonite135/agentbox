@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile,mkdir} from 'node:fs/promises';
-import {resolve,extname} from 'node:path';
+import {resolve,extname,sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {browserEngine,cancelledFetchError,launchBrowser} from './playwright-launch.mjs';
 
@@ -12,7 +12,7 @@ const server=createServer(async(req,res)=>{
  try{
   const path=new URL(req.url,'http://fixture').pathname.replace(/^\/_v\/[^/]+/,'');
   if(path==='/storage-helper'){res.setHeader('Content-Type','text/html');res.end('<!doctype html><title>Storage fixture</title>');return;}
-  const file=resolve(root,'.'+(path==='/'?'/index.html':path));if(!file.startsWith(root+'/')){res.writeHead(403).end();return;}
+  const file=resolve(root,'.'+(path==='/'?'/index.html':path));if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}
   res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml'})[extname(file)]||'application/octet-stream');res.end(await readFile(file));
  }catch{res.writeHead(404).end();}
 });
@@ -117,9 +117,9 @@ try{
    // Model edits during attachment validation require another explicit send.
    await page.locator('#attach-input').setInputFiles({name:'fixture.txt',mimeType:'text/plain',buffer:Buffer.from('synthetic attachment')});await page.waitForFunction(()=>!document.querySelector('#chat-send').disabled);
    holdValidation=true;const validation=page.waitForRequest(r=>new URL(r.url()).pathname.endsWith('/attachments/validate'));
-   await input.fill('Validation snapshot [File #1]');await page.locator('#chat-send').click();await validation;
+   await input.fill('Validation snapshot');await page.locator('#chat-send').click();await validation;
    await page.evaluate(async()=>{(await import('/_v/{{BUILD}}/js/state.js')).S.pick.model='model-two';});holdValidation=false;for(const release of validations.splice(0))release();
-   await page.waitForFunction(()=>!document.querySelector('#chat-send').disabled);assert.equal(puts.length,0);assert.equal(await input.inputValue(),'Validation snapshot [File #1]');
+   await page.waitForFunction(()=>!document.querySelector('#chat-send').disabled);assert.equal(puts.length,0);assert.equal(await input.inputValue(),'Validation snapshot');
    await page.locator('#chat-attach button').click();await input.fill('');await page.evaluate(async()=>{(await import('/_v/{{BUILD}}/js/state.js')).S.pick.model='model-one';});
    mode='drop-before';await input.fill('Frozen first prompt');await page.locator('#chat-send').dblclick();await page.waitForFunction(()=>document.querySelector('.delivery-item[data-state="unconfirmed"]'));
    assert.equal(puts.length,1);const first=puts[0].id;assert.equal(await input.inputValue(),'');assert.equal(executions,0);
@@ -171,7 +171,7 @@ try{
    // Failed local persistence never submits. Explicit opt-out permits page-only recovery.
    await page.evaluate(()=>{const set=Storage.prototype.setItem;window.denyOutbox=true;Storage.prototype.setItem=function(k,v){if(window.denyOutbox&&k.startsWith('agentbox.chat-outbox.v1.'))throw Error('quota');return set.call(this,k,v);};});
    await page.locator('#attach-input').setInputFiles({name:'fixture.txt',mimeType:'text/plain',buffer:Buffer.from('synthetic recovery attachment')});await page.waitForFunction(()=>!document.querySelector('#chat-send').disabled);
-   const beforeDenied=puts.length;await input.fill('Storage denied task [File #1]');await page.locator('#chat-send').click();await page.locator('.delivery-item[data-state="unconfirmed"]').waitFor({state:'attached'});assert.equal(puts.length,beforeDenied);assert.equal(await input.inputValue(),'Storage denied task [File #1]');
+   const beforeDenied=puts.length;await input.fill('Storage denied task');await page.locator('#chat-send').click();await page.locator('.delivery-item[data-state="unconfirmed"]').waitFor({state:'attached'});assert.equal(puts.length,beforeDenied);assert.equal(await input.inputValue(),'Storage denied task');
    const denied=await page.locator('.delivery-item[data-state="unconfirmed"]').getAttribute('data-request-id');
    await setSaving(false);await action(denied,'重试');await state(denied,'running');assert.equal((await records()).length,0);
    const beforeOffReload=puts.length;await page.reload();await ready();await state(denied,'running');assert.equal(puts.length,beforeOffReload);

@@ -2,8 +2,8 @@
  * 摘要文字取原文——问题是用户消息本身（附件标记换成短标签），回答是这一轮
  * 最终回复的第一句；服务端已各截到 200 字（threads.go 的 outline）。 */
 
-// 附件协议标记，与 chat-render.ts 的 USER_ATTACH_RE 同形；服务端截断处的半截标记也一并收掉
-const ATTACH_RE = /\[(图片|附件)#\d+ [^\]\s]*\]?/g;
+// Also hide partial markers when the server clips an outline or title.
+const ATTACH_RE = /\[(图片|附件)#\d+ [^\]\s]*(?: name=[^\]\s]*)?\]?/g;
 
 /** 问题：附件标记换成 label 给出的短标签，空白折叠成一个空格 */
 export function outlineQuestion(text: string, label: (kind: "图片" | "附件") => string): string {

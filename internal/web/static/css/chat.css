@@ -4,7 +4,7 @@
 .attach-remove { border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:10px; padding:3px; gap:0; }
 .attach-remove > .action-label:empty { display:none; }
 .attach-remove:is(:hover, :focus-visible) { color:var(--red); }
-/* 缩略图上的关闭钮与左上角 #n 角标同一套深色圆角，贴右上角 */
+/* 缩略图上的关闭钮贴右上角 */
 .attach-thumb .attach-remove { position:absolute; right:3px; top:3px; z-index:1; width:18px; height:18px; padding:0; border-radius:var(--radius-round); background:var(--overlay-chip); color:#fff; }
 .attach-thumb .attach-remove svg { width:12px; height:12px; }
 .attach-thumb .attach-remove:is(:hover, :focus-visible) { background:var(--red); color:#fff; }
@@ -771,66 +771,48 @@ details.think.streaming .think-body::after {
 .chat-attach {
   display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
   padding: 2px 4px 4px;
+  max-height: min(168px, 28dvh); overflow: auto;
 }
 .attach-file {
-  display: inline-flex; align-items: center; gap: 7px;
+  display: inline-flex; align-items: center; gap: 8px;
   border: 1px solid var(--line); border-radius: calc(10px * var(--radius-scale));
   background: var(--panel-2);
-  padding: 6px 10px;
+  padding: 5px 8px 5px 5px;
   font-size: 12px; color: var(--text);
-  max-width: 240px;
+  min-width: 0; max-width: min(100%, 240px);
 }
-.attach-file .fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-file-icon {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px;
+  border-radius: calc(7px * var(--radius-scale)); background: var(--code-bg); color: var(--info);
+}
+.attach-file-label { min-width: 0; display: grid; gap: 1px; line-height: 1.35; }
+.attach-file .fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.attach-file-type { color: var(--muted); font-size: 10px; }
+.attach-file .attach-remove { flex: none; }
 .attach-file .spin { width: 10px; height: 10px; }
-.file-link {
-  display: inline-flex; align-items: center; gap: 6px;
-  margin: 3px 4px;
-  border: 1px solid var(--line); border-radius: calc(10px * var(--radius-scale));
-  background: var(--code-bg);
-  padding: 5px 10px;
-  font-size: 12px; color: var(--text);
-  text-decoration: none;
-  max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.file-link:hover { border-color: var(--amber); }
+.msg-file { text-decoration: none; }
+.msg-file:hover { border-color: var(--amber); }
 .attach-thumb {
   position: relative;
-  width: 64px; height: 64px;
+  flex: none; width: 64px; max-width: 100%; height: 64px;
   border: 1px solid var(--line); border-radius: calc(10px * var(--radius-scale));
   overflow: hidden;
   background: var(--code-bg);
   display: flex; align-items: center; justify-content: center;
 }
-.attach-thumb img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
-.attach-thumb .badge {
-  position: absolute; left: 3px; top: 3px; z-index: 1;
-  background: var(--overlay-chip);
-  color: #fff;
-  font-family: var(--mono); font-size: 10px;
-  padding: 1px 5px; border-radius: calc(4px * var(--radius-scale));
-}
+.attach-preview { width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
+.attach-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.attach-preview:focus-visible { outline-offset: -3px; }
 .attach-thumb .up {
   display: flex; flex-direction: column; align-items: center; gap: 5px;
   color: var(--muted); font-size: 11px;
 }
 
-/* 消息气泡里的图片（用户消息与引导消息共用）：顶部一排缩略图沿用上面输入框的 .attach-thumb，
- * 正文里原位置的引用画成链接，配色同输入框里的 [Image #n] 标记 */
-.msg-attach { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; white-space: normal; }
-.msg-thumb { padding: 0; color: inherit; cursor: zoom-in; transition: border-color .15s ease; }
+/* User and follow-up attachments sit above the prompt. */
+.msg-attach { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 100%; margin-bottom: 6px; }
+.msg-thumb { width: 80px; height: 80px; padding: 0; color: inherit; cursor: zoom-in; transition: border-color .15s ease; }
 .msg-thumb:hover:not(:disabled) { border-color: var(--amber); }
 .msg-thumb:disabled { cursor: default; }
-.msg-img-ref {
-  display: inline; padding: 0 3px; margin: 0 1px; border: 0;
-  border-radius: calc(4px * var(--radius-scale));
-  color: var(--info); background: color-mix(in srgb, var(--info) 13%, transparent);
-  line-height: inherit;
-  text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--info) 40%, transparent); text-underline-offset: 3px;
-  -webkit-box-decoration-break: clone; box-decoration-break: clone;
-  cursor: zoom-in;
-}
-.msg-img-ref:hover { text-decoration-color: currentColor; }
-.msg-img-ref.gone { color: var(--muted); background: transparent; text-decoration: line-through; cursor: default; }
 .img-gone { color: var(--muted); font-size: 11px; font-family: var(--mono); }
 
 /* ---- 对话切换栏：当前对话标题（历史面板入口）+ 新对话（chat-threads.js） ---- */
@@ -1211,7 +1193,7 @@ details.think.streaming .think-body::after {
 /* 有标记时字由镜像来画，textarea 只留光标和选区 */
 .composer textarea.marked { color: transparent; caret-color: var(--text); }
 .composer textarea.marked::selection { color: var(--text); }
-.composer-marks :is(.mark-command, .mark-mention, .mark-attachment) {
+.composer-marks :is(.mark-command, .mark-mention) {
   color: var(--info);
   background: color-mix(in srgb, var(--info) 13%, transparent);
   border-radius: calc(4px * var(--radius-scale));

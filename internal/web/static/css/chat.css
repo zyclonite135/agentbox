@@ -15,14 +15,16 @@
  * 结构：用户消息=右侧圆角气泡；agent 回合=左侧品牌头像 + 内容列（.turn，
  * 由 chat.js 分组）；工具调用/状态为无框细行，不打断阅读流。 */
 
-/* 对话流与输入区共用一条居中栏（内容宽度封顶 800px）。
+#tab-chat { --chat-column-gutter: max(20px, calc((100% - 920px) / 2)); }
+
+/* 对话流与输入区共用一条居中栏。
  * position:relative 必须保留：KaTeX 的无障碍 MathML 节点是 position:absolute
  * 的隐藏元素，若最近的定位祖先在滚动容器之外（.pane），长对话里深处的公式
  * 会以内容坐标锚出去，把整页撑出一条看不见的滚动区（双滚动条）。 */
 .chat-log {
   position: relative;
   flex: 1; overflow-y: auto;
-  padding: 24px max(20px, calc((100% - 800px) / 2)) 8px;
+  padding: 24px var(--chat-column-gutter) 8px;
   display: flex; flex-direction: column; gap: 14px;
   /* 上下边界虚化：对话内容在贴近「对话切换栏」和「输入卡」时渐隐，
    * 与上下两栏之间留出一道柔和的分界，视觉上把中间的对话流单独划出来。
@@ -819,7 +821,7 @@ details.think.streaming .think-body::after {
 .thread-bar {
   flex: none;
   display: flex; align-items: center; gap: 8px;
-  padding: 8px max(20px, calc((100% - 800px) / 2)) 0;
+  padding: 8px var(--chat-column-gutter) 0;
 }
 
 /* 对话通道连接状态：仅断开/重连时出现（连上即隐藏），让长回合期间的掉线
@@ -827,7 +829,7 @@ details.think.streaming .think-body::after {
 .chat-conn {
   flex: none;
   display: flex; align-items: center; gap: 8px;
-  margin: 8px max(20px, calc((100% - 800px) / 2)) 0;
+  margin: 8px var(--chat-column-gutter) 0;
   padding: 7px 12px;
   border: 1px solid var(--line); border-radius: calc(9px * var(--radius-scale));
   background: var(--panel-2);
@@ -1120,7 +1122,7 @@ details.think.streaming .think-body::after {
   flex: none;
   position: relative;
   display: flex; flex-direction: column; gap: 10px;
-  padding: 6px max(20px, calc((100% - 800px) / 2)) 18px;
+  padding: 6px var(--chat-column-gutter) 18px;
 }
 .chat-scroll-bottom {
   position: absolute; left: 50%; top: 2px; z-index: 5;

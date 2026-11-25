@@ -145,14 +145,15 @@ export function diffStat(added?: number, removed?: number) {
   return stat;
 }
 
-/* 容器里的路径 → 文件直链（/workspace 与 /shared 两个范围），其它路径不给图 */
+const generatedImageRoot = "/home/agent/.codex/generated_images/";
+
+/* Resolve images from the workspace, shared files or Codex output. */
 function fileURL(path: string) {
   if (!S.current) return "";
   const session = `/api/sessions/${encodeURIComponent(S.current.id)}`;
   const token = `&token=${encodeURIComponent(S.token)}`;
-  const generated = "/home/agent/.codex/generated_images/";
-  if (path.startsWith(generated) && path.length > generated.length) {
-    return `${session}/chat/image?path=${encodeURIComponent(path.slice(generated.length))}${token}`;
+  if (path.startsWith(generatedImageRoot) && path.length > generatedImageRoot.length) {
+    return `${session}/chat/image?path=${encodeURIComponent(path.slice(generatedImageRoot.length))}${token}`;
   }
   const [rel, scope] = path.startsWith("/workspace/") ? [path.slice(11), ""] :
     path.startsWith("/shared/") ? [path.slice(8), "&scope=shared"] : ["", ""];
@@ -204,7 +205,7 @@ export function chatToolImage(containerPath: string, { reveal = false, prompt = 
     link.replaceWith(gone);
     download.remove();
   });
-  img.src = url;
+  img.src = path.startsWith(generatedImageRoot) ? url + "&thumb=1" : url;
   link.append(img);
   media.append(link, details);
   wrap.append(media);

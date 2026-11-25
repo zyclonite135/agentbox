@@ -1,10 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"io"
 	"mime"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"agentbox/internal/store"
 )
@@ -17,7 +19,9 @@ func (s *Server) handleChatImage(w http.ResponseWriter, r *http.Request, sess st
 		return
 	}
 	defer dir.Close()
-	f, err := dir.OpenFile(r.URL.Query().Get("path"))
+	query := r.URL.Query()
+	path := query.Get("path")
+	f, err := dir.OpenFile(path)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -46,8 +50,20 @@ func (s *Server) handleChatImage(w http.ResponseWriter, r *http.Request, sess st
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Security-Policy", "sandbox")
 	w.Header().Set("Cache-Control", "private, no-store")
-	if r.URL.Query().Get("dl") == "1" {
+	if query.Get("dl") == "1" {
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": info.Name()}))
+	} else if query.Get("thumb") == "1" {
+		if thumb := s.chatThumbnails.get(r.Context(), sess.ID+"\x00"+path, f, info, contentType); thumb != nil {
+			var content io.ReadSeeker = f
+			if thumb.data != nil {
+				content = bytes.NewReader(thumb.data)
+			}
+			w.Header().Set("Content-Type", thumb.contentType)
+			w.Header().Set("Cache-Control", "private, no-cache")
+			w.Header().Set("ETag", thumb.etag)
+			http.ServeContent(w, r, info.Name(), time.Time{}, content)
+			return
+		}
 	}
 	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }

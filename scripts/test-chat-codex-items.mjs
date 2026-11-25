@@ -256,6 +256,7 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  const images = page.locator('#chat-log .turn-body > .chat-tool-image .tc-image');
  await images.first().waitFor();
  await until(() => images.first().evaluate(img => img.naturalWidth > 0), 'history image loads inline');
+ assert.equal(await images.first().evaluate(img => new URL(img.src).searchParams.get('thumb')), '1');
  assert.equal(await images.count(), 1, 'ImageGen and ViewImage show one image in the same turn');
  const imageMenu = page.locator('#chat-log .chat-image-details').first();
  const menuButton = imageMenu.locator('summary');
@@ -288,6 +289,7 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  assert.equal(download.suggestedFilename(), 'image.png');
  const downloadParams = new URL(download.url()).searchParams;
  assert.equal(downloadParams.get('dl'), '1');
+ assert.equal(downloadParams.has('thumb'), false);
  assert.equal(downloadParams.get('path'), 'thread/image.png');
  assert.deepEqual(await readFile(await download.path()), chatImagePNG);
  await imageMenu.locator('summary').click();
@@ -296,6 +298,7 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  const preview = page.locator('#lb-img');
  const close = page.locator('#lb-close');
  await preview.waitFor();
+ assert.equal(await preview.evaluate(img => new URL(img.src).searchParams.has('thumb')), false);
  for (const [width, height, viewport] of [[640, 1500, {width:1280, height:900}], [1500, 640, {width:390, height:844}]]) {
   await page.setViewportSize(viewport);
   await preview.evaluate(async (img, [width, height]) => {

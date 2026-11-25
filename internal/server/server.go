@@ -70,6 +70,8 @@ func migrateLegacyUserDir(dataDir string) {
 }
 
 type Server struct {
+	chatThumbnails chatThumbnailCache
+
 	// turnLimit, when set, replaces the configured turn time limit; tests
 	// use it for limits shorter than the setting's minutes allow.
 	turnLimit          time.Duration

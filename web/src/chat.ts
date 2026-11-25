@@ -988,7 +988,14 @@ function pickRow(label: string, value: string, kind: string) {
   buttonLabel(l, label, kind === "model" ? "composer.model" : "composer.effort");
   const r = document.createElement("span");
   r.className = "val";
-  r.textContent = value + " ›";
+  const selected = document.createElement("span");
+  selected.className = "pick-value";
+  selected.textContent = value;
+  const chevron = document.createElement("span");
+  chevron.className = "pick-chevron";
+  chevron.setAttribute("aria-hidden", "true");
+  chevron.textContent = "›";
+  r.append(selected, chevron);
   b.append(l, r);
   if (isMobile()) {
     b.addEventListener("click", (e) => { e.stopPropagation(); buildPickSub(kind); });

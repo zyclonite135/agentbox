@@ -1517,7 +1517,13 @@ details.think.streaming .think-body::after {
   padding: 9px 11px;
 }
 .pick-row:hover, .pick-row.open { background: var(--panel-2); }
-.pick-row .val { color: var(--muted); font-size: 12px; }
+.pick-row > [data-icon] { flex: none; white-space: nowrap; }
+.pick-row .val {
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+  color: var(--muted); font-size: 12px; white-space: nowrap;
+}
+.pick-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.pick-chevron { flex: none; }
 .pick-back {
   display: flex; justify-content: flex-start; width: 100%; text-align: left;
   background: none; border: none; border-bottom: 1px solid var(--line);
@@ -1610,6 +1616,9 @@ details.think.streaming .think-body::after {
   .chip { max-width: 100%; }
   .composer-wrap { padding: 4px 10px 12px; }
   .composer { border-radius: calc(20px * var(--radius-scale)); padding: 10px 10px 8px 12px; }
+  .composer-bar { position: relative; }
+  .picker { position: static; }
+  .pick-menu { max-width: 100%; }
   /* iOS 聚焦时字号 <16px 会强制放大整页 */
   .composer textarea, .composer-marks { font-size: 16px; }
   .composer textarea { min-height: 32px; }

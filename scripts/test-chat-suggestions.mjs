@@ -126,7 +126,7 @@ async function scenario(browser,{mobile}={}){
  const card=page.locator('#set-chat-tasks'),tasksToggle=page.locator('#chat-tasks-claude5');
  await card.waitFor({state:'visible'});
  assert.equal(await tasksToggle.isChecked(),false);
- assert.match(await card.locator('.dc-callout.warn').innerText(),/多花 token/);
+ assert.match(await card.locator('.interface-warning').innerText(),/可能增加 token/);
  assert.equal(await page.locator('#sec-interface').evaluate(el=>el.scrollWidth<=el.clientWidth),true,'task list card overflows');
  await card.screenshot({path:`output/playwright/chat-tasks-setting${mobile?'-mobile':''}.png`,animations:'disabled'});
  await tasksToggle.setChecked(true);

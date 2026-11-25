@@ -82,10 +82,50 @@
 .card h3 { margin: 0; font-size: 13.5px; font-weight: 600; }
 .card h3.agent-h3 { display: flex; align-items: center; gap: 8px; }
 .card .card-desc { margin: -8px 0 0; color: var(--muted); font-size: 12.5px; }
-/* 「界面与提示」里的个人偏好卡片：勾选项用正文色，说明是小号灰字 */
-:is(#set-local-saving, #set-chat-suggestions, #set-chat-tasks, #set-chat-followups) .note { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
-:is(#set-local-saving, #set-chat-suggestions, #set-chat-tasks) label.check { color:var(--text); align-items:flex-start; }
-:is(#set-local-saving, #set-chat-suggestions, #set-chat-tasks) label.check input { flex:none; margin-top:3px; }
+#sec-interface { max-width:680px; gap:18px; }
+#sec-interface .sec-intro { padding-bottom:12px; border-bottom:1px solid var(--line); }
+#sec-interface .sec-intro h2 { font-size:18px; }
+.interface-group { display:grid; gap:8px; min-width:0; }
+.interface-group > h3 { margin:0; color:var(--muted); font-size:12px; font-weight:600; letter-spacing:.035em; text-transform:uppercase; }
+.interface-card { min-width:0; padding:0 14px; border:1px solid var(--line); border-radius:calc(14px * var(--radius-scale)); background:var(--panel); }
+.interface-entry { display:grid; gap:8px; min-width:0; padding:14px 0; }
+.interface-entry + .interface-entry,.interface-delete-row { border-top:1px solid var(--line); }
+.interface-toggle,.interface-select-row { display:grid; align-items:center; gap:10px; }
+.interface-toggle { grid-template-columns:minmax(0,1fr) auto; min-height:44px; cursor:pointer; }
+.interface-select-row { grid-template-columns:minmax(0,1fr) minmax(0,44%); }
+.interface-select-row :is(select,.select-trigger) { width:100%; min-width:0; }
+.interface-label { display:flex; align-items:center; gap:9px; min-width:0; color:var(--text-hi); font-size:13.5px; overflow-wrap:anywhere; }
+.interface-label > svg { flex:none; color:var(--accent); }
+.interface-copy { display:grid; gap:2px; min-width:0; }
+.interface-copy > span,.interface-status,.interface-autosave { color:var(--muted); font-size:12.5px; line-height:1.45; }
+.interface-status,.interface-autosave { margin:0; }
+.interface-autosave { text-align:center; }
+.interface-switch {
+  appearance:none; -webkit-appearance:none; position:relative; width:44px; height:26px; margin:0;
+  padding:0; border:1px solid var(--line); border-radius:var(--radius-pill);
+  background:var(--panel-2); cursor:pointer; transition:background-color 150ms ease,border-color 150ms ease;
+}
+.interface-switch::after {
+  content:""; position:absolute; top:3px; left:3px; width:18px; height:18px;
+  border-radius:50%; background:var(--muted); transition:transform 150ms ease,background-color 150ms ease;
+}
+.interface-switch:checked { background:var(--accent); border-color:var(--accent); }
+.interface-switch:checked::after { transform:translateX(18px); background:var(--on-accent); }
+.interface-switch:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.interface-warning { display:flex; align-items:flex-start; gap:7px; margin:0; color:var(--warn,var(--amber)); font-size:12px; line-height:1.5; }
+.interface-warning > svg { flex:none; margin-top:2px; }
+.interface-delete-row { padding:5px 0; }
+#sec-interface .interface-delete {
+  max-width:100%; min-height:40px; padding:5px 0; background:transparent; border-color:transparent;
+  color:var(--red-hi); text-align:left; white-space:normal; overflow-wrap:anywhere;
+}
+#sec-interface .interface-delete:hover:not(:disabled) { background:transparent; color:var(--red); text-decoration:underline; }
+
+@media (max-width: 760px) {
+  .interface-card { padding-inline:12px; }
+  .interface-select-row { grid-template-columns:minmax(0,1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .interface-switch,.interface-switch::after { transition:none; } }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > span { font-size: 12.5px; color: var(--muted); }
@@ -667,6 +707,11 @@
 .learn-more > summary:hover { color: var(--text); }
 .learn-more > p { margin: 6px 0 0; }
 .learn-more .sec-hint { margin: 6px 0 0; }
+#sec-interface .interface-details > summary { min-height:34px; gap:8px; color:var(--accent); }
+#sec-interface .interface-details > summary:hover { color:var(--text-hi); }
+#sec-interface .interface-editor > summary { display:flex; width:100%; min-height:34px; justify-content:space-between; }
+.interface-editor-fields { display:grid; gap:12px; padding-top:10px; }
+.interface-editor-fields > p { margin:0; }
 @media (prefers-reduced-motion: reduce) { .learn-more > summary::after { transition: none; } }
 .card > .learn-more { margin-top: -8px; }
 /* 智能决策：fieldset 只用来整体禁用，排版与 .set-section 相同，卡片之间留同样的间距 */

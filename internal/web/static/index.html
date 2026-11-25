@@ -1263,90 +1263,141 @@
 
             <!-- 界面与提示 -->
             <section id="sec-interface" class="set-section hidden">
-              <div class="sec-intro">
-                <div>
-                  <h2 data-i18n-text="[&quot;界面与提示&quot;]">界面与提示</h2>
-                  <p data-i18n="此浏览器的个人偏好；管理员还可调整全站界面与提示。">此浏览器的个人偏好；管理员还可调整全站界面与提示。</p>
+              <div class="sec-intro"><h2 data-i18n="界面与提示">界面与提示</h2></div>
+              <section class="interface-group" aria-labelledby="interface-storage-title">
+                <h3 id="interface-storage-title" data-i18n="存储数据">存储数据</h3>
+                <div class="interface-card" id="set-local-saving">
+                  <div class="interface-entry">
+                    <label class="interface-toggle">
+                      <span class="interface-label">
+                        <svg width="16" height="16" data-icon="save" aria-hidden="true"></svg>
+                        <span class="interface-copy"><strong id="interface-draft-title" data-i18n="保存草稿">保存草稿</strong><span data-i18n="在此浏览器保存最多 7 天">在此浏览器保存最多 7 天</span></span>
+                      </span>
+                      <input id="chat-draft-enabled" class="interface-switch" type="checkbox" role="switch" aria-labelledby="interface-draft-title">
+                    </label>
+                    <details class="learn-more interface-details">
+                      <summary data-i18n="了解更多">了解更多</summary>
+                      <p data-i18n="草稿保存在此浏览器 7 天；退出登录会清除。">草稿保存在此浏览器 7 天；退出登录会清除。</p>
+                      <p data-i18n="按用户、空间和对话隔离；只保存文字和附件引用，不保存文件内容。关闭后清除本机副本，当前页面输入仍保留。">按用户、空间和对话隔离；只保存文字和附件引用，不保存文件内容。关闭后清除本机副本，当前页面输入仍保留。</p>
+                      <p data-i18n="待确认正文过期后保留查询标识；关闭保存或退出不会取消服务器已接收的任务。">待确认正文过期后保留查询标识；关闭保存或退出不会取消服务器已接收的任务。</p>
+                    </details>
+                    <p id="chat-draft-settings-status" class="interface-status hidden" role="status"></p>
+                  </div>
+                  <div class="interface-delete-row"><button id="chat-draft-clear" type="button" class="btn btn-sm btn-ghost btn-danger interface-delete" data-icon="trash" data-i18n="清除本机副本并关闭保存">清除本机副本并关闭保存</button></div>
                 </div>
-              </div>
-              <div class="card" id="set-local-saving">
-                <h3 data-i18n="草稿与本机保存">草稿与本机保存</h3>
-                <p class="card-desc" data-i18n="仅影响当前账号在此浏览器的输入与待确认内容，修改后即时生效。">仅影响当前账号在此浏览器的输入与待确认内容，修改后即时生效。</p>
-                <label class="check"><input id="chat-draft-enabled" type="checkbox"><span data-i18n="在此浏览器保存输入与待确认内容（7 天）">在此浏览器保存输入与待确认内容（7 天）</span></label>
-                <p class="note" data-i18n="草稿保存在此浏览器 7 天；退出登录会清除。">草稿保存在此浏览器 7 天；退出登录会清除。</p>
-                <p class="note" data-i18n="按用户、空间和对话隔离；只保存文字和附件引用，不保存文件内容。关闭后清除本机副本，当前页面输入仍保留。">按用户、空间和对话隔离；只保存文字和附件引用，不保存文件内容。关闭后清除本机副本，当前页面输入仍保留。</p>
-                <p class="note" data-i18n="待确认正文过期后保留查询标识；关闭保存或退出不会取消服务器已接收的任务。">待确认正文过期后保留查询标识；关闭保存或退出不会取消服务器已接收的任务。</p>
-                <p id="chat-draft-settings-status" class="note hidden" role="status"></p>
-                <div class="card-foot"><button id="chat-draft-clear" type="button" class="btn btn-sm btn-danger" data-icon="trash" data-i18n="清除本机副本并关闭保存">清除本机副本并关闭保存</button></div>
-              </div>
-              <div class="card" id="set-chat-suggestions">
-                <h3 data-i18n="下一步提示">下一步提示</h3>
-                <p class="card-desc" data-i18n="仅影响此浏览器，从下一条消息开始生效。">仅影响此浏览器，从下一条消息开始生效。</p>
-                <label class="check"><input id="chat-suggest-enabled" type="checkbox"><span data-i18n="Claude 回合结束后，在空输入框里显示下一步提示，按 Tab 填入">Claude 回合结束后，在空输入框里显示下一步提示，按 Tab 填入</span></label>
-                <p class="note" data-i18n="生成提示会在每轮结束后多调用一次模型，费用计入你的额度，在使用记录里单独列为「下一步提示」。">生成提示会在每轮结束后多调用一次模型，费用计入你的额度，在使用记录里单独列为「下一步提示」。</p>
-              </div>
-              <div class="card" id="set-chat-tasks">
-                <h3 data-i18n="任务列表">任务列表</h3>
-                <p class="card-desc" data-i18n="仅影响此浏览器，从下一条消息开始生效。">仅影响此浏览器，从下一条消息开始生效。</p>
-                <label class="check"><input id="chat-tasks-claude5" type="checkbox"><span data-i18n="Claude 5 也使用任务列表">Claude 5 也使用任务列表</span></label>
-                <p class="note" data-i18n="Claude Code 只给较早的模型（如 Opus 4.7、Sonnet 4.6）默认开启任务列表，Claude 5 默认关闭。开启后 Claude 5 也会在输入框上方列出任务和进度。">Claude Code 只给较早的模型（如 Opus 4.7、Sonnet 4.6）默认开启任务列表，Claude 5 默认关闭。开启后 Claude 5 也会在输入框上方列出任务和进度。</p>
-                <p class="dc-callout warn" data-i18n="开启后可能多花 token：每次请求都会多带任务工具的说明，模型也会多调用几次来建立和更新任务，费用计入你的额度。">开启后可能多花 token：每次请求都会多带任务工具的说明，模型也会多调用几次来建立和更新任务，费用计入你的额度。</p>
-              </div>
-              <div class="card" id="set-chat-followups">
-                <h3 data-i18n="任务运行中发送的消息">任务运行中发送的消息</h3>
-                <p class="card-desc" data-i18n="仅影响此浏览器。按 Ctrl+Enter（Mac 上 ⌘+Enter）对单条消息使用另一种方式。">仅影响此浏览器。按 Ctrl+Enter（Mac 上 ⌘+Enter）对单条消息使用另一种方式。</p>
-                <label class="field">
-                  <span data-i18n="默认方式">默认方式</span>
-                  <select id="chat-followup-mode">
-                    <option value="queue" data-i18n="排队：这一轮结束后作为新一轮执行">排队：这一轮结束后作为新一轮执行</option>
-                    <option value="steer" data-i18n="引导：插入正在执行的这一轮">引导：插入正在执行的这一轮</option>
-                  </select>
-                </label>
-                <p class="note" data-i18n="引导会在 Agent 当前这一步（比如正在跑的命令）结束后生效，只支持 Claude；来不及插入或是 Codex 时自动改为排队。排队的消息可以在状态栏里撤回。">引导会在 Agent 当前这一步（比如正在跑的命令）结束后生效，只支持 Claude；来不及插入或是 Codex 时自动改为排队。排队的消息可以在状态栏里撤回。</p>
-              </div>
-              <div class="card" data-settings-admin>
-                <h3 data-i18n-text="[&quot;日期与时间&quot;]">日期与时间</h3>
-                <label class="field">
-                  <span data-i18n-text="[&quot;界面时区 &quot;]">界面时区 <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span>
-                  <select id="set-timezone">
-                    <option value="Asia/Shanghai" data-i18n-text="[&quot;中国标准时间（Asia/Shanghai）&quot;]">中国标准时间（Asia/Shanghai）</option>
-                    <option value="Asia/Hong_Kong" data-i18n-text="[&quot;香港时间（Asia/Hong_Kong）&quot;]">香港时间（Asia/Hong_Kong）</option>
-                    <option value="Asia/Tokyo" data-i18n-text="[&quot;日本时间（Asia/Tokyo）&quot;]">日本时间（Asia/Tokyo）</option>
-                    <option value="Asia/Yekaterinburg" data-i18n-text="[&quot;叶卡捷琳堡时间（Asia/Yekaterinburg）&quot;]">叶卡捷琳堡时间（Asia/Yekaterinburg）</option>
-                    <option value="UTC" data-i18n-text="[&quot;协调世界时（UTC）&quot;]">协调世界时（UTC）</option>
-                    <option value="America/Los_Angeles" data-i18n-text="[&quot;美国太平洋时间（America/Los_Angeles）&quot;]">美国太平洋时间（America/Los_Angeles）</option>
-                    <option value="America/New_York" data-i18n-text="[&quot;美国东部时间（America/New_York）&quot;]">美国东部时间（America/New_York）</option>
-                    <option value="Europe/London" data-i18n-text="[&quot;英国时间（Europe/London）&quot;]">英国时间（Europe/London）</option>
-                    <option value="Europe/Moscow" data-i18n-text="[&quot;莫斯科时间（Europe/Moscow）&quot;]">莫斯科时间（Europe/Moscow）</option>
-                  </select>
-                </label>
-                <div class="card-foot">
-                  <span class="note" data-i18n-text="[&quot;控制台时间、使用记录筛选与 CSV 导出采用此时区&quot;]">控制台时间、使用记录筛选与 CSV 导出采用此时区</span>
+              </section>
+              <section class="interface-group" aria-labelledby="interface-claude-title">
+                <h3 id="interface-claude-title" data-i18n="Claude 功能">Claude 功能</h3>
+                <div class="interface-card">
+                  <div class="interface-entry" id="set-chat-suggestions">
+                    <label class="interface-toggle">
+                      <span class="interface-label">
+                        <svg width="16" height="16" data-icon="sparkles" aria-hidden="true"></svg>
+                        <span class="interface-copy"><strong id="interface-suggest-title" data-i18n="下一步提示">下一步提示</strong><span data-i18n="建议如何继续对话">建议如何继续对话</span></span>
+                      </span>
+                      <input id="chat-suggest-enabled" class="interface-switch" type="checkbox" role="switch" aria-labelledby="interface-suggest-title" aria-describedby="interface-suggest-cost">
+                    </label>
+                    <p id="interface-suggest-cost" class="interface-warning"><svg width="13" height="13" data-icon="info" aria-hidden="true"></svg><span data-i18n="消耗额外 token">消耗额外 token</span></p>
+                    <details class="learn-more interface-details">
+                      <summary data-i18n="了解更多">了解更多</summary>
+                      <p data-i18n="Claude 回合结束后，在空输入框里显示下一步提示，按 Tab 填入">Claude 回合结束后，在空输入框里显示下一步提示，按 Tab 填入</p>
+                      <p data-i18n="生成提示会在每轮结束后多调用一次模型，费用计入你的额度，在使用记录里单独列为「下一步提示」。">生成提示会在每轮结束后多调用一次模型，费用计入你的额度，在使用记录里单独列为「下一步提示」。</p>
+                      <p data-i18n="仅影响此浏览器，从下一条消息开始生效。">仅影响此浏览器，从下一条消息开始生效。</p>
+                    </details>
+                  </div>
+                  <div class="interface-entry" id="set-chat-tasks">
+                    <label class="interface-toggle">
+                      <span class="interface-label">
+                        <svg width="16" height="16" data-icon="list-check" aria-hidden="true"></svg>
+                        <span class="interface-copy"><strong id="interface-tasks-title" data-i18n="Claude 5 任务列表">Claude 5 任务列表</strong><span data-i18n="显示任务和执行进度">显示任务和执行进度</span></span>
+                      </span>
+                      <input id="chat-tasks-claude5" class="interface-switch" type="checkbox" role="switch" aria-labelledby="interface-tasks-title" aria-describedby="interface-tasks-cost">
+                    </label>
+                    <p id="interface-tasks-cost" class="interface-warning"><svg width="13" height="13" data-icon="info" aria-hidden="true"></svg><span data-i18n="可能增加 token 用量">可能增加 token 用量</span></p>
+                    <details class="learn-more interface-details">
+                      <summary data-i18n="了解更多">了解更多</summary>
+                      <p data-i18n="Claude Code 只给较早的模型（如 Opus 4.7、Sonnet 4.6）默认开启任务列表，Claude 5 默认关闭。开启后 Claude 5 也会在输入框上方列出任务和进度。">Claude Code 只给较早的模型（如 Opus 4.7、Sonnet 4.6）默认开启任务列表，Claude 5 默认关闭。开启后 Claude 5 也会在输入框上方列出任务和进度。</p>
+                      <p data-i18n="开启后可能多花 token：每次请求都会多带任务工具的说明，模型也会多调用几次来建立和更新任务，费用计入你的额度。">开启后可能多花 token：每次请求都会多带任务工具的说明，模型也会多调用几次来建立和更新任务，费用计入你的额度。</p>
+                      <p data-i18n="仅影响此浏览器，从下一条消息开始生效。">仅影响此浏览器，从下一条消息开始生效。</p>
+                    </details>
+                  </div>
                 </div>
-              </div>
-              <div class="card" data-settings-admin>
-                <h3 data-i18n-text="[&quot;终端提示语&quot;]">终端提示语</h3>
-                <p class="card-desc" data-i18n-text="[&quot;终端页左上角轮播显示的提示。每行一条，可配置多条；设置轮播频率与切换动画。留空则不显示提示。&quot;]">终端页左上角轮播显示的提示。每行一条，可配置多条；设置轮播频率与切换动画。留空则不显示提示。</p>
-                <label class="field">
-                  <span data-i18n-text="[&quot;提示语（每行一条）&quot;]">提示语（每行一条）<span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span>
-                  <textarea id="set-tips" rows="4" placeholder="可直接粘贴图片，路径可点击预览&#10;支持鼠标选中复制、右键粘贴" data-i18n-attrs="{&quot;placeholder&quot;:&quot;可直接粘贴图片，路径可点击预览\n支持鼠标选中复制、右键粘贴&quot;}"></textarea>
-                </label>
-                <div class="field-row">
-                  <label class="field">
-                    <span data-i18n-text="[&quot;轮播频率（秒）&quot;]">轮播频率（秒）</span>
-                    <input id="set-tips-interval" type="number" min="0" max="3600" step="1" class="mono">
-                  </label>
-                  <label class="field">
-                    <span data-i18n-text="[&quot;切换动画&quot;]">切换动画</span>
-                    <select id="set-tips-anim">
-                      <option value="scroll" data-i18n-text="[&quot;滚动&quot;]">滚动</option>
-                    </select>
-                  </label>
+              </section>
+              <section class="interface-group" aria-labelledby="interface-chat-title">
+                <h3 id="interface-chat-title" data-i18n="对话">对话</h3>
+                <div class="interface-card" id="set-chat-followups">
+                  <div class="interface-entry">
+                    <div class="interface-select-row">
+                      <label class="interface-label" for="chat-followup-mode">
+                        <svg width="16" height="16" data-icon="list" aria-hidden="true"></svg>
+                        <strong data-i18n="运行中发消息">运行中发消息</strong>
+                      </label>
+                      <select id="chat-followup-mode">
+                        <option value="queue" data-i18n="排队">排队</option>
+                        <option value="steer" data-i18n="引导">引导</option>
+                      </select>
+                    </div>
+                    <details class="learn-more interface-details">
+                      <summary data-i18n="了解更多">了解更多</summary>
+                      <p data-i18n="排队：这一轮结束后作为新一轮执行">排队：这一轮结束后作为新一轮执行</p>
+                      <p data-i18n="引导会在 Agent 当前这一步（比如正在跑的命令）结束后生效，只支持 Claude；来不及插入或是 Codex 时自动改为排队。排队的消息可以在状态栏里撤回。">引导会在 Agent 当前这一步（比如正在跑的命令）结束后生效，只支持 Claude；来不及插入或是 Codex 时自动改为排队。排队的消息可以在状态栏里撤回。</p>
+                      <p data-i18n="仅影响此浏览器。按 Ctrl+Enter（Mac 上 ⌘+Enter）对单条消息使用另一种方式。">仅影响此浏览器。按 Ctrl+Enter（Mac 上 ⌘+Enter）对单条消息使用另一种方式。</p>
+                    </details>
+                  </div>
                 </div>
-                <div class="card-foot">
-                  <span class="note" data-i18n-text="[&quot;每行一条，最多 30 条；频率 0 表示不轮播（只显示第一条）&quot;]">每行一条，最多 30 条；频率 0 表示不轮播（只显示第一条）</span>
+              </section>
+              <p class="interface-autosave" data-i18n="个人偏好自动保存。">个人偏好自动保存。</p>
+              <section class="interface-group" data-settings-admin aria-labelledby="interface-admin-title">
+                <h3 id="interface-admin-title" data-i18n="服务器设置">服务器设置</h3>
+                <div class="interface-card">
+                  <div class="interface-entry">
+                    <div class="interface-select-row">
+                      <label class="interface-label" for="set-timezone">
+                        <svg width="16" height="16" data-icon="clock" aria-hidden="true"></svg>
+                        <strong data-i18n="界面时区">界面时区</strong>
+                      </label>
+                      <select id="set-timezone">
+                        <option value="Asia/Shanghai" data-i18n-text="[&quot;中国标准时间（Asia/Shanghai）&quot;]">中国标准时间（Asia/Shanghai）</option>
+                        <option value="Asia/Hong_Kong" data-i18n-text="[&quot;香港时间（Asia/Hong_Kong）&quot;]">香港时间（Asia/Hong_Kong）</option>
+                        <option value="Asia/Tokyo" data-i18n-text="[&quot;日本时间（Asia/Tokyo）&quot;]">日本时间（Asia/Tokyo）</option>
+                        <option value="Asia/Yekaterinburg" data-i18n-text="[&quot;叶卡捷琳堡时间（Asia/Yekaterinburg）&quot;]">叶卡捷琳堡时间（Asia/Yekaterinburg）</option>
+                        <option value="UTC" data-i18n-text="[&quot;协调世界时（UTC）&quot;]">协调世界时（UTC）</option>
+                        <option value="America/Los_Angeles" data-i18n-text="[&quot;美国太平洋时间（America/Los_Angeles）&quot;]">美国太平洋时间（America/Los_Angeles）</option>
+                        <option value="America/New_York" data-i18n-text="[&quot;美国东部时间（America/New_York）&quot;]">美国东部时间（America/New_York）</option>
+                        <option value="Europe/London" data-i18n-text="[&quot;英国时间（Europe/London）&quot;]">英国时间（Europe/London）</option>
+                        <option value="Europe/Moscow" data-i18n-text="[&quot;莫斯科时间（Europe/Moscow）&quot;]">莫斯科时间（Europe/Moscow）</option>
+                      </select>
+                    </div>
+                    <details class="learn-more interface-details">
+                      <summary data-i18n="了解更多">了解更多</summary>
+                      <p data-i18n="控制台时间、使用记录筛选与 CSV 导出采用此时区">控制台时间、使用记录筛选与 CSV 导出采用此时区</p>
+                    </details>
+                  </div>
+                  <details id="interface-terminal" class="learn-more interface-entry interface-editor">
+                    <summary><span class="interface-label"><svg width="16" height="16" data-icon="tab.terminal" aria-hidden="true"></svg><strong data-i18n="终端提示语">终端提示语</strong></span></summary>
+                    <div class="interface-editor-fields">
+                      <p data-i18n="终端页左上角轮播显示的提示。每行一条，可配置多条；设置轮播频率与切换动画。留空则不显示提示。">终端页左上角轮播显示的提示。每行一条，可配置多条；设置轮播频率与切换动画。留空则不显示提示。</p>
+                      <label class="field">
+                        <span data-i18n-text="[&quot;提示语（每行一条）&quot;]">提示语（每行一条）<span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span>
+                        <textarea id="set-tips" rows="4" placeholder="可直接粘贴图片，路径可点击预览&#10;支持鼠标选中复制、右键粘贴" data-i18n-attrs="{&quot;placeholder&quot;:&quot;可直接粘贴图片，路径可点击预览\n支持鼠标选中复制、右键粘贴&quot;}"></textarea>
+                      </label>
+                      <div class="field-row">
+                        <label class="field">
+                          <span data-i18n-text="[&quot;轮播频率（秒）&quot;]">轮播频率（秒）</span>
+                          <input id="set-tips-interval" type="number" min="0" max="3600" step="1" class="mono">
+                        </label>
+                        <label class="field">
+                          <span data-i18n-text="[&quot;切换动画&quot;]">切换动画</span>
+                          <select id="set-tips-anim">
+                            <option value="scroll" data-i18n-text="[&quot;滚动&quot;]">滚动</option>
+                          </select>
+                        </label>
+                      </div>
+                      <p data-i18n="每行一条，最多 30 条；频率 0 表示不轮播（只显示第一条）">每行一条，最多 30 条；频率 0 表示不轮播（只显示第一条）</p>
+                    </div>
+                  </details>
                 </div>
-              </div>
+              </section>
             </section>
 
             <!-- 安全与访问 -->

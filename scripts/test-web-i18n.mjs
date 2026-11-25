@@ -325,12 +325,37 @@ export async function webI18nSmoke(browser) {
    }));
    assert.deepEqual(wrapped,[],`Russian settings labels must fit on one line at ${width}px`);
   }
+  await page.locator('#set-nav [data-sec="interface"]').click();
+  const interfaceSection=page.locator('#sec-interface');
+  await interfaceSection.waitFor();
+  assert.equal(await interfaceSection.getByRole('switch').count(),3);
+  assert.equal(await interfaceSection.getByRole('switch',{name:'Сохранение черновиков'}).isVisible(),true);
+  const draftDetails=interfaceSection.locator('#set-local-saving .interface-details');
+  assert.equal(await draftDetails.locator('p').first().isVisible(),false);
+  await draftDetails.locator('summary').click();
+  assert.equal(await draftDetails.locator('p').first().isVisible(),true);
+  await draftDetails.locator('summary').click();
+  for (const width of [1280,390,320]) {
+   await page.setViewportSize({width,height:900});
+   const fits=await interfaceSection.evaluate(el=>{
+    const section=el.getBoundingClientRect();
+    return el.scrollWidth <= el.clientWidth && [...el.querySelectorAll('[role="switch"], .interface-select-row .select-trigger')]
+     .every(control=>control.getBoundingClientRect().right <= section.right);
+   });
+   assert.equal(fits,true,`interface settings stay within the viewport at ${width}px`);
+   if(width!==320) {
+    await mkdir('output/playwright',{recursive:true});
+    await page.screenshot({path:`output/playwright/interface-settings-${width}.png`,animations:'disabled'});
+   }
+  }
   await page.setViewportSize({width:390,height:900});
   await page.locator('#mobile-section-btn').click();
   await page.getByRole('menuitemradio',{name:'Интерфейс',exact:true}).click();
   await page.locator('#sec-interface').waitFor();
   assert.equal(await page.locator('#mobile-section-label').textContent(),'Интерфейс');
   const tipsInput=page.locator('#set-tips');
+  assert.equal(await tipsInput.isVisible(),false);
+  await page.locator('#interface-terminal > summary').click();
   const ruTip='Вставляйте изображения прямо в терминал. Нажмите на путь для предпросмотра.';
   const enTip='Paste images directly into the terminal. Click an image path to preview it.';
   assert.equal(await tipsInput.inputValue(),`${ruTip}\n${customTip}`);

@@ -178,7 +178,7 @@ export function chatToolImage(containerPath: string, { reveal = false, prompt = 
   }, { once: true });
   link.addEventListener("click", e => {
     e.preventDefault();
-    openLightbox(url, path);
+    openLightbox(url);
   });
   const details = el("details", "chat-image-details");
   const more = el("summary", "");

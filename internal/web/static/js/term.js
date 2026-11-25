@@ -448,7 +448,7 @@ function ensureTerm(p) {
                     links.push({
                         range: { start: { x: m.index + 1, y }, end: { x: m.index + m[0].length, y } },
                         text: m[0],
-                        activate: (_e, p) => openLightbox(imgURLFromPath(p), p),
+                        activate: (_e, p) => openLightbox(imgURLFromPath(p)),
                     });
                 }
                 cb(links.length ? links : undefined);

@@ -333,9 +333,10 @@ $("ask-input-field").addEventListener("keydown", (e) => {
 
 /* ---- 图片灯箱（对话缩略图 / 终端路径预览共用） ---- */
 
-export function openLightbox(url: string, title?: string) {
-  $<HTMLImageElement>("lb-img").src = url;
-  $("lb-name").textContent = title || "";
+export function openLightbox(url: string, filename?: string) {
+  const image = $<HTMLImageElement>("lb-img");
+  setAttrRender(image, "alt", () => filename || i18nText("图片预览"));
+  image.src = url;
   $<HTMLDialogElement>("dlg-img").showModal();
 }
 

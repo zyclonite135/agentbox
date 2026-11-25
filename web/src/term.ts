@@ -435,7 +435,7 @@ function ensureTerm(p: TermPane) {
           links.push({
             range: { start: { x: m.index + 1, y }, end: { x: m.index + m[0].length, y } },
             text: m[0],
-            activate: (_e: MouseEvent, p: string) => openLightbox(imgURLFromPath(p), p),
+            activate: (_e: MouseEvent, p: string) => openLightbox(imgURLFromPath(p)),
           });
         }
         cb(links.length ? links : undefined);

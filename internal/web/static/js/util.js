@@ -308,9 +308,10 @@ $("ask-input-field").addEventListener("keydown", (e) => {
     }
 });
 /* ---- 图片灯箱（对话缩略图 / 终端路径预览共用） ---- */
-export function openLightbox(url, title) {
-    $("lb-img").src = url;
-    $("lb-name").textContent = title || "";
+export function openLightbox(url, filename) {
+    const image = $("lb-img");
+    setAttrRender(image, "alt", () => filename || i18nText("图片预览"));
+    image.src = url;
     $("dlg-img").showModal();
 }
 $("lb-close").addEventListener("click", () => $("dlg-img").close());

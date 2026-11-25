@@ -271,13 +271,6 @@ dialog label.check input { margin: 0; flex: none; }
   max-width: 100cqw; max-height: 100cqh;
   cursor: zoom-out;
 }
-.lb-bar {
-  flex: none;
-  display: flex; justify-content: center; align-items: center; gap: 12px;
-  padding: 10px 2px 0;
-  color: var(--muted); font-size: 12px;
-}
-.lb-bar span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 灯箱 ✕：悬浮在图片右上角。灯箱背板两个主题下都是深色，
  * 所以这枚钮固定深底浅字，不跟随主题。 */
 .lb-x {

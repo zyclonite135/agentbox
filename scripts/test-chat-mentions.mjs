@@ -292,8 +292,10 @@ export async function chatMentionsSmoke(page, { setHistory, messages, socket, se
  await thumbnail.scrollIntoViewIfNeeded();
  await page.waitForFunction(() => document.querySelector('.msg-thumb img')?.naturalWidth > 0);
  await thumbnail.click();
- await page.locator('#dlg-img[open]').waitFor();
- assert.equal(await page.locator('#lb-name').innerText(), 'shot.png');
+ const viewer = page.locator('#dlg-img[open]');
+ await viewer.waitFor();
+ assert.equal(await viewer.innerText(), '');
+ assert.equal(await viewer.locator('img').getAttribute('alt'), 'shot.png');
  await page.keyboard.press('Escape');
  const downloading = page.waitForEvent('download');
  await attachedStrip.locator('.msg-file').click();

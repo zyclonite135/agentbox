@@ -103,9 +103,12 @@ function revealActiveTab() {
 function renderTabStrip(available) {
     const strip = $("browser-tab-strip");
     const picker = $("browser-tabs");
+    const focused = document.activeElement;
+    const pickerOpen = picker.getAttribute("aria-expanded") === "true";
+    const pickerFocused = focused === picker || pickerOpen;
     strip.hidden = !available || compactLayout.matches;
     picker.hidden = available && !compactLayout.matches;
-    if (picker.hidden && picker.getAttribute("aria-expanded") === "true")
+    if (picker.hidden && pickerOpen)
         closeMenu();
     const list = $("browser-tab-list");
     if (!available) {
@@ -114,12 +117,18 @@ function renderTabStrip(available) {
         tabCards.clear();
         shownActiveTab = "";
     }
-    if (strip.hidden)
+    if (strip.hidden) {
+        if (available && strip.contains(focused)) {
+            (picker.matches(":enabled") ? picker : $("browser-url")).focus({ preventScroll: true });
+        }
         return;
+    }
     const tabs = navigation?.tabs ?? [];
     const active = navigation?.active ?? "";
     const live = new Set(tabs.map(tab => tab.id));
-    const hadFocus = list.contains(document.activeElement);
+    const focusedCard = focused?.closest(".browser-tab-card");
+    const nextCard = focusedCard?.nextElementSibling;
+    const previousCard = focusedCard?.previousElementSibling;
     for (const [id, card] of tabCards) {
         if (live.has(id))
             continue;
@@ -185,10 +194,15 @@ function renderTabStrip(available) {
             });
         }
     }
-    $("browser-new-tab").disabled = navigationBusy || !navigation;
-    if (hadFocus && !list.contains(document.activeElement))
-        tabCards.get(active)?.select.focus({ preventScroll: true });
-    if (shownActiveTab !== active) {
+    const newTab = $("browser-new-tab");
+    newTab.disabled = navigationBusy || !navigation;
+    const activeChanged = shownActiveTab !== active;
+    if (pickerFocused || (focusedCard && !list.contains(focusedCard))) {
+        const neighbor = !activeChanged && !pickerFocused ? [nextCard, previousCard].find(card => card?.isConnected) : undefined;
+        const button = neighbor?.querySelector(".browser-tab-select");
+        (button || tabCards.get(active)?.select || (newTab.disabled ? $("browser-url") : newTab)).focus();
+    }
+    if (activeChanged) {
         shownActiveTab = active;
         revealActiveTab();
     }
@@ -198,12 +212,12 @@ function renderNavigation() {
     $("browser-nav").hidden = !available;
     const addressDisabled = pending() || navigationBusy;
     $("browser-open").disabled = addressDisabled;
-    renderTabStrip(available);
     const disabled = navigationBusy || !navigation;
     $("browser-back").disabled = disabled || !navigation?.back;
     $("browser-forward").disabled = disabled || !navigation?.forward;
     $("browser-reload").disabled = disabled || !navigation?.active;
     $("browser-tabs").disabled = disabled;
+    renderTabStrip(available);
     if (!available || !navigation || navigationBusy || editingAddress)
         return;
     const url = navigation.tabs.find(tab => tab.id === navigation?.active)?.url ?? "";
@@ -215,9 +229,11 @@ async function updateNavigation(command) {
         return;
     const currentGeneration = generation;
     const ticket = ++navigationVersion;
+    const input = $("browser-url");
+    const closing = command?.operation === "close" ? { active: navigation?.active, draft: input.value } : undefined;
     if (command) {
         navigationBusy = true;
-        if (["navigate", "select", "new", "close"].includes(command.operation))
+        if (["navigate", "select", "new"].includes(command.operation))
             editingAddress = false;
     }
     else
@@ -226,8 +242,11 @@ async function updateNavigation(command) {
     try {
         const request = command ? { method: "POST", body: JSON.stringify(command) } : undefined;
         const result = await api(navigationPath(id), request);
-        if (ticket === navigationVersion && Array.isArray(result.tabs))
+        if (ticket === navigationVersion && Array.isArray(result.tabs)) {
+            if (closing && closing.active !== result.active && closing.draft === input.value)
+                editingAddress = false;
             navigation = result;
+        }
     }
     catch (err) {
         if (command && ticket === navigationVersion)

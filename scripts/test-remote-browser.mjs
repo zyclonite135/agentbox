@@ -5,7 +5,7 @@ import { mkdir } from 'node:fs/promises';
 // by test-remote-browser-live.py against Docker and the embedded noVNC module.
 export async function remoteBrowserSmoke(page) {
  let running = false, unavailable = false, clipboard = '', delayResolve;
- let hasNavigation = false;
+ let hasNavigation = false, rejectClose = false;
  let browserTabs = Array.from({length:36}, (_, i) => ({
   id:`tab-${i}`, title:`Тестовая вкладка ${i+1} с длинным названием`, url:`https://example.org/${i+1}`,
  }));
@@ -44,6 +44,10 @@ export async function remoteBrowserSmoke(page) {
    const {operation,tab} = route.request().postDataJSON();
    if (operation === 'select') activeTab = tab;
    if (operation === 'close') {
+    if (rejectClose) {
+     await route.fulfill({status:409,json:{error:'Synthetic close refusal'}});
+     return;
+    }
     const index = browserTabs.findIndex(item => item.id === tab);
     browserTabs.splice(index, 1);
     if (activeTab === tab) activeTab = browserTabs[Math.min(index, browserTabs.length - 1)].id;
@@ -244,12 +248,26 @@ export async function remoteBrowserSmoke(page) {
  await strip.getByRole('button',{name:farTitle,exact:true}).waitFor({state:'detached'});
  assert.equal(await cards.count(),35);
  assert.equal(await cards.last().getByRole('button',{pressed:true}).count(),1);
+ const addressInput = page.locator('#browser-url');
+ const draft = 'https://example.org/draft';
+ await addressInput.fill(draft);
+ rejectClose = true;
+ await Promise.all([
+  page.waitForResponse(r=>r.url().endsWith('/browser/navigation') && r.status() === 409),
+  cards.last().locator('.browser-tab-close').press('Enter'),
+ ]);
+ await cards.last().locator('.browser-tab-select[aria-pressed="true"][aria-disabled="false"]').waitFor();
+ assert.equal(await addressInput.inputValue(),draft,'a failed close of the current tab preserves the address draft');
+ rejectClose = false;
  await cards.first().scrollIntoViewIfNeeded();
- await cards.first().hover();
- await strip.getByRole('button',{name:`Закрыть вкладку «${firstTitle}»`}).click();
+ const neighborTitle = browserTabs[1].title;
+ await strip.getByRole('button',{name:`Закрыть вкладку «${firstTitle}»`}).press('Enter');
  await strip.getByRole('button',{name:firstTitle,exact:true}).waitFor({state:'detached'});
  assert.equal(await cards.last().getByRole('button',{pressed:true}).count(),1);
  assert.equal(await cards.count(),34);
+ assert.deepEqual({address:await addressInput.inputValue(), focus:await page.locator(':focus').textContent()},
+  {address:draft,focus:neighborTitle},'closing another tab preserves the address draft and moves keyboard focus to a neighbor');
+ await addressInput.press('Escape');
  for (const width of [1440,900,780]) {
   await page.setViewportSize({width,height:900});
   const address = await page.locator('#browser-address').boundingBox();
@@ -263,9 +281,11 @@ export async function remoteBrowserSmoke(page) {
    await page.locator('.browser-toolbar').screenshot({path:`output/playwright/remote-browser-tabs-${width}.png`});
   }
  }
+ await cards.last().locator('.browser-tab-select').focus();
  await page.setViewportSize({width:320,height:740});
  await picker.waitFor();
  assert.equal(await strip.isVisible(),false);
+ assert.equal(await picker.evaluate(el=>el === document.activeElement),true,'the mobile tab picker inherits focus from the desktop strip');
  await picker.click();
  const mobileTab = browserTabs[1];
  await menu.getByRole('menuitemradio',{name:mobileTab.title,exact:true}).click();
@@ -274,7 +294,18 @@ export async function remoteBrowserSmoke(page) {
  await menu.getByRole('menuitem',{name:'Закрыть текущую вкладку',exact:true}).click();
  await page.waitForFunction(url=>document.querySelector('#browser-url').value !== url,mobileTab.url);
  assert.equal(browserTabs.length,33);
+ await picker.focus();
  await page.setViewportSize({width:1440,height:900});
+ await strip.waitFor();
+ assert.equal(await strip.getByRole('button',{pressed:true}).evaluate(el=>el === document.activeElement),true,
+  'the desktop active tab inherits focus from the mobile tab picker');
+ const remoteTab = browserTabs.at(-1);
+ activeTab = remoteTab.id;
+ browserTabs = [remoteTab];
+ await strip.getByRole('button',{name:remoteTab.title,exact:true,pressed:true}).waitFor();
+ assert.equal(await cards.count(),1);
+ assert.equal(await cards.first().locator('.browser-tab-close').isDisabled(),true);
+ assert.equal(await list.evaluate(el=>el.scrollLeft),0);
  await page.locator('#browser-stop').click();
  await page.waitForFunction(() => !document.getElementById('browser-start').disabled);
  await setLanguage('zh-CN');
@@ -288,7 +319,7 @@ export async function remoteBrowserSmoke(page) {
  release(); delayResolve=null;
  await page.waitForTimeout(100);
  assert.equal(await page.locator('#browser-screen').innerText(),'');
- console.log('Browser toolbar: 36 scrollable tabs, active and inactive close, narrow desktop and mobile tab menu passed');
+ console.log('Browser toolbar: scrolling, close and rejection, address draft, keyboard focus, native tab changes and responsive layouts passed');
  await page.unroute('**/vendor/novnc/core/rfb.js');
  await page.unroute('**/api/sessions/*/browser');
  await page.unroute('**/api/sessions/*/browser/navigation*');

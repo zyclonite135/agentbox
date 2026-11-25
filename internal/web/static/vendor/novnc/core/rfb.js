@@ -473,6 +473,10 @@ export default class RFB extends EventTargetMixin {
     // followed by an up key.
     sendKey(keysym, code, down) {
         if (this._rfbConnectionState !== 'connected' || this._viewOnly) { return; }
+        if (this._deferredInput) {
+            this._deferredInput.push([this.sendKey, keysym, code, down]);
+            return;
+        }
 
         if (down === undefined) {
             this.sendKey(keysym, code, true);
@@ -504,6 +508,19 @@ export default class RFB extends EventTargetMixin {
 
     blur() {
         this._canvas.blur();
+    }
+
+    // AgentBox: let the server protect its current clipboard before Chrome
+    // receives the context-menu gesture. Preserve pointer and key order.
+    deferInput(ready) {
+        const queue = this._deferredInput ??= [];
+        this._deferredInputReady = ready;
+        const release = () => {
+            if (this._deferredInputReady !== ready) return;
+            this._deferredInput = this._deferredInputReady = null;
+            for (const [send, ...args] of queue) send.apply(this, args);
+        };
+        void ready.then(release, release);
     }
 
     // AgentBox: announce a clipboard format without reading its contents.
@@ -1259,6 +1276,12 @@ export default class RFB extends EventTargetMixin {
     _sendMouse(x, y, mask) {
         if (this._rfbConnectionState !== 'connected') { return; }
         if (this._viewOnly) { return; } // View only, skip mouse events
+        if (this._deferredInput) {
+            const previous = this._deferredInput.at(-1);
+            if (previous?.[0] === this._sendMouse && previous[3] === mask) this._deferredInput.pop();
+            this._deferredInput.push([this._sendMouse, x, y, mask]);
+            return;
+        }
 
         // Highest bit in mask is never sent to the server
         if (mask & 0x8000) {
@@ -2456,7 +2479,7 @@ export default class RFB extends EventTargetMixin {
                         offer.requested = true;
                         const reply = text => {
                             if (this._clipboardOffer !== offer) return;
-                            if (text) RFB.messages.extendedClipboardProvide(this._sock, [extendedClipboardFormatText], [text]);
+                            if (text !== null) RFB.messages.extendedClipboardProvide(this._sock, [extendedClipboardFormatText], [text]);
                             else this.withdrawClipboardOffer();
                         };
                         Promise.resolve().then(offer.provider).then(reply, () => reply(null));

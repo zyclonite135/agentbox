@@ -46,56 +46,224 @@ def safe_url(value):
     return value
 
 
+class XEventHeader(ctypes.Structure):
+    _fields_ = [('type', ctypes.c_int), ('serial', ctypes.c_ulong), ('send_event', ctypes.c_int),
+                ('display', ctypes.c_void_p)]
+
+
+class SelectionNotify(XEventHeader):
+    _fields_ = [(name, ctypes.c_ulong) for name in ('requestor', 'selection', 'target', 'property', 'time')]
+
+
+class SelectionRequest(XEventHeader):
+    _fields_ = [('owner', ctypes.c_ulong), *SelectionNotify._fields_]
+
+
+class SelectionChange(XEventHeader):
+    _fields_ = [('window', ctypes.c_ulong), ('subtype', ctypes.c_int),
+                ('owner', ctypes.c_ulong), ('selection', ctypes.c_ulong), ('timestamp', ctypes.c_ulong)]
+
+
+class XSetup(ctypes.Structure):
+    _fields_ = [('status', ctypes.c_uint8), ('pad', ctypes.c_uint8), ('major', ctypes.c_uint16),
+                ('minor', ctypes.c_uint16), ('length', ctypes.c_uint16), ('release', ctypes.c_uint32),
+                ('resource_base', ctypes.c_uint32), ('resource_mask', ctypes.c_uint32)]
+
+
 class ClipboardSelection:
-    """Count changes to CLIPBOARD without reading its contents."""
+    """Observe clipboard changes and restore text after a temporary VNC offer."""
+    TEXT_FORMATS = {'UTF8_STRING', 'STRING', 'TEXT', 'COMPOUND_TEXT', 'text/html', 'text/rtf',
+                    'text/plain', 'text/plain;charset=utf-8', 'chromium/x-source-url',
+                    'chromium/x-internal-source-rfh-token'}
+    CONTROL_FORMATS = {'TARGETS', 'TIMESTAMP', 'MULTIPLE', 'SAVE_TARGETS'}
+
     def __init__(self, display):
         x11 = ctypes.CDLL('libX11.so.6')
         fixes = ctypes.CDLL('libXfixes.so.3')
+        x11_xcb = ctypes.CDLL('libX11-xcb.so.1')
+        xcb = ctypes.CDLL('libxcb.so.1')
         pointer = ctypes.c_void_p
         xid = ctypes.c_ulong
+        x11_xcb.XGetXCBConnection.argtypes = [pointer]
+        x11_xcb.XGetXCBConnection.restype = pointer
+        xcb.xcb_get_setup.argtypes = [pointer]
+        xcb.xcb_get_setup.restype = ctypes.POINTER(XSetup)
         x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
         x11.XOpenDisplay.restype = pointer
         x11.XDefaultRootWindow.argtypes = [pointer]
         x11.XDefaultRootWindow.restype = xid
+        x11.XCreateSimpleWindow.argtypes = [pointer, xid, ctypes.c_int, ctypes.c_int,
+                                           ctypes.c_uint, ctypes.c_uint, ctypes.c_uint, xid, xid]
+        x11.XCreateSimpleWindow.restype = xid
         x11.XInternAtom.argtypes = [pointer, ctypes.c_char_p, ctypes.c_int]
         x11.XInternAtom.restype = xid
+        x11.XConnectionNumber.argtypes = [pointer]
+        x11.XGetSelectionOwner.argtypes = [pointer, xid]
+        x11.XGetSelectionOwner.restype = xid
+        x11.XSetSelectionOwner.argtypes = [pointer, xid, xid, xid]
+        x11.XChangeProperty.argtypes = [pointer, xid, xid, xid, ctypes.c_int, ctypes.c_int, pointer, ctypes.c_int]
+        x11.XSendEvent.argtypes = [pointer, xid, ctypes.c_int, ctypes.c_long, pointer]
+        x11.XFlush.argtypes = [pointer]
         x11.XPending.argtypes = [pointer]
         x11.XNextEvent.argtypes = [pointer, pointer]
         x11.XSync.argtypes = [pointer, ctypes.c_int]
         x11.XCloseDisplay.argtypes = [pointer]
+        handler = ctypes.CFUNCTYPE(ctypes.c_int, pointer, pointer)
+        x11.XSetErrorHandler.argtypes = [pointer]
+        x11.XSetErrorHandler.restype = pointer
+        fixes.XFixesQueryExtension.argtypes = [pointer, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
         fixes.XFixesSelectSelectionInput.argtypes = [pointer, xid, xid, xid]
         self.x11 = x11
         self.display = x11.XOpenDisplay(display.encode())
         if not self.display:
             raise OSError('Clipboard display unavailable')
+        event_base, error_base = ctypes.c_int(), ctypes.c_int()
+        if not fixes.XFixesQueryExtension(self.display, ctypes.byref(event_base), ctypes.byref(error_base)):
+            x11.XCloseDisplay(self.display)
+            raise OSError('XFixes unavailable')
+        self.selection_event = event_base.value
+        # X11 selection requestors may close their windows before a reply.
+        self.error_handler = handler(lambda *_: 0)
+        self.old_error_handler = x11.XSetErrorHandler(ctypes.cast(self.error_handler, pointer))
+        self.resource_mask = xcb.xcb_get_setup(x11_xcb.XGetXCBConnection(self.display)).contents.resource_mask
         self.serial = 0
+        self.copy_serial = 0
+        self.backup = None
+        self.restored = {}
         # XEvent uses a 24-long ABI padding member on both 32- and 64-bit X11.
         self.event = (ctypes.c_long * 24)()
         root = x11.XDefaultRootWindow(self.display)
-        clipboard = x11.XInternAtom(self.display, b'CLIPBOARD', 0)
-        fixes.XFixesSelectSelectionInput(self.display, root, clipboard, 7)
+        self.fd = x11.XConnectionNumber(self.display)
+        self.window = x11.XCreateSimpleWindow(self.display, root, 0, 0, 1, 1, 0, 0, 0)
+        self.atoms = {name: x11.XInternAtom(self.display, name.encode(), 0) for name in
+                      self.TEXT_FORMATS | {'CLIPBOARD', 'TARGETS', 'TIMESTAMP'}}
+        self.clipboard = self.atoms['CLIPBOARD']
+        fixes.XFixesSelectSelectionInput(self.display, self.window, self.clipboard, 7)
         x11.XSync(self.display, 0)
+
+    def owner(self):
+        return self.x11.XGetSelectionOwner(self.display, self.clipboard)
+
+    def vnc_owner(self, owner):
+        # TigerVNC owns the selection through a window of X server client 0.
+        return owner != 0 and owner & 0x1fffffff & ~self.resource_mask == 0
+
+    def prepare(self, env):
+        revision = self.revision()
+        owner = self.owner()
+        if self.vnc_owner(owner):
+            return False  # Another viewer still has a temporary offer.
+        if not owner:
+            return True
+        if owner == self.window:
+            data = self.restored
+        else:
+            try:
+                formats = set(read_clipboard(env, target='TARGETS', timeout=.4, strict=True).split())
+                # Leave unknown and non-text formats with their original owner.
+                if not formats or formats - (self.TEXT_FORMATS | self.CONTROL_FORMATS):
+                    return False
+                deadline = time.monotonic() + .6
+                data = {self.atoms[name]: read_clipboard(env, target=name, timeout=max(.05, deadline - time.monotonic()),
+                                                        strict=True, raw=True)
+                        for name in formats & self.TEXT_FORMATS if time.monotonic() < deadline}
+                if len(data) != len(formats & self.TEXT_FORMATS):
+                    return False
+            except (ValueError, subprocess.SubprocessError):
+                return False
+        if not data or self.revision() != revision or self.owner() != owner:
+            return False
+        # Keep the data in the container. A backup expires if the viewer never
+        # follows this request with an offer.
+        self.backup = (time.monotonic() + 3, False, data)
+        return True
+
+    def selection_changed(self, event):
+        self.serial += 1
+        if event.owner and event.owner != self.window and not self.vnc_owner(event.owner):
+            self.copy_serial += 1
+        if not self.backup:
+            return
+        deadline, offered, data = self.backup
+        if self.vnc_owner(event.owner) and (offered or time.monotonic() < deadline):
+            self.backup = (deadline, True, data)
+            return
+        self.backup = None
+        if offered and not event.owner:
+            # X11 refuses a timestamp older than the latest selection change,
+            # so this cannot overwrite a newer copy from Chrome or another app.
+            self.x11.XSetSelectionOwner(self.display, self.clipboard, self.window, event.timestamp)
+            if self.owner() == self.window:
+                self.restored = data
+                self.restored_at = event.timestamp
+
+    def send_selection(self, request):
+        response = SelectionNotify(31, 0, 0, self.display, request.requestor,
+                                   request.selection, request.target, 0, request.time)
+        target = request.target
+        if target == self.atoms['TARGETS']:
+            atoms = [self.atoms['TARGETS'], self.atoms['TIMESTAMP'], *self.restored]
+            data, kind, size = (ctypes.c_ulong * len(atoms))(*atoms), 4, 32  # XA_ATOM
+        elif target == self.atoms['TIMESTAMP']:
+            data, kind, size = (ctypes.c_ulong * 1)(self.restored_at), 19, 32  # XA_INTEGER
+        elif target in self.restored:
+            data = ctypes.c_char_p(self.restored[target])
+            kind, size = target, 8
+        else:
+            data = None
+        if data is not None:
+            prop = request.property or target
+            count = len(self.restored[target]) if size == 8 else len(data)
+            self.x11.XChangeProperty(self.display, request.requestor, prop, kind, size, 0, data, count)
+            response.property = prop
+        ctypes.memmove(ctypes.byref(self.event), ctypes.byref(response), ctypes.sizeof(response))
+        self.x11.XSendEvent(self.display, request.requestor, 0, 0, ctypes.byref(self.event))
+        self.x11.XFlush(self.display)
 
     def revision(self):
         while self.x11.XPending(self.display):
             self.x11.XNextEvent(self.display, ctypes.byref(self.event))
-            self.serial += 1
+            kind = ctypes.c_int.from_buffer(self.event).value
+            if kind == 30:  # SelectionRequest
+                self.send_selection(SelectionRequest.from_buffer_copy(self.event))
+            elif kind == 29:  # SelectionClear
+                self.restored = {}
+            elif kind == self.selection_event:
+                self.selection_changed(SelectionChange.from_buffer_copy(self.event))
+        if self.backup and not self.backup[1] and self.backup[0] <= time.monotonic():
+            self.backup = None
         return self.serial
+
+    def copied(self):
+        self.revision()
+        return self.copy_serial
+
+    def text(self, env):
+        self.revision()
+        if self.owner() == self.window:
+            for name in ('UTF8_STRING', 'text/plain;charset=utf-8', 'text/plain', 'STRING'):
+                if self.atoms[name] in self.restored:
+                    return self.restored[self.atoms[name]].decode('latin-1' if name == 'STRING' else 'utf-8', errors='replace')
+            return ''
+        return read_clipboard(env)
 
     def close(self):
         self.x11.XCloseDisplay(self.display)
+        self.x11.XSetErrorHandler(self.old_error_handler)
 
 
-def read_clipboard(env):
-    proc = subprocess.Popen(['xclip', '-selection', 'clipboard', '-out'], env=env,
+def read_clipboard(env, target='UTF8_STRING', timeout=3, strict=False, raw=False):
+    proc = subprocess.Popen(['xclip', '-selection', 'clipboard', '-out', '-target', target], env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    timer = threading.Timer(3, proc.kill)
+    timer = threading.Timer(timeout, proc.kill)
     timer.start()
     try:
-        raw = proc.stdout.read(65537)
-        if len(raw) > 65536:
+        data = proc.stdout.read(65537)
+        if len(data) > 65536:
             raise ValueError('剪贴板内容过长')
-        return raw.decode('utf-8', errors='replace')
+        if strict and proc.wait(timeout=timeout) != 0:
+            raise ValueError('Clipboard data unavailable')
+        return data if raw else data.decode('utf-8', errors='replace')
     finally:
         timer.cancel()
         proc.kill()
@@ -490,12 +658,18 @@ def serve():
         control.settimeout(.5)
         browser = 'Chromium' if os.uname().machine in ('aarch64', 'arm64') else 'Google Chrome'
         info = {'running': True, 'browser': browser, 'proxy': bool(upstream), 'navigation': True, 'clipboard_offer': True,
+                'clipboard_guard': clipboard_selection is not None,
                 'network_key': os.environ.get('AGENTBOX_BROWSER_NETWORK_KEY', '')}
+        listeners = [control, clipboard_selection.fd] if clipboard_selection else [control]
+        def clipboard_text():
+            return clipboard_selection.text(env) if clipboard_selection else read_clipboard(env)
         while not stopping.is_set() and all(p.poll() is None for p in children):
-            try:
-                conn, _ = control.accept()
-            except socket.timeout:
+            ready, _, _ = select.select(listeners, [], [], .5)
+            if clipboard_selection:
+                clipboard_selection.revision()
+            if control not in ready:
                 continue
+            conn, _ = control.accept()
             with conn:
                 conn.settimeout(3)
                 try:
@@ -503,7 +677,11 @@ def serve():
                         data = json.loads(f.readline(MAX_REQUEST))
                     response = info
                     if data['action'] == 'clipboard':
-                        if data.get('write'):
+                        if data.get('prepare'):
+                            prepared = clipboard_selection is not None and clipboard_selection.prepare(env)
+                            response = {'prepared': prepared,
+                                        'revision': clipboard_selection.copied() if clipboard_selection else None}
+                        elif data.get('write'):
                             text = data.get('text', '')
                             if not isinstance(text, str) or len(text.encode()) > 65536:
                                 raise ValueError('剪贴板内容过长')
@@ -512,12 +690,13 @@ def serve():
                                            stderr=subprocess.DEVNULL, timeout=3, check=True)
                             response = {'text': text}
                         elif data.get('revision') or data.get('after') is not None:
-                            revision = clipboard_selection.revision() if clipboard_selection else None
+                            revision = clipboard_selection.copied() if clipboard_selection else None
                             response = {'revision': revision}
-                            if revision is not None and data.get('after') is not None and revision != data['after']:
-                                response['text'] = read_clipboard(env)
+                            if (revision is not None and data.get('after') is not None and revision != data['after']
+                                    and not clipboard_selection.vnc_owner(clipboard_selection.owner())):
+                                response['text'] = clipboard_text()
                         else:
-                            response = {'text': read_clipboard(env)}
+                            response = {'text': clipboard_text()}
                     elif data['action'] == 'stop':
                         stopping.set()
                     elif data['action'] == 'navigation':

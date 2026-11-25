@@ -12,6 +12,7 @@ type Desktop = EventTarget & {
  disconnect(): void; focus(): void;
  sendKey(keysym: number, code: string, down?: boolean): void;
  offerClipboard(provider: () => Promise<string | null>): Promise<boolean>;
+ deferInput(ready: Promise<void>): void;
  withdrawClipboardOffer(): void;
  scaleViewport: boolean; resizeSession: boolean; qualityLevel: number; compressionLevel: number;
 };
@@ -217,7 +218,7 @@ async function connect(id: string, ticket: number, info: BrowserInfo) {
   preserveViewportAspect: () => compactLayout.matches && portraitLayout.matches,
  });
  desktop = view;
- nativeClipboard = !!info.clipboard_offer;
+ nativeClipboard = !!info.clipboard_offer && !!info.clipboard_guard;
  controls();
  view.scaleViewport = true;
  // Older browser images keep proportional scaling if they cannot resize.

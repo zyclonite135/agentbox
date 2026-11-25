@@ -1721,6 +1721,7 @@ export interface GitReviewPreview {provider:string;project:string;connection_id:
 export interface BrowserInfo {
   navigation?: boolean;
   clipboard_offer?: boolean;
+  clipboard_guard?: boolean;
  available: boolean;
  running: boolean;
  browser?: string;

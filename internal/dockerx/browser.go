@@ -22,6 +22,7 @@ type BrowserInfo struct {
 	Proxy          bool   `json:"proxy"`
 	Navigation     bool   `json:"navigation,omitempty"`
 	ClipboardOffer bool   `json:"clipboard_offer,omitempty"`
+	ClipboardGuard bool   `json:"clipboard_guard,omitempty"`
 	NetworkKey     string `json:"-"`
 }
 
@@ -108,6 +109,7 @@ func browserContainerOptions(cc *container.Config, hc *container.HostConfig, lab
 
 type BrowserClipboardRequest struct {
 	Write    bool    `json:"write,omitempty"`
+	Prepare  bool    `json:"prepare,omitempty"`
 	Text     string  `json:"text,omitempty"`
 	Revision bool    `json:"revision,omitempty"`
 	After    *uint64 `json:"after,omitempty"`
@@ -116,6 +118,7 @@ type BrowserClipboardRequest struct {
 type BrowserClipboard struct {
 	Text     string  `json:"text"`
 	Revision *uint64 `json:"revision,omitempty"`
+	Prepared bool    `json:"prepared,omitempty"`
 }
 
 func (m *Manager) BrowserClipboard(ctx context.Context, id string, req BrowserClipboardRequest) (BrowserClipboard, error) {

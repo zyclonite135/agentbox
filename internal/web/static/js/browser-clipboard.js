@@ -141,7 +141,15 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
     async function supplyNativePaste(menu) {
         const { target, chosenAt } = menu;
         const valid = () => nativeMenu === menu && available(target) && screen.contains(document.activeElement);
-        if (!valid() || chosenAt === undefined || performance.now() - chosenAt > 2000)
+        if (!valid())
+            return null;
+        if (chosenAt === undefined) {
+            // Chrome may probe the selection while building the menu. Acknowledge
+            // without reading the local clipboard, then re-offer on selection.
+            menu.probed = true;
+            return "";
+        }
+        if (performance.now() - chosenAt > 2000)
             return null;
         menu.requested = true;
         try {
@@ -162,9 +170,9 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
     }
     function beginNativeMenu(target) {
         closeNativeMenu();
-        const offered = target.nativeClipboard && !!readPermission && readPermission.state !== "denied";
+        const prepare = target.nativeClipboard && !!readPermission && readPermission.state !== "denied";
         const menu = {
-            target, offered, requested: false, expires: performance.now() + 12_000,
+            target, offered: false, probed: false, requested: false, expires: performance.now() + 12_000,
             revision: Promise.resolve(undefined),
         };
         nativeMenu = menu;
@@ -172,10 +180,23 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
             if (nativeMenu === menu)
                 closeNativeMenu();
         }, 12_000);
-        // Read the baseline after TigerVNC has announced its own selection so
-        // that the announcement itself is never mistaken for a remote copy.
-        const ready = offered ? target.view.offerClipboard(() => supplyNativePaste(menu)) : Promise.resolve(false);
-        menu.revision = ready.then(() => nativeMenu === menu && available(target) ? revisionOf(target) : undefined);
+        if (!prepare) {
+            menu.revision = revisionOf(target);
+            return;
+        }
+        const timeout = new AbortController();
+        const timer = window.setTimeout(() => timeout.abort(), 1500);
+        const ready = api(path(target) + "?prepare=1", {
+            method: "POST", body: "{}", signal: AbortSignal.any([signal, timeout.signal]),
+        }).catch(() => undefined).finally(() => window.clearTimeout(timer));
+        const forwardInput = ready.then(reply => {
+            if (!reply?.prepared || nativeMenu !== menu || !available(target))
+                return;
+            menu.offered = true;
+            void target.view.offerClipboard(() => supplyNativePaste(menu));
+        });
+        target.view.deferInput(forwardInput);
+        menu.revision = ready.then(reply => reply?.revision);
     }
     screen.addEventListener("keydown", event => {
         const target = getTarget();
@@ -224,6 +245,8 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
             }
             else {
                 menu.chosenAt = performance.now();
+                if (menu.probed && menu.offered)
+                    void target.view.offerClipboard(() => supplyNativePaste(menu));
                 window.clearTimeout(menu.timer);
                 menu.timer = window.setTimeout(() => {
                     if (nativeMenu === menu)
@@ -252,8 +275,12 @@ export function setupBrowserClipboard(screen, getTarget, signal) {
     }, { capture: true, signal });
     screen.addEventListener("rfb-touch-button", event => menuButtonDown(event.detail), { signal });
     screen.addEventListener("keydown", event => {
-        if (event.key === "Escape")
+        if (!event.isTrusted || event.repeat || event.isComposing)
+            return;
+        if (event.key === "Escape" || (nativeMenu?.requested && !["Control", "Meta", "Shift", "Alt"].includes(event.key)))
             closeNativeMenu();
+        else if (event.key === "Enter" && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey)
+            menuButtonDown(0);
     }, { capture: true, signal });
     signal.addEventListener("abort", closeNativeMenu, { once: true });
     $("browser-copy").addEventListener("click", () => {

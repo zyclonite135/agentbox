@@ -226,7 +226,7 @@ async function connect(id, ticket, info) {
         preserveViewportAspect: () => compactLayout.matches && portraitLayout.matches,
     });
     desktop = view;
-    nativeClipboard = !!info.clipboard_offer;
+    nativeClipboard = !!info.clipboard_offer && !!info.clipboard_guard;
     controls();
     view.scaleViewport = true;
     // Older browser images keep proportional scaling if they cannot resize.

@@ -547,7 +547,7 @@
       },
       {
         "path": "internal/web/static/vendor/novnc/core/rfb.js",
-        "sha256": "1efd1add97502a887d922036ddd94f6d0720c44d4980c40df7aee74933247f72"
+        "sha256": "a6c93e2b6a0d86fb160a7e3848fddb3cf65085cb01378c48009e0fa01265b629"
       },
       {
         "path": "internal/web/static/vendor/novnc/core/util/browser.js",

@@ -49,17 +49,41 @@ async function checkClipboardShortcuts(page, canvas) {
 
  const markerY = await chromeFrameHeight(page, 40, 220);
  const position = {x:105, y:markerY+214};
+ const headers = {Authorization:'Bearer '+token};
+ const browserURL = `${base}/api/sessions/${session}/browser`;
+ const clipboardURL = browserURL+'/clipboard';
+ const browserInfo = await (await page.request.get(browserURL,{headers})).json();
+ const nativePaste = browserEngine() === 'chromium' && browserInfo.clipboard_guard;
+ const menuVisible = ({x,y}) => {
+  const canvas = document.querySelector('#browser-screen canvas');
+  const pixels = canvas.getContext('2d').getImageData(x+42,y+35,30,16).data;
+  return pixels.some((value, index) => index % 4 === 0 && value < 96);
+ };
  async function openNativeMenu(open = () => canvas.click({button:'right',position})) {
   await Promise.all([
-   page.waitForResponse(r => r.url().endsWith('/browser/clipboard?revision=1') && r.ok()),
+   page.waitForResponse(r => r.url().endsWith(nativePaste ? '/browser/clipboard?prepare=1' : '/browser/clipboard?revision=1') && r.ok()),
    open(),
   ]);
   // The dark Copy label appears over a previously blank part of the textarea.
-  await page.waitForFunction(({x,y}) => {
-   const canvas = document.querySelector('#browser-screen canvas');
-   const pixels = canvas.getContext('2d').getImageData(x+42,y+35,30,16).data;
-   return pixels.some((value, index) => index % 4 === 0 && value < 96);
-  }, position, {timeout:5000});
+  await page.waitForFunction(menuVisible, position, {timeout:5000});
+ }
+ async function expectRemoteClipboard(text) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+   const response = await page.request.get(clipboardURL,{headers});
+   assert.ok(response.ok());
+   if ((await response.json()).text === text) return;
+   await page.waitForTimeout(50);
+  }
+  throw new Error('The previous remote clipboard text was not preserved');
+ }
+
+ if (nativePaste) {
+  const text = 'Только в удалённом буфере — 中文 ✓';
+  assert.ok((await page.request.post(clipboardURL,{headers,data:{text}})).ok());
+  await expectRemoteClipboard(text);
+  await openNativeMenu();
+  await page.keyboard.press('Escape');
+  await expectRemoteClipboard(text);
  }
  // Chrome for Testing's native editable-field menu begins with Cut, Copy, Paste.
  await setLocalClipboard(page, 'context sentinel');
@@ -68,8 +92,9 @@ async function checkClipboardShortcuts(page, canvas) {
  await canvas.click({position:{x:position.x+60,y:position.y+44}});
  await page.waitForFunction(text => window.acceptedClipboardWrites[1] === text, fromDevice);
  if (browserEngine() !== 'webkit') assert.equal(await readClipboard(page), fromDevice);
+ if (nativePaste) await expectRemoteClipboard(fromDevice);
 
- if (browserEngine() === 'chromium') {
+ if (nativePaste) {
   await page.evaluate(() => {
    const read = navigator.clipboard.readText.bind(navigator.clipboard);
    window.nativeClipboardReads = 0;
@@ -99,12 +124,25 @@ async function checkClipboardShortcuts(page, canvas) {
     await expectRemoteInput(page, text);
     assert.equal(await readCount(), index+1);
    }
+   if (!touch) {
+    const text = 'Вставка через Enter — 中文 ✓';
+    await setLocalClipboard(page, text);
+    await canvas.focus();
+    await page.keyboard.press('Control+a');
+    await openNativeMenu();
+    for (let move=0; move<3; move++) await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expectRemoteInput(page, text);
+    assert.equal(await readCount(), 3);
+    console.log('Chrome native Paste selected with the arrow keys and Enter passed');
+   }
   } finally {
    if (touch) await touch.detach();
    await page.evaluate(() => { delete navigator.clipboard.readText; });
   }
   console.log('Chrome native Paste via ' + (touch ? 'touch' : 'mouse') +
    ' reads the current device clipboard once, after menu selection');
+  console.log('Escape preserves the previous remote clipboard; native Copy replaces it');
  }
  console.log('Bidirectional UTF-8 keyboard clipboard and Chrome native Copy passed');
 }

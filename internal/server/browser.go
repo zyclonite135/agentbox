@@ -260,7 +260,15 @@ func (s *Server) handleBrowserClipboard(w http.ResponseWriter, r *http.Request, 
 			writeErr(w, 400, "剪贴板最多支持 48 KiB 的文字")
 			return
 		}
-		req.Write, req.Text = true, body.Text
+		if r.URL.Query().Get("prepare") == "1" {
+			if body.Text != "" {
+				writeErr(w, 400, "剪贴板操作失败")
+				return
+			}
+			req.Prepare = true
+		} else {
+			req.Write, req.Text = true, body.Text
+		}
 	} else if x := r.URL.Query().Get("after"); x != "" {
 		revision, err := strconv.ParseUint(x, 10, 53)
 		if err != nil {
@@ -281,6 +289,9 @@ func (s *Server) handleBrowserClipboard(w http.ResponseWriter, r *http.Request, 
 		}
 		if !state.Running || state.NetworkKey != key {
 			return errors.New("请先连接浏览器")
+		}
+		if req.Prepare && !state.ClipboardGuard {
+			return nil
 		}
 		result, err = s.dock.BrowserClipboard(ctx, cur.ContainerID, req)
 		return err

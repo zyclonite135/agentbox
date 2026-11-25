@@ -105,32 +105,17 @@ async function scenario(browser,{mobile}={}){
  await enter(false);await cleared();
  assert.equal(puts.at(-1).input.delivery,'queue');assert.equal(puts.at(-1).input.text,'顺便把 lint 也跑了');
  await toast('已排队');
- await page.waitForFunction(()=>document.querySelector('#chat-delivery-count')?.textContent==='排队：1');
+ await page.waitForFunction(()=>/后面还有 1 条排队/.test(document.querySelector('#chat-delivery-reason')?.textContent||''));
  const queuedID=puts.length&&[...receipts.values()].find(c=>c.state==='queued').request_id;
- assert.equal(await page.locator('#chat-delivery-preview').innerText(),'先跑测试');
- assert.equal(await page.locator('#chat-delivery-refresh').isVisible(),false);
- await input.fill('然后检查报告');await enter(false);await cleared();
- await page.waitForFunction(()=>document.querySelector('#chat-delivery-count')?.textContent==='排队：2');
- const secondQueued=[...receipts.values()].find(c=>c.state==='queued'&&c.request_id!==queuedID).request_id;
  // Withdraw from the status panel: back into the empty composer, not run.
  await page.locator('#chat-delivery-toggle').click();
  const row=page.locator(`.delivery-item[data-request-id="${queuedID}"]`);
  await row.waitFor();assert.equal(await row.getAttribute('data-state'),'queued');
- assert.deepEqual(await page.locator('#chat-delivery-list .delivery-item').evaluateAll(rows=>rows.map(row=>row.dataset.requestId)),[runningID,queuedID,secondQueued]);
- assert.equal(await page.locator('#chat-delivery-preview').isVisible(),false);
- assert.equal(await page.locator('#chat-delivery-refresh').isVisible(),true);
- assert.equal(await page.locator('.delivery-current .delivery-actions').count(),0);
- assert.doesNotMatch(await page.locator('#chat-delivery-list').innerText(),/推理强度|claude-opus-5/);
- await noOverflow();
  assert.match(await row.textContent(),/排队中/);
  await row.locator('[data-delivery-action="撤回到输入框，不再自动执行"]').click();
  await page.waitForFunction(()=>document.querySelector('#chat-input').value==='顺便把 lint 也跑了');
  assert.equal(actions.at(-1).action,'withdraw');
  await page.waitForFunction(id=>!document.querySelector(`.delivery-item[data-request-id="${id}"]`),queuedID);
- await input.fill('');
- await page.locator(`.delivery-item[data-request-id="${secondQueued}"] [data-delivery-action="撤回到输入框，不再自动执行"]`).click();
- await page.waitForFunction(()=>document.querySelector('#chat-input').value==='然后检查报告');
- await input.fill('顺便把 lint 也跑了');
  // The other way for one message: steer into the running turn.
  if(!mobile){
   await enter(true);await cleared();
@@ -229,7 +214,6 @@ async function scenario(browser,{mobile}={}){
  await input.fill('重置后接着做');await page.locator('#chat-send').click();await cleared();
  assert.equal(puts.at(-1).input.delivery,'queue','sent during the pause without queueing');
  await toast('已排队，5 小时额度重置后自动执行');
- assert.equal(await page.locator('#chat-delivery-status').innerText(),'排队：1');
  await page.waitForFunction(()=>document.querySelector('#chat-delivery-reason')?.textContent==='5 小时额度重置后自动执行');
  paused['space-a']=false;
  emit('space-a',{type:'quota_pause',pause:null});

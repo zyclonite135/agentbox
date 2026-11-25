@@ -35,8 +35,6 @@ function look(state:Outgoing["state"],code="",merged=false,paused=false):Look{
  }
 }
 const settled=(state:Outgoing["state"])=>state!=="unconfirmed"&&state!=="queued"&&!receiptActive(state);
-const executing=(row:Outgoing)=>row.state==="accepted"||row.state==="starting"||row.state==="running";
-const attachmentNames=(draft:Draft|undefined)=>draft?.attachments.map(a=>a.orig||a.name).filter(Boolean).join(" · ")||"";
 const queryFailureNotice="无法确认消息结果，已保留待确认内容。请重新查询。";
 const identifier=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("");
 const key=(session:string,id:string)=>session+"/"+id;
@@ -58,7 +56,6 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
  let loading=false,queryFailed=false,scopeChanged=false,refreshing=false,again=false,notice="",noticeError=false,noticeTranslated=false;
  const dismissed=new Set<string>(),fullText=new Set<string>();
  let listSignature="",expanded=false;
- let queueOrder = new Map<string, number>();
  const showDetails=(open:boolean)=>{expanded=open;$("chat-delivery-toggle").setAttribute("aria-expanded",String(open));$("chat-delivery-list").classList.toggle("hidden",!open);};
  let confirmation=false;
  let socketState:"running"|"idle"|undefined;
@@ -125,7 +122,6 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
    // The queue: every page shows it; one that left the list ran or was withdrawn.
    const listed=new Set<string>();
    for(const value of result.requests){const c=receipt(value,session);listed.add(c.request_id);apply(c);}
-   queueOrder = new Map([...listed].map((id, index) => [id, index]));
    // Query saved IDs even when the list has no active turn: a lost response can
    // belong to a task that already completed or has not arrived yet.
    const candidates=new Map(storage.rows(session).map(row=>[row.id,row]));
@@ -216,10 +212,6 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
   b.disabled=disabled;b.addEventListener("click",()=>{if(owns())run();});return b;
  };
  const mark=(view:Look)=>{const m=document.createElement("span");m.className="delivery-mark";m.setAttribute("aria-hidden","true");if(view.icon)m.append(svgIcon(view.icon,14));return m;};
- const draftFor=(row:Outgoing)=>{
-  const frozen=row.input||known.get(key(row.session,row.id))?.request;
-  return row.draft||(frozen?draftFromRequest(frozen):undefined);
- };
  let quickSignature="";
  function render(){
   if(!owns())return;
@@ -229,21 +221,9 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
   const items=rows();
   const code=(row:Outgoing)=>known.get(key(row.session,row.id))?.error_code||"";
   const merged=(row:Outgoing)=>!!known.get(key(row.session,row.id))?.merged_into;
-  const running=items.find(executing);
-  const attention=items.find(r=>r.state==="unconfirmed"||r.state==="uncertain");
-  const queued=items.filter(row=>row.state==="queued").sort((a,b)=>{
-   const left=known.get(key(a.session,a.id))?.created_at, right=known.get(key(b.session,b.id))?.created_at;
-   // The server uses fixed-precision timestamps, then insertion order for ties.
-   return (left&&right?left.localeCompare(right):a.created-b.created)
-    || (queueOrder.get(a.id)??queueOrder.size)-(queueOrder.get(b.id)??queueOrder.size);
-  });
-  const ordered=[...(running?[running]:[]),...(attention?[attention]:[]),...queued,
-   ...items.filter(row=>row!==running&&row!==attention&&row.state!=="queued")];
-  const waiting=queued.length;
-  const queueLabel=()=>t("排队：{n}",{n:waiting});
-  const paused=hooks.paused();
+  const waiting=items.filter(r=>r.state==="queued").length;
   const other=(row:Outgoing)=>row.thread!==context?.thread?" · "+t("另一对话的消息"):"";
-  const highlighted=attention||running||queued[0]||items.find(r=>r.state!=="completed")||items[0];
+  const highlighted=items.find(r=>r.state==="unconfirmed"||r.state==="uncertain")||items.find(r=>receiptActive(r.state))||items.find(r=>r.state!=="completed")||items[0];
   const queryNotice=notice===queryFailureNotice&&!noticeTranslated;
   const storageIssue=storage.error&&(!notice||queryNotice);
   const compactQueryFailure=isMobile()&&queryNotice&&!storageIssue&&!scopeChanged;
@@ -253,20 +233,14 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
   root.classList.toggle("delivery-query-failure",compactQueryFailure);
   $<HTMLButtonElement>("chat-delivery-toggle").disabled=!items.length;
   if(!items.length)showDetails(false);
+  setTextRender($("chat-delivery-count"),()=>String(items.length));
+  setAttrRender($("chat-delivery-count"),"aria-label",()=>t("{count} 条消息",{count:items.length}));
+  $("chat-delivery-count").classList.toggle("hidden",items.length<2);
   // A finished turn says nothing the conversation does not already show.
   root.classList.toggle("hidden",coveredByConnection||enabled&&!items.some(r=>r.state!=="completed")&&!loading&&!queryFailed&&!scopeChanged&&!notice&&!storage.error);
   // Any of these replaces the headline, so the row's reason and action step aside.
   const pageIssue=unsupported||!enabled||!scope||scopeChanged||!!notice||storage.error;
-  const showCurrent=!pageIssue&&!loading&&!!running&&highlighted===running;
-  const queueOnly=!pageIssue&&!loading&&highlighted?.state==="queued";
-  const view=highlighted&&look(highlighted.state,code(highlighted),merged(highlighted),paused);
-  const preview=$("chat-delivery-preview"), count=$("chat-delivery-count");
-  const activeDraft=showCurrent?draftFor(running):undefined;
-  const prompt=activeDraft?cleanDraftText(activeDraft).trim()||attachmentNames(activeDraft):"";
-  preview.textContent=prompt.length>160?prompt.slice(0,160)+"…":prompt;
-  preview.classList.toggle("hidden",!preview.textContent);
-  setTextRender(count,queueLabel);
-  count.classList.toggle("hidden",!showCurrent||!waiting);
+  const view=highlighted&&look(highlighted.state,code(highlighted),merged(highlighted),hooks.paused());
   root.dataset.tone=pageIssue&&noticeError||queryFailed||unsupported||scopeChanged||storage.error?"attention":loading?"busy":view?.tone||"quiet";
   // Status precedence: a page/protocol problem, then this row's own story.
   const headline=()=>{
@@ -277,18 +251,13 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
    if(compactQueryFailure)return t(savedText?"文本已保存":"无法查询消息状态");
    if(notice)return noticeTranslated?notice:t(notice);
    if(loading)return t("正在查询消息接收状态…");
-   if(queueOnly)return queueLabel();
    return view?t(view.title)+other(highlighted):t("消息确认与恢复");
   };
-  const detail=()=>pageIssue||loading||!view?"":highlighted.state==="unconfirmed"&&!storage.enabled?t("本机保存已关闭；待确认内容仅保留在当前页面。"):view.reason?t(view.reason):"";
+  const detail=()=>pageIssue||loading||!view?"":highlighted.state==="unconfirmed"&&!storage.enabled?t("本机保存已关闭；待确认内容仅保留在当前页面。"):receiptActive(highlighted.state)&&waiting?t("后面还有 {n} 条排队",{n:waiting}):view.reason?t(view.reason):"";
   setTextRender(status,headline);setTextRender(reason,detail);
   reason.classList.toggle("hidden",!detail());
   status.classList.toggle("error",noticeError&&!compactQueryFailure||storage.error);
-  const refreshButton=$<HTMLButtonElement>("chat-delivery-refresh");
-  const needsRefresh=enabled&&(pageIssue||highlighted?.state==="unconfirmed"||highlighted?.state==="uncertain");
-  root.classList.toggle("delivery-needs-refresh",needsRefresh);
-  refreshButton.disabled=!enabled||loading||refreshing;
-  if(!needsRefresh&&!expanded&&document.activeElement===refreshButton)$("chat-delivery-toggle").focus();
+  $<HTMLButtonElement>("chat-delivery-refresh").disabled=!enabled||loading||refreshing;
   const next=highlighted&&!pageIssue&&!loading?primary(highlighted):undefined;
   const quickKey=JSON.stringify([highlighted?.id,highlighted?.state,next?.label,next?.disabled,highlighted&&busy.has(key(highlighted.session,highlighted.id))]);
   if(quickKey!==quickSignature){
@@ -297,25 +266,22 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
    quick.replaceChildren(...(next&&highlighted?[control(next.label,next.tip,next.icon,next.run,next.disabled||busy.has(key(highlighted.session,highlighted.id)),"delivery-primary")]:[]));
    if(keep)(quick.querySelector<HTMLElement>("button:not(:disabled)")||$("chat-delivery-toggle")).focus();
   }
-  const signature=JSON.stringify([context,showCurrent,paused,ordered.map(row=>{const id=key(row.session,row.id);return [row,known.get(id)?.request?.text,code(row),merged(row),busy.has(id),fullText.has(id)];})]);
+  const signature=JSON.stringify([context,waiting,hooks.paused(),items.map(row=>{const id=key(row.session,row.id);return [row,known.get(id)?.request?.text,code(row),merged(row),busy.has(id),fullText.has(id)];})]);
   if(signature===listSignature){hooks.changed();return;}
   listSignature=signature;
   const focused=document.activeElement instanceof HTMLElement&&list.contains(document.activeElement)?document.activeElement:undefined;
   const focusID=focused?.closest<HTMLElement>(".delivery-item")?.dataset.requestId,focusAction=focused?.dataset.deliveryAction;
   list.replaceChildren();
-  for(const row of ordered){
-   const id=key(row.session,row.id),c=known.get(id),working=busy.has(id),rowView=look(row.state,c?.error_code||"",!!c?.merged_into,paused);
-   const currentRow=showCurrent&&row===running;
+  for(const row of items){
+   const id=key(row.session,row.id),c=known.get(id),working=busy.has(id),rowView=look(row.state,c?.error_code||"",!!c?.merged_into,hooks.paused());
    const entry=document.createElement("div");entry.className="delivery-item";entry.dataset.requestId=row.id;entry.dataset.state=row.state;entry.dataset.tone=rowView.tone;
-   entry.classList.toggle("delivery-current",currentRow);
    const main=document.createElement("div");main.className="delivery-main";
-   if(!currentRow){
-    const line=document.createElement("p");line.className="delivery-line";
-    const label=document.createElement("span");label.className="delivery-label";setTextRender(label,()=>t(rowView.title)+other(row));line.append(label);
-    if(rowView.reason&&(row.state!=="queued"||paused&&row===queued[0])){const why=document.createElement("span");why.className="delivery-reason";setTextRender(why,()=>t(rowView.reason));line.append(why);}
-    main.append(line);
-   }
-   const draft=draftFor(row);
+   const line=document.createElement("p");line.className="delivery-line";
+   const label=document.createElement("span");label.className="delivery-label";setTextRender(label,()=>t(rowView.title)+other(row));line.append(label);
+   if(rowView.reason){const why=document.createElement("span");why.className="delivery-reason";setTextRender(why,()=>t(rowView.reason));line.append(why);}
+   main.append(line);
+   const frozen=row.input||c?.request;
+   const draft=row.draft||(frozen?draftFromRequest(frozen):undefined);
    const text=draft?cleanDraftText(draft):"";
    if(text){
     // One line until asked: long prompts must not push the composer away.
@@ -324,16 +290,18 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
     body.addEventListener("click",()=>{if(!owns())return;if(fullText.has(id))fullText.delete(id);else fullText.add(id);render();});
     main.append(body);
    }else if(!draft){const gone=document.createElement("p");gone.className="delivery-text expired";setTextRender(gone,()=>t("待确认正文已过期；仍可查询结果或放弃原消息编号。"));main.append(gone);}
-   const files=attachmentNames(draft);
+   const files=draft?.attachments.map(a=>a.orig||a.name).filter(Boolean).join(" · ");
    if(files){
-    const label=document.createElement("p");label.className="delivery-attachments";label.textContent=files;
-    main.append(label);
+    const meta=document.createElement("p");meta.className="delivery-settings";
+    meta.textContent=files;
+    main.append(meta);
    }
    const actions=document.createElement("div");actions.className="delivery-actions";
    const next=primary(row);
    if(next)actions.append(control(next.label,next.tip,next.icon,next.run,working||next.disabled,"delivery-primary"));
    if(row.state==="unconfirmed")actions.append(control("放弃发送","放弃这条消息，以后也不会执行","close",()=>void act(row,"abandon"),working,"btn-danger"));
    if(row.state==="queued")actions.append(control("撤回","撤回到输入框，不再自动执行","undo",()=>void act(row,"withdraw"),working));
+   if(["accepted","starting","running"].includes(row.state))actions.append(control("","中断任务","stop",()=>void act(row,"interrupt"),working,"btn-danger"));
    if(settled(row.state)&&row.state!=="completed")actions.append(control("","复制回输入框","copy",()=>void(async()=>{
     if(context?.session!==row.session)return;
     const generation=epoch;
@@ -342,10 +310,7 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
     if(draft)hooks.restore(structuredClone(draft));
    })(),working||!row.draft&&!row.input&&!c?.request));
    if(settled(row.state))actions.append(control("","从列表移除","close",()=>{dismiss(row);render();},working));
-   if(!currentRow)entry.append(mark(rowView));
-   entry.append(main);
-   if(actions.childElementCount)entry.append(actions);
-   list.append(entry);
+   entry.append(mark(rowView),main,actions);list.append(entry);
   }
   if(focused&&keyboardInput()){
    const row=[...list.querySelectorAll<HTMLElement>(".delivery-item")].find(item=>item.dataset.requestId===focusID);
@@ -369,7 +334,7 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
  document.addEventListener("visibilitychange",()=>{if(!document.hidden)void refresh();},{signal:lifetime.signal});
  const timer=setInterval(()=>void refresh(),4000);
  const closeConfirmation=()=>{if(confirmation){const dialog=$<HTMLDialogElement>("dlg-ask");if(dialog.open)dialog.close("");}};
- const leave=()=>{showDetails(false);++epoch;closeConfirmation();viewAbort.abort();viewAbort=new AbortController();context=undefined;queueOrder.clear();loading=false;queryFailed=false;notice="";socketState=undefined;$("chat-delivery").classList.add("hidden");};
+ const leave=()=>{showDetails(false);++epoch;closeConfirmation();viewAbort.abort();viewAbort=new AbortController();context=undefined;loading=false;queryFailed=false;notice="";socketState=undefined;$("chat-delivery").classList.add("hidden");};
  return {
   enabled,unsupported,blocked,
   /** The five-hour pause began or ended: queued rows say what they wait for. */
@@ -378,7 +343,7 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
   executionState(){
    if(!owns()||!enabled||loading)return;
    const items=mine();
-   if(items.some(executing))return "running";
+   if(items.some(r=>["accepted","starting","running"].includes(r.state)))return "running";
    if(items.some(r=>r.state==="unconfirmed"))return;
    if(items.some(r=>r.state==="uncertain"&&known.has(key(r.session,r.id))))return "idle";
    // A terminal receipt from a prior turn must not erase a newer legacy WS
@@ -398,7 +363,7 @@ export function initChatOutbox(hooks:{changed:()=>void;connected:()=>boolean;net
    if(!row?.input)return;
    return {id:row.id,text:row.input.text,turn:known.get(key(row.session,row.id))?.turn_id||""};
   },
-  interrupt(){if(!owns())return true;const row=mine().find(executing);if(row){void act(row,"interrupt");return true;}return false;},
+  interrupt(){if(!owns())return true;const row=mine().find(r=>["accepted","starting","running"].includes(r.state));if(row){void act(row,"interrupt");return true;}return false;},
   async send(input:ChatRequestInput,draft:Draft,unchanged:()=>boolean){
    if(!enabled||!guard()||!context)return false;
    const {session,thread}=context,generation=epoch;

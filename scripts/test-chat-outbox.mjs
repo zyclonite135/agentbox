@@ -144,10 +144,10 @@ try{
    const beforeReload=puts.length;await page.reload();await ready();await state(second,'running');assert.equal(puts.length,beforeReload);assert.equal(await input.inputValue(),'Draft after lost acknowledgement');
    assert.equal(await page.locator('#chat-delivery-toggle').getAttribute('aria-expanded'),'false');
    assert.equal(await page.locator('#chat-delivery-status').innerText(),await tr('正在执行'));
-   assert.equal(await page.locator('#chat-delivery-preview').innerText(),'Accepted with lost response');
+   assert.equal(await entry(second).locator('.delivery-settings').count(),0);
    assert.ok((await page.locator('#chat-delivery').boundingBox()).height<=36,'running status consumed more than one row');
    if(locale==='zh-CN'){await mkdir('output/playwright',{recursive:true});await page.screenshot({path:'output/playwright/composer-running-desktop.png'});}
-   mode='normal';receipts.get(receiptKey('space-a',second)).error_code='server_restarted';update('space-a',second,'uncertain',false);await expand();await page.locator('#chat-delivery-refresh').click();await state(second,'uncertain');
+   mode='normal';receipts.get(receiptKey('space-a',second)).error_code='server_restarted';update('space-a',second,'uncertain',false);await page.locator('#chat-delivery-refresh').click();await state(second,'uncertain');
    assert.equal(await page.locator('#chat-send').isDisabled(),true,'unknown outcome must not remain an active stop button');
    // The collapsed bar names the reason and carries the way out.
    if(await page.locator('#chat-delivery-toggle').getAttribute('aria-expanded')==='true')await page.locator('#chat-delivery-toggle').click();
@@ -286,8 +286,7 @@ try{
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
    if(locale==='zh-CN')await page.screenshot({path:'output/playwright/composer-history-mobile.png'});
    await page.locator('.delivery-text').last().focus();await page.keyboard.press('Escape');assert.equal(await page.locator('#chat-delivery-toggle').getAttribute('aria-expanded'),'false');assert.equal(await page.locator('#chat-delivery-toggle').evaluate(e=>e===document.activeElement),true);
-   assert.equal(await page.locator('#chat-delivery-refresh').isVisible(),false);
-   const writesBeforeQuery=puts.length;await expand();await page.locator('#chat-delivery-refresh').click();assert.equal(await page.locator('#chat-delivery-toggle').getAttribute('aria-expanded'),'true');assert.equal(puts.length,writesBeforeQuery);
+   const writesBeforeQuery=puts.length;await page.locator('#chat-delivery-refresh').click();assert.equal(await page.locator('#chat-delivery-toggle').getAttribute('aria-expanded'),'false');assert.equal(puts.length,writesBeforeQuery);
    protocol=2;const beforeUnsupported=puts.length;await page.reload();await page.locator('#chat-input').waitFor({state:'visible'});await page.waitForFunction(()=>!document.querySelector('#chat-input').disabled);await input.fill('Unsupported protocol must not downgrade');assert.equal(await page.locator('#chat-send').isDisabled(),true);
    await page.evaluate(async()=>{await (await import('/_v/{{BUILD}}/js/chat.js')).sendChat();});assert.equal(puts.length,beforeUnsupported);
    assert.deepEqual(errors,[]);console.log(`Outbox ${locale}: double-click, lost replies, query-first retry, frozen model, reload/tabs, restart review, offline, opt-out, storage refusal, expiry, late replies and logout passed`);

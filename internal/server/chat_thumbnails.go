@@ -14,6 +14,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -33,8 +35,16 @@ type chatThumbnail struct {
 
 type chatThumbnailEntry struct {
 	preview *chatThumbnail
-	source  os.FileInfo
+	source  chatImageVersion
 	used    time.Time
+}
+
+type chatImageVersion struct {
+	device   uint64
+	inode    uint64
+	size     int64
+	modified unix.Timespec
+	changed  unix.Timespec
 }
 
 type chatThumbnailCache struct {
@@ -44,14 +54,20 @@ type chatThumbnailCache struct {
 	slot    chan struct{}
 }
 
-func sameChatImage(a, b os.FileInfo) bool {
-	return a.Size() == b.Size() && a.ModTime().Equal(b.ModTime()) && os.SameFile(a, b)
+func statChatImage(f *os.File) (chatImageVersion, error) {
+	var stat unix.Stat_t
+	if err := unix.Fstat(int(f.Fd()), &stat); err != nil {
+		return chatImageVersion{}, err
+	}
+	// Preserve the inode's change time, which changes even when a writer
+	// restores the file's size and modification time.
+	return chatImageVersion{device: uint64(stat.Dev), inode: stat.Ino, size: stat.Size, modified: stat.Mtim, changed: stat.Ctim}, nil
 }
 
-func (c *chatThumbnailCache) lookup(key string, info os.FileInfo) *chatThumbnail {
+func (c *chatThumbnailCache) lookup(key string, version chatImageVersion) *chatThumbnail {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if entry, ok := c.entries[key]; ok && sameChatImage(entry.source, info) {
+	if entry, ok := c.entries[key]; ok && entry.source == version {
 		entry.used = time.Now()
 		c.entries[key] = entry
 		return entry.preview
@@ -59,11 +75,12 @@ func (c *chatThumbnailCache) lookup(key string, info os.FileInfo) *chatThumbnail
 	return nil
 }
 
-func (c *chatThumbnailCache) get(ctx context.Context, key string, f *os.File, info os.FileInfo, contentType string) *chatThumbnail {
-	if info.Size() > chatThumbnailMaxSource {
+func (c *chatThumbnailCache) get(ctx context.Context, key string, f *os.File, contentType string) *chatThumbnail {
+	version, err := statChatImage(f)
+	if err != nil || version.size > chatThumbnailMaxSource {
 		return nil
 	}
-	if thumb := c.lookup(key, info); thumb != nil {
+	if thumb := c.lookup(key, version); thumb != nil {
 		return thumb
 	}
 	// One decoder at a time limits memory use when history opens several images.
@@ -75,16 +92,20 @@ func (c *chatThumbnailCache) get(ctx context.Context, key string, f *os.File, in
 	case <-ctx.Done():
 		return nil
 	}
-	if thumb := c.lookup(key, info); thumb != nil {
+	current, err := statChatImage(f)
+	if err != nil || current != version || ctx.Err() != nil {
+		return nil
+	}
+	if thumb := c.lookup(key, version); thumb != nil {
 		return thumb
 	}
 
-	thumb := makeChatThumbnail(io.NewSectionReader(f, 0, info.Size()), contentType)
+	thumb := makeChatThumbnail(io.NewSectionReader(f, 0, version.size), contentType)
 	if thumb == nil {
 		return nil
 	}
-	current, err := f.Stat()
-	if err != nil || !sameChatImage(current, info) {
+	current, err = statChatImage(f)
+	if err != nil || current != version {
 		return nil
 	}
 	if len(thumb.data) <= chatThumbnailMaxCached {
@@ -103,7 +124,7 @@ func (c *chatThumbnailCache) get(ctx context.Context, key string, f *os.File, in
 			}
 			delete(c.entries, oldest)
 		}
-		c.entries[key] = chatThumbnailEntry{preview: thumb, source: info, used: time.Now()}
+		c.entries[key] = chatThumbnailEntry{preview: thumb, source: version, used: time.Now()}
 	}
 	return thumb
 }

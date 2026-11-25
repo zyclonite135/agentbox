@@ -53,7 +53,7 @@ func (s *Server) handleChatImage(w http.ResponseWriter, r *http.Request, sess st
 	if query.Get("dl") == "1" {
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": info.Name()}))
 	} else if query.Get("thumb") == "1" {
-		if thumb := s.chatThumbnails.get(r.Context(), sess.ID+"\x00"+path, f, info, contentType); thumb != nil {
+		if thumb := s.chatThumbnails.get(r.Context(), sess.ID+"\x00"+path, f, contentType); thumb != nil {
 			var content io.ReadSeeker = f
 			if thumb.data != nil {
 				content = bytes.NewReader(thumb.data)

@@ -138,7 +138,19 @@ func TestChatImageThumbnail(t *testing.T) {
 		return w
 	}
 
-	preview := request("image.png", sess.User, "&thumb=1", "")
+	const parallel = 8
+	previews := make(chan *httptest.ResponseRecorder, parallel)
+	for range parallel {
+		go func() { previews <- request("image.png", sess.User, "&thumb=1", "") }()
+	}
+	preview := <-previews
+	for range parallel - 1 {
+		same := <-previews
+		if same.Code != preview.Code || same.Header().Get("ETag") != preview.Header().Get("ETag") ||
+			!bytes.Equal(same.Body.Bytes(), preview.Body.Bytes()) {
+			t.Fatalf("simultaneous requests returned different thumbnails: %d and %d", preview.Code, same.Code)
+		}
+	}
 	if preview.Code != http.StatusOK || preview.Header().Get("Content-Type") != "image/jpeg" ||
 		preview.Header().Get("Cache-Control") != "private, no-cache" || preview.Body.Len() >= len(original) {
 		t.Fatalf("thumbnail status %d, headers %v, size %d (original %d)", preview.Code, preview.Header(), preview.Body.Len(), len(original))
@@ -186,10 +198,34 @@ func TestChatImageThumbnail(t *testing.T) {
 	if changed.Code != http.StatusOK || changed.Header().Get("ETag") == tag || bytes.Equal(changed.Body.Bytes(), preview.Body.Bytes()) {
 		t.Fatalf("thumbnail did not change after replacement: %d, %q", changed.Code, changed.Header().Get("ETag"))
 	}
+
+	// Writing through the same inode and restoring mtime must also invalidate
+	// the thumbnail, even when the image has exactly the same byte length.
+	beforeRewrite, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write("image.png", makeSource(color.NRGBA{G: 180, A: 255}))
+	if err := os.Chtimes(file, beforeRewrite.ModTime(), beforeRewrite.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	afterRewrite, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(beforeRewrite, afterRewrite) || beforeRewrite.Size() != afterRewrite.Size() ||
+		!beforeRewrite.ModTime().Equal(afterRewrite.ModTime()) {
+		t.Fatal("rewrite fixture did not preserve inode, size and mtime")
+	}
+	rewritten := request("image.png", sess.User, "&thumb=1", changed.Header().Get("ETag"))
+	if rewritten.Code != http.StatusOK || rewritten.Header().Get("ETag") == changed.Header().Get("ETag") ||
+		bytes.Equal(rewritten.Body.Bytes(), changed.Body.Bytes()) {
+		t.Fatalf("thumbnail did not change after in-place rewrite: %d, %q", rewritten.Code, rewritten.Header().Get("ETag"))
+	}
 	if err := os.Remove(file); err != nil {
 		t.Fatal(err)
 	}
-	if gone := request("image.png", sess.User, "&thumb=1", changed.Header().Get("ETag")); gone.Code != http.StatusNotFound {
+	if gone := request("image.png", sess.User, "&thumb=1", rewritten.Header().Get("ETag")); gone.Code != http.StatusNotFound {
 		t.Fatalf("deleted image still accessible: %d", gone.Code)
 	}
 

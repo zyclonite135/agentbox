@@ -94,6 +94,14 @@ def containers():
     return selected
 
 
+def confirm_uninstall():
+    with open('/dev/tty', 'w') as tty:
+        tty.write('Type uninstall to continue: ')
+    with open('/dev/tty', 'r') as tty:
+        if tty.readline().strip() != 'uninstall':
+            raise ValueError('Cancelled; no changes made')
+
+
 def main():
     parser = argparse.ArgumentParser(description='Uninstall the default agentbox release installation. By default retain all files in a private backup directory, allowing a fresh install.')
     parser.add_argument('--yes', action='store_true', help='confirm stopping agentbox and removing its workspace containers')
@@ -119,10 +127,7 @@ def main():
         if args.dry_run:
             return
         if not args.yes:
-            with open('/dev/tty', 'r+') as tty:
-                tty.write('Type uninstall to continue: '); tty.flush()
-                if tty.readline().strip() != 'uninstall':
-                    raise ValueError('Cancelled; no changes made')
+            confirm_uninstall()
         backup = None
         if not args.purge:
             BACKUPS.mkdir(parents=True, exist_ok=True, mode=0o700)

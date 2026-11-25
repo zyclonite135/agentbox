@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Uninstaller boundary tests; no host service or file removal."""
 import json
+import os
 from pathlib import Path
 import tempfile
 import types
@@ -56,5 +57,21 @@ class Uninstall(unittest.TestCase):
     def test_refuses_ancestor_mount(self):
         rows=[{'Id':'other','Config':{'Labels':{'agentbox.session':'other'}},'Mounts':[{'Type':'bind','Source':str(m.DATA.parent)}]}]
         with patch.object(m,'run',side_effect=['other',json.dumps(rows)]),self.assertRaises(ValueError):m.containers()
+    @unittest.skipUnless(hasattr(os, 'openpty'), 'requires a terminal device')
+    def test_confirmation_uses_a_nonseekable_terminal(self):
+        for response in (b'uninstall\n', b'cancel\n'):
+            with self.subTest(response=response):
+                master, slave = os.openpty()
+                try:
+                    os.write(master, response)
+                    with patch.object(m, 'open', side_effect=lambda _, mode: open(os.ttyname(slave), mode), create=True):
+                        if response == b'uninstall\n':
+                            m.confirm_uninstall()
+                        else:
+                            with self.assertRaisesRegex(ValueError, 'Cancelled'):
+                                m.confirm_uninstall()
+                finally:
+                    os.close(slave)
+                    os.close(master)
 
 if __name__=='__main__':unittest.main()

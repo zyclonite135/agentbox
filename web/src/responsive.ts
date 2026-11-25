@@ -76,21 +76,38 @@ function syncNavigation() {
   if (!nav) { if (sectionMenu.matches(":popover-open")) sectionMenu.hidePopover(); return; }
   const buttons = [...nav.querySelectorAll<HTMLButtonElement>("button:not(.hidden)")];
   const focused = sectionMenu.contains(document.activeElement) ? menuItems().indexOf(document.activeElement as HTMLButtonElement) : -1;
-  sectionMenu.replaceChildren(...buttons.map((button, index) => {
+  const items: HTMLElement[] = [];
+  let heading: Element | null = null;
+  for (const element of nav.children) {
+    if (element.hasAttribute("data-settings-nav-group")) {
+      heading = element.classList.contains("hidden") ? null : element;
+      continue;
+    }
+    if (!(element instanceof HTMLButtonElement) || !buttons.includes(element)) continue;
+    const button = element;
+    if (heading) {
+      const label = document.createElement("div");
+      label.className = "section-menu-heading";
+      label.setAttribute("role", "presentation");
+      label.textContent = heading.textContent;
+      items.push(label);
+      heading = null;
+    }
     const item = document.createElement("button");
     item.type = "button";
     item.className = "section-menu-item";
     item.setAttribute("role", "menuitemradio");
     item.setAttribute("aria-checked", String(button.classList.contains("active")));
     item.disabled = button.disabled;
-    item.dataset.index = String(index);
+    item.dataset.index = String(buttons.indexOf(button));
     for (const node of button.childNodes) {
       const copy = node.cloneNode(true);
       if (copy instanceof Element) { copy.removeAttribute("id"); copy.querySelectorAll("[id]").forEach(el => el.removeAttribute("id")); }
       item.append(copy);
     }
-    return item;
-  }));
+    items.push(item);
+  }
+  sectionMenu.replaceChildren(...items);
   const active = buttons.find(button => button.classList.contains("active"));
   sectionLabel.textContent = (active?.querySelector(".action-label") || active)?.textContent?.trim() || "";
   if (focused >= 0) menuItems()[Math.min(focused, menuItems().length - 1)]?.focus();
@@ -150,6 +167,7 @@ syncNavigation();
 // Actual warnings, field help and operation results are outside these intros.
 function compactIntros(root: ParentNode) {
   for (const intro of root.querySelectorAll<HTMLElement>(".sec-intro > div:first-child")) {
+    if (intro.closest("#view-settings")) continue;
     const heading = intro.querySelector("h2");
     const copy = intro.querySelector<HTMLParagraphElement>(":scope > p");
     if (!heading || !copy) continue;

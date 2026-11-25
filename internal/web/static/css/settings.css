@@ -622,9 +622,8 @@
 .price-catalog .field { min-width: 0; }
 .price-catalog .field input, .price-catalog .field-row > .btn { height: 36px; }
 .price-catalog .field input { padding-block: 7px; font-size: 13px; line-height: 20px; }
-.price-sync-options { display: flex; flex-wrap: wrap; gap: 8px 20px; }
-.price-auto { display: flex; align-items: center; gap: 6px; min-height: 36px; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
-.price-auto input { margin: 0; }
+.price-sync-options { display:grid; width:100%; gap:0 20px; grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr)); }
+.price-sync-options > label { font-size:12.5px; }
 .price-notice { padding: 10px 12px; margin: 0; border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 7%, transparent); font-size: 12.5px; line-height: 1.6; overflow-wrap: anywhere; }
 .price-notice p { margin: 6px 0; }
 .price-notice ul { margin: 8px 0; padding-left: 20px; max-height: 180px; overflow-y: auto; }
@@ -664,7 +663,6 @@
 }
 @media (max-width: 760px) {
   .price-catalog .field-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .price-auto { grid-column: 1 / -1; }
   .price-history-row { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { .price-history summary::before { transition: none; } }
@@ -738,6 +736,131 @@
 #sec-decision .field-row .field { flex: 1 1 200px; }
 #sec-decision .learn-more > .field-row { margin-top: 12px; }
 #sec-decision .learn-more .field { flex-basis: 160px; }
+
+/* Settings share the same surface, rows and disclosures across sections. */
+#view-settings { --settings-gap:14px; --settings-radius:calc(12px * var(--radius-scale)); }
+#view-settings .set-head { padding-block:8px; }
+#view-settings .set-body { gap:20px; }
+#view-settings .set-nav { width:174px; overflow-y:auto; scrollbar-width:thin; }
+.settings-nav-group,.section-menu-heading {
+  margin:10px 0 2px; padding-inline:10px; color:var(--muted);
+  font-size:11px; line-height:1.4; font-weight:600; letter-spacing:.045em; text-transform:uppercase;
+}
+.settings-nav-group:first-child,.section-menu-heading:first-child { margin-top:2px; }
+.section-menu-heading { padding-block:4px; }
+#view-settings .set-section { gap:var(--settings-gap); width:100%; max-width:1120px; }
+#view-settings #sec-interface { max-width:680px; }
+#view-settings .sec-intro { gap:8px 16px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+#view-settings .sec-intro h2 { font-size:18px; line-height:1.35; }
+#view-settings .sec-intro > div:first-child { min-width:0; }
+#view-settings .sec-intro p { line-height:1.55; overflow-wrap:anywhere; }
+.settings-jumps { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; }
+.settings-jumps .btn { justify-content:flex-start; max-width:100%; padding-inline:9px; white-space:normal; text-align:left; }
+.settings-topic { display:grid; gap:8px; min-width:0; }
+.settings-topic-title { margin:0; color:var(--muted); font-size:12px; font-weight:600; letter-spacing:.035em; text-transform:uppercase; }
+.settings-topic :is(h3,h4):focus { outline-offset:2px; }
+#view-settings .settings-block {
+  display:flex; flex-direction:column; gap:0; min-width:0; margin:0; padding:0 14px;
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--settings-radius);
+}
+#view-settings .card { min-width:0; gap:10px; border-radius:var(--settings-radius); }
+#view-settings .settings-block > .card {
+  padding:12px 0; border:0; border-radius:0; background:transparent;
+}
+#view-settings .settings-block > .card:not([hidden],.hidden) ~ .card:not([hidden],.hidden) { border-top:1px solid var(--line); }
+#view-settings .settings-block > .mon-card { padding-inline:0; }
+#view-settings .card h3 { font-size:14px; line-height:1.4; }
+#view-settings .card .card-desc { margin:0; font-size:12.5px; line-height:1.55; }
+#view-settings .card > .learn-more { margin-top:0; }
+#view-settings .settings-details > summary { color:var(--accent); min-height:30px; }
+#view-settings .settings-details > summary:hover { color:var(--text-hi); }
+#view-settings .settings-risk {
+  margin:0; padding:7px 9px; border-inline-start:2px solid var(--warn-line); border-radius:calc(4px * var(--radius-scale));
+  background:color-mix(in srgb,var(--warn) 8%,transparent); color:var(--text); font-size:12px; line-height:1.55;
+}
+.settings-toggle { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; min-height:44px; cursor:pointer; }
+.settings-toggle-label { min-width:0; overflow-wrap:anywhere; }
+#view-settings .field :is(input,select,.select-trigger,textarea) { min-width:0; max-width:100%; }
+#view-settings :is(.card-desc,.note,.field-hint,.kv dd,.acct-proxy,.u-meta) { overflow-wrap:anywhere; }
+#view-settings .settings-form .field-row { gap:10px 14px; }
+#view-settings .settings-form .field-row > * { min-width:0; }
+#view-settings :is(.ann-form,.update-product,.component-head,.card-foot,.acct-actions) { min-width:0; }
+#view-settings .mdl-tabs { flex-wrap:wrap; max-width:100%; overflow:visible; }
+#view-settings .mdl-tabs .scope-btn { min-width:0; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+#view-settings .mdl-toolbar > .mdl-toolbar-end { min-width:0; max-width:100%; }
+@media (min-width:1000px) {
+  #view-settings .settings-form .card > .field:not(:has(textarea,.hint,.field-hint)) {
+    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,42%); align-items:center;
+  }
+  #view-settings .settings-form .card > .field-row {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));
+  }
+  #view-settings .settings-form .card > .field :is(input,select,.select-trigger) { width:100%; }
+}
+@media (max-width:760px) {
+  #view-settings .set-body { gap:0; padding-inline:12px; }
+  #view-settings .set-section { gap:12px; }
+  #view-settings .sec-intro { gap:8px; }
+  #view-settings .sec-intro h2 { display:none; }
+  #view-settings :is(.settings-block,.interface-card) { padding-inline:11px; }
+  #view-settings .card:not(.mon-card) { padding-inline:12px; }
+  #view-settings .settings-block > .card { padding-inline:0; }
+  #view-settings .settings-form .field-row { display:flex; flex-direction:column; align-items:stretch; }
+  #view-settings :is(.btn,.scope-btn,.select-trigger,select,summary,.check,input:not([type=checkbox],[type=radio]),.settings-details > summary),
+  body:has(#view-settings:not(.hidden)) :is(#mobile-section-btn,.section-menu-item,.select-option,dialog .btn,dialog .dlg-x,dialog .seg,dialog input:not([type=checkbox],[type=radio]),dialog .select-trigger) {
+    min-height:44px;
+  }
+  #view-settings :is(.btn,.scope-btn,summary), body:has(#view-settings:not(.hidden)) :is(.section-menu-item,dialog .btn) { min-width:44px; max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+  #view-settings :is(.btn.action-icon,.action-tools > .action-control:not(.btn-primary,.btn-danger,.keep-label)),
+  body:has(#view-settings:not(.hidden)) dialog .btn.action-icon { --action-size:44px; --action-inset:4px; }
+  #view-settings .select-caption,body:has(#view-settings:not(.hidden)) dialog .select-caption { overflow:visible; white-space:normal; overflow-wrap:anywhere; }
+  #view-settings .check { align-items:center; }
+  #view-settings :is(.px-actions,.px-head-actions,.sec-actions,.auth-actions,.user-add,.component-head,.update-actions,.icons-ctrl,.acct-actions,.mon-card-head,.mdl-toolbar) { flex-wrap:wrap; }
+  #view-settings :is(.mon-card-head h3,.user-row .u-meta) { white-space:normal; }
+  #view-settings .price-table .pt-del { width:44px; height:44px; }
+  #view-settings .price-sync-options { grid-template-columns:minmax(0,1fr); }
+  #view-settings .mv-row { min-height:44px; }
+  #view-settings .settings-jumps .btn { flex:0 1 auto; }
+  #view-settings .set-savebar { scroll-margin-block:60px; }
+}
+@container (max-width:740px) {
+  #view-settings :is(.mon-table-wrap,.price-table-wrap) { overflow:visible; margin-inline:0; }
+  #view-settings table[data-settings-table] { display:block; width:100%; min-width:0; border-collapse:separate; }
+  #view-settings [data-settings-table] thead { position:absolute; display:block; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+  #view-settings [data-settings-table] tbody { display:block; }
+  #view-settings [data-settings-table] tbody tr {
+    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 10px;
+    padding:11px 12px; border-bottom:1px solid var(--line);
+  }
+  #view-settings [data-settings-table] tbody tr:last-child { border-bottom:0; }
+  #view-settings [data-settings-table]:is(.price-table,.component-table) tbody tr { grid-template-columns:minmax(0,1fr); }
+  #view-settings [data-settings-table] :is(td,th[scope=row]) {
+    display:block; width:auto; min-width:0; max-width:100%; padding:0; border:0;
+    text-align:start; white-space:normal; overflow-wrap:anywhere;
+  }
+  #view-settings [data-settings-table] :is(td:first-child,th[scope=row],[colspan]:not([colspan="1"]),td:has(.px-actions,.pt-long)) { grid-column:1 / -1; }
+  #view-settings [data-settings-table] td[data-settings-column]::before {
+    content:attr(data-settings-column); display:block; color:var(--muted); font:500 11px/1.4 var(--sans); margin-bottom:3px;
+  }
+  #view-settings :is(.mon-quota,.mon-name,.pt-key) { min-width:0; }
+  #view-settings .price-table .pt-long { flex-wrap:wrap; justify-content:flex-start; }
+  #view-settings .price-table input.rate { width:min(100%,130px); text-align:start; }
+}
+@container (max-width:480px) {
+  #view-settings .mv-head { display:grid; grid-template-columns:minmax(0,1fr) auto; }
+  #view-settings .mv-head > .mv-chev-none { display:none; }
+  #view-settings .mv-head > .mv-title { flex-wrap:wrap; }
+  #view-settings .mv-head :is(.mv-account,.mv-slug,.mv-summary) { white-space:normal; overflow-wrap:anywhere; }
+  #view-settings .mv-head > .mv-summary { grid-column:1; margin:0; padding-inline-start:4px; }
+  #view-settings .mv-head > .mv-manage {
+    grid-column:2; grid-row:1 / span 2; width:44px; min-height:44px; padding-inline:0;
+  }
+  #view-settings .mv-manage .action-label { display:none; }
+  #view-settings .update-detail { grid-template-columns:minmax(0,1fr); padding:16px; gap:12px; }
+  #view-settings .update-detail > div > p { max-width:none; }
+  #view-settings .component-head { padding-inline:16px; }
+  #view-settings .component-head .btn { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+}
 #sec-decision .field input:disabled { opacity: .55; cursor: not-allowed; }
 @media (max-width: 560px) {
   .dc-head { flex-wrap: wrap; }

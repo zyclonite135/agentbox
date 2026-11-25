@@ -7,7 +7,63 @@ import { readFile, mkdir } from 'node:fs/promises';
 import { extname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-export async function webI18nSmoke(browser) {
+async function checkSettingsLayout(page,base,language) {
+ const sections=['accounts','proxies','container','models','models/pricing','models/system','decision','interface',
+  'icons','security','logins','announce','monitor','about'];
+ const overflows=[];
+ for (const route of sections) {
+  await page.goto(base+'/#/settings/'+route);
+  const section=page.locator('#sec-'+route.split('/')[0]);
+  await section.waitFor({timeout:5000});
+  if (route==='models/pricing') {
+   await section.locator('#price-rows tr[data-key]').waitFor({timeout:5000});
+   const label=section.locator('#price-rows tr[data-key] td').nth(1);
+   assert.equal(await label.getAttribute('data-settings-column'),'Ввод');
+   await language('en');
+   await label.and(page.locator('[data-settings-column="Input"]')).waitFor({state:'attached',timeout:5000});
+   await language('ru');
+   await section.locator('#price-catalog-box > summary').click();
+  }
+  if (route==='security') {
+   const jump=section.getByRole('button',{name:'Разрешения и сеть',exact:true});
+   await jump.click();
+   assert.equal(await section.locator('#settings-agent-access > h3').evaluate(el=>el===document.activeElement),true);
+   const disclosure=section.locator('.settings-details').first();
+   assert.equal(await disclosure.evaluate(el=>el.open),false);
+   await disclosure.locator('summary').click();
+   assert.equal(await disclosure.evaluate(el=>el.open),true);
+   const toggle=section.locator('#set-tunnel-on');
+   const previous=await toggle.isChecked();
+   await toggle.press('Space');
+   assert.equal(await toggle.isChecked(),!previous);
+   await toggle.press('Space');
+  }
+  for (const width of [320,390,768,1024,1440,2560]) {
+   await page.setViewportSize({width,height:900});
+   const overflow=await section.evaluate(el=>{
+    const root=el.closest('#set-content');
+    const extra=Math.max(document.documentElement.scrollWidth-innerWidth,root.scrollWidth-root.clientWidth,el.scrollWidth-el.clientWidth);
+    if (extra<=1) return null;
+    const right=el.getBoundingClientRect().right;
+    const elements=[...el.querySelectorAll('*')].filter(child=>child.getBoundingClientRect().right>right+1);
+    return [extra,...elements.slice(0,6).map(child=>child.id || child.getAttribute('class') || child.tagName)].join(' ');
+   });
+   if (overflow) overflows.push(`${route} at ${width}px: ${overflow}`);
+  }
+  if (route==='security') {
+   await page.setViewportSize({width:320,height:900});
+   await page.locator('#mobile-section-btn').click();
+   assert.equal(await page.locator('#mobile-section-menu .section-menu-heading').count(),3);
+   const option=page.getByRole('menuitemradio',{name:'Безопасность',exact:true});
+   const area=await option.boundingBox();
+   assert.ok(area.width>=44 && area.height>=44);
+   await page.keyboard.press('Escape');
+  }
+ }
+ assert.deepEqual(overflows,[],'Settings must fit without horizontal scrolling');
+}
+
+export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
  const root = fileURLToPath(new URL('../internal/web/static/', import.meta.url));
  let serverVersion='v0.1.9';
  const server = createServer(async (req,res) => {
@@ -67,6 +123,10 @@ export async function webI18nSmoke(browser) {
    body={listen:'127.0.0.1:8180',agent_image:'fixture',permission_mode:'default',max_upload_mb:20,idle_timeout_min:30,timezone,container:{memory_mb:512,cpus:1,pids_limit:128,network:'none'},resources:{max_running:0,max_running_per_user:0,min_free_bytes:0},models:{claude:[],codex:[]},default_models:{claude:'fixture',codex:'fixture'},terminal_tips:savedTerminalTips,tunnel:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},pricing:{}};
   }
   else if(path.endsWith('/models'))body={models:[],discovery:'available'};
+  else if(path==='/api/pricing')body={
+   active:{revision:1,prices:{'fixture-model-with-a-long-identifier':{input:2,output:8,long_context:{threshold:200000,input:4,output:12}}},managed:{},catalog:{url:'',auto_check:false,auto_apply:false},history:[]},
+   candidate:{catalog:{source:'',version:1},bundled:true},changes:[],warnings:[]
+  };
   else if(path.endsWith('/files'))body=[];
   else if(path.endsWith('/chat/threads'))body={threads:[],active:null};
   else if(path.endsWith('/history'))body={entries:[],thread:null,costs:{}};
@@ -116,6 +176,13 @@ export async function webI18nSmoke(browser) {
   await page.locator('#login-user').fill('保存'); await page.locator('#login-pass').fill('fixture-password');
   await page.locator('#login-btn').click();
   await page.locator('#app').waitFor({state:'visible'});
+  if (settingsOnly) {
+   await language('ru');
+   await checkSettingsLayout(page,base,language);
+   assert.deepEqual(errors,[]);
+   console.log('Settings layout, navigation, disclosures and switches passed');
+   return;
+  }
   const afterLoginWrites=writes;
   await page.locator('#btn-new').click();
   await page.locator('#new-name').fill('取消 <draft>');
@@ -372,6 +439,9 @@ export async function webI18nSmoke(browser) {
   assert.deepEqual((await tipSave).request().postDataJSON(),{terminal_tips:{...terminalTips,tips:[terminalTips.tips[0],`${customTip} 2`]}});
   await page.locator('#set-savebar').waitFor({state:'hidden'});
   assert.equal(await tipsInput.inputValue(),`${ruTip}\n${customTip} 2`);
+
+  await checkSettingsLayout(page,base,language);
+  await page.setViewportSize({width:390,height:900});
   await page.goto(base+'/#/settings/about');
   await page.locator('#sec-about').waitFor();
   await language('ru');

@@ -84,14 +84,31 @@ function syncNavigation() {
     }
     const buttons = [...nav.querySelectorAll("button:not(.hidden)")];
     const focused = sectionMenu.contains(document.activeElement) ? menuItems().indexOf(document.activeElement) : -1;
-    sectionMenu.replaceChildren(...buttons.map((button, index) => {
+    const items = [];
+    let heading = null;
+    for (const element of nav.children) {
+        if (element.hasAttribute("data-settings-nav-group")) {
+            heading = element.classList.contains("hidden") ? null : element;
+            continue;
+        }
+        if (!(element instanceof HTMLButtonElement) || !buttons.includes(element))
+            continue;
+        const button = element;
+        if (heading) {
+            const label = document.createElement("div");
+            label.className = "section-menu-heading";
+            label.setAttribute("role", "presentation");
+            label.textContent = heading.textContent;
+            items.push(label);
+            heading = null;
+        }
         const item = document.createElement("button");
         item.type = "button";
         item.className = "section-menu-item";
         item.setAttribute("role", "menuitemradio");
         item.setAttribute("aria-checked", String(button.classList.contains("active")));
         item.disabled = button.disabled;
-        item.dataset.index = String(index);
+        item.dataset.index = String(buttons.indexOf(button));
         for (const node of button.childNodes) {
             const copy = node.cloneNode(true);
             if (copy instanceof Element) {
@@ -100,8 +117,9 @@ function syncNavigation() {
             }
             item.append(copy);
         }
-        return item;
-    }));
+        items.push(item);
+    }
+    sectionMenu.replaceChildren(...items);
     const active = buttons.find(button => button.classList.contains("active"));
     sectionLabel.textContent = (active?.querySelector(".action-label") || active)?.textContent?.trim() || "";
     if (focused >= 0)
@@ -176,6 +194,8 @@ syncNavigation();
 // Actual warnings, field help and operation results are outside these intros.
 function compactIntros(root) {
     for (const intro of root.querySelectorAll(".sec-intro > div:first-child")) {
+        if (intro.closest("#view-settings"))
+            continue;
         const heading = intro.querySelector("h2");
         const copy = intro.querySelector(":scope > p");
         if (!heading || !copy)

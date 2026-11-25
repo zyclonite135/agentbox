@@ -2,6 +2,7 @@ import { SettingsRequests } from "./requests.js";
 import {fillDecisionSettings,decisionSettingsGroup,initDecisionSettings,refreshDecisionSettings} from "./decision.js";
 import { initSettingsMaintenance } from "./maintenance.js";
 import { i18n, setAttr, setAttrRender, setText, setTextRender, t as i18nText } from "../../i18n.js";
+import { initSettingsLayout } from "./layout.js";
 import { ruSettingsNav } from "../../locales/ru-static.js";
 import { initImageUpdates, fillImageUpdateSettings, startImageUpdates, stopImageUpdates } from "./image-updates.js";
 import { loadSystem, stopSystem, startMonitor, stopMonitor } from "./operations.js";
@@ -127,7 +128,10 @@ function setSec(name: string) {
   S.sec = name;
   emit("navigation-changed");
   for (const b of document.querySelectorAll<HTMLElement>("#set-nav button")) {
-    b.classList.toggle("active", b.dataset.sec === name);
+    const active = b.dataset.sec === name;
+    b.classList.toggle("active", active);
+    if (active) b.setAttribute("aria-current", "true");
+    else b.removeAttribute("aria-current");
   }
   for (const sec of SET_SECS) {
     $("sec-" + sec).classList.toggle("hidden", sec !== name);
@@ -942,6 +946,7 @@ function initSaveBar(signal: AbortSignal) {
 
 function initSettings() {
  for (const el of document.querySelectorAll<HTMLElement>("[data-settings-admin]")) el.classList.toggle("hidden", role !== "admin");
+ initSettingsLayout($("set-content"), lifetime.signal);
  setTextRender($("set-description"), () => role === "admin" ? i18nText("账号池、服务端配置与此浏览器的个人偏好。需要重启的项会单独标出。") : i18nText("此浏览器的个人偏好，修改后即时生效。"));
  $("set-savebar").hidden = true;
  $("set-nav").addEventListener("click", async (e) => {

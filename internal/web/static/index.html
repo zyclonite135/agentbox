@@ -839,14 +839,17 @@
         </header>
 
         <div class="set-body">
-          <nav id="set-nav" class="set-nav">
+          <nav id="set-nav" class="set-nav" data-i18n-attrs='{"aria-label":"系统设置"}'>
+            <p class="settings-nav-group" data-settings-nav-group data-settings-admin data-i18n="连接与模型">连接与模型</p>
             <button class="active" data-sec="accounts" data-settings-admin data-icon="settings.accounts" data-i18n-text="[&quot;账号池 &quot;]">账号池 <span id="set-acct-count" class="count">0</span></button>
             <button data-sec="proxies" data-settings-admin data-icon="settings.proxies"><span class="action-label" data-settings-nav-label>IP 代理</span><span id="proxy-count" class="count">0</span></button>
             <button data-sec="container" data-settings-admin data-icon="settings.container"><span class="action-label" data-settings-nav-label>容器与资源</span></button>
             <button data-sec="models" data-settings-admin data-icon="settings.models" data-i18n-text="[&quot;模型管理&quot;]">模型管理</button>
             <button data-sec="decision" data-settings-admin data-icon="settings.decision"><span class="action-label" data-settings-nav-label>智能决策</span></button>
+            <p class="settings-nav-group" data-settings-nav-group data-settings-admin data-i18n="终端与界面">终端与界面</p>
             <button data-sec="interface" data-icon="settings.interface"><span class="action-label" data-settings-nav-label>界面与提示</span></button>
             <button data-sec="icons" data-settings-admin data-icon="settings.icons" data-i18n-text="[&quot;图标管理&quot;]">图标管理</button>
+            <p class="settings-nav-group" data-settings-nav-group data-settings-admin data-i18n="管理与维护">管理与维护</p>
             <button data-sec="security" data-settings-admin data-icon="settings.security"><span class="action-label" data-settings-nav-label>安全与访问</span></button>
             <button data-sec="logins" data-settings-admin data-icon="settings.logins"><span class="action-label" data-settings-nav-label>登录与活跃</span></button>
             <button data-sec="announce" data-settings-admin data-icon="settings.announce" data-i18n-text="[&quot;系统通告&quot;]">系统通告</button>
@@ -860,7 +863,11 @@
               <div class="sec-intro">
                 <div>
                   <h2 data-i18n-text="[&quot;账号池&quot;]">账号池</h2>
-                  <p data-i18n-text="[&quot;创建工作空间时可选用的订阅账号与 API Key。多个空间可共用账号，登录凭证由服务器统一管理和同步。&quot;]">创建工作空间时可选用的订阅账号与 API Key。多个空间可共用账号，登录凭证由服务器统一管理和同步。</p>
+                  <p data-i18n="管理工作空间使用的订阅账号和 API Key。">管理工作空间使用的订阅账号和 API Key。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;创建工作空间时可选用的订阅账号与 API Key。多个空间可共用账号，登录凭证由服务器统一管理和同步。&quot;]">创建工作空间时可选用的订阅账号与 API Key。多个空间可共用账号，登录凭证由服务器统一管理和同步。</p>
+                  </details>
                 </div>
                 <button id="btn-acct-add" class="btn btn-primary btn-sm" data-icon="plus" data-i18n-text="[&quot;添加账号&quot;]">添加账号</button>
               </div>
@@ -868,11 +875,15 @@
             </section>
 
             <!-- IP 代理 -->
-            <section id="sec-proxies" class="set-section hidden">
+            <section id="sec-proxies" class="set-section settings-form hidden">
               <div class="sec-intro">
                 <div>
                   <h2 data-i18n-text="[&quot;IP 代理&quot;]">IP 代理</h2>
-                  <p data-i18n-text="[&quot;账号的出口 IP。在「账号池 → 编辑」里绑定后，这个账号的官方请求都从这里发出。&quot;]">账号的出口 IP。在「账号池 → 编辑」里绑定后，这个账号的官方请求都从这里发出。</p>
+                  <p data-i18n="为账号配置出口代理。">为账号配置出口代理。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;账号的出口 IP。在「账号池 → 编辑」里绑定后，这个账号的官方请求都从这里发出。&quot;]">账号的出口 IP。在「账号池 → 编辑」里绑定后，这个账号的官方请求都从这里发出。</p>
+                  </details>
                 </div>
                 <div class="px-head-actions action-tools">
                   <button id="btn-proxy-reload" class="btn btn-sm btn-ghost" data-icon="refresh" data-i18n-text="[&quot;刷新&quot;]">刷新</button>
@@ -881,202 +892,252 @@
                   <button id="btn-proxy-add" class="btn btn-primary btn-sm" data-icon="plus" data-tip="添加出口代理" data-i18n-text="[&quot;添加&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;添加出口代理&quot;}">添加</button>
                 </div>
               </div>
-              <div id="proxy-bridge-state" class="px-bridge"></div>
-              <p id="proxy-empty" class="acct-empty hidden" data-i18n-text="[&quot;代理池为空。点击右上角「添加代理」或「导入」添加第一个出口。&quot;]">代理池为空。点击右上角「添加代理」或「导入」添加第一个出口。</p>
-              <div id="proxy-table-wrap" class="card mon-card hidden">
-                <div class="mon-table-wrap">
-                  <table class="mon-table px-table">
-                    <thead>
-                      <tr>
-                        <th data-i18n-text="[&quot;名称&quot;]">名称</th><th data-i18n-text="[&quot;协议&quot;]">协议</th><th data-i18n-text="[&quot;地址&quot;]">地址</th><th data-i18n-text="[&quot;认证&quot;]">认证</th>
-                        <th data-i18n-text="[&quot;使用&quot;]">使用</th><th data-i18n-text="[&quot;延迟&quot;]">延迟</th><th data-i18n-text="[&quot;操作&quot;]">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody id="proxy-tbody"></tbody>
-                  </table>
+              <section id="settings-proxy-list" class="settings-topic" data-settings-topic>
+                <h3 class="settings-topic-title" data-i18n="代理列表">代理列表</h3>
+                <div class="settings-block">
+                <div id="proxy-bridge-state" class="px-bridge"></div>
+                <p id="proxy-empty" class="acct-empty hidden" data-i18n-text="[&quot;代理池为空。点击右上角「添加代理」或「导入」添加第一个出口。&quot;]">代理池为空。点击右上角「添加代理」或「导入」添加第一个出口。</p>
+                <div id="proxy-table-wrap" class="card mon-card hidden">
+                  <div class="mon-table-wrap">
+                    <table class="mon-table px-table">
+                      <thead>
+                        <tr>
+                          <th data-i18n-text="[&quot;名称&quot;]">名称</th><th data-i18n-text="[&quot;协议&quot;]">协议</th><th data-i18n-text="[&quot;地址&quot;]">地址</th><th data-i18n-text="[&quot;认证&quot;]">认证</th>
+                          <th data-i18n-text="[&quot;使用&quot;]">使用</th><th data-i18n-text="[&quot;延迟&quot;]">延迟</th><th data-i18n-text="[&quot;操作&quot;]">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody id="proxy-tbody"></tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;桥接监听&quot;]">桥接监听</h3>
-                <p class="card-desc" data-i18n-text="[&quot;容器经这个地址使用上面的代理，须是容器能连到的宿主机地址。保存后立即生效。&quot;]">容器经这个地址使用上面的代理，须是容器能连到的宿主机地址。保存后立即生效。</p>
-                <details class="learn-more"><summary data-i18n-text="[&quot;了解更多&quot;]">了解更多</summary><p data-i18n-text="[&quot;容器里的 Claude Code 只认 HTTP(S) 代理、不认 SOCKS5，所以服务端在本机起一个 HTTP 代理，替容器走完 SOCKS5 那一段。默认监听 docker 网桥网关。&quot;]">容器里的 Claude Code 只认 HTTP(S) 代理、不认 SOCKS5，所以服务端在本机起一个 HTTP 代理，替容器走完 SOCKS5 那一段。默认监听 docker 网桥网关。</p><p data-i18n-text="[&quot;包括容器里 Agent 发出的请求，以及服务端代发的登录与探测，都会经过所绑定的代理。&quot;]">包括容器里 Agent 发出的请求，以及服务端代发的登录与探测，都会经过所绑定的代理。</p></details>
-                <div class="field-row">
-                  <label class="field">
-                    <span data-i18n-text="[&quot;监听地址 &quot;]">监听地址 <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span>
-                    <input id="set-bridge-bind" type="text" class="mono" placeholder="172.17.0.1:1081">
-                  </label>
-                  <label class="field">
-                    <span data-i18n-text="[&quot;容器访问地址（可选）&quot;]">容器访问地址（可选）</span>
-                    <input id="set-bridge-host" type="text" class="mono" placeholder="留空取监听地址的 host" data-i18n-attrs="{&quot;placeholder&quot;:&quot;留空取监听地址的 host&quot;}">
-                  </label>
                 </div>
-                <div class="card-foot">
-                  <span class="note" data-i18n-text="[&quot;代理池非空时自动启动；绑定失败只影响代理功能，不影响服务&quot;]">代理池非空时自动启动；绑定失败只影响代理功能，不影响服务</span>
+              </section>
+              <section id="settings-proxy-config" class="settings-topic" data-settings-topic>
+                <h3 class="settings-topic-title" data-i18n="代理连接设置">代理连接设置</h3>
+                <div class="settings-block">
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;桥接监听&quot;]">桥接监听</h3>
+                  <p class="card-desc" data-i18n="设置容器可访问的代理桥接地址。">设置容器可访问的代理桥接地址。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;容器经这个地址使用上面的代理，须是容器能连到的宿主机地址。保存后立即生效。&quot;]">容器经这个地址使用上面的代理，须是容器能连到的宿主机地址。保存后立即生效。</p>
+                  </details>
+                  <details class="learn-more"><summary data-i18n-text="[&quot;了解更多&quot;]">了解更多</summary><p data-i18n-text="[&quot;容器里的 Claude Code 只认 HTTP(S) 代理、不认 SOCKS5，所以服务端在本机起一个 HTTP 代理，替容器走完 SOCKS5 那一段。默认监听 docker 网桥网关。&quot;]">容器里的 Claude Code 只认 HTTP(S) 代理、不认 SOCKS5，所以服务端在本机起一个 HTTP 代理，替容器走完 SOCKS5 那一段。默认监听 docker 网桥网关。</p><p data-i18n-text="[&quot;包括容器里 Agent 发出的请求，以及服务端代发的登录与探测，都会经过所绑定的代理。&quot;]">包括容器里 Agent 发出的请求，以及服务端代发的登录与探测，都会经过所绑定的代理。</p></details>
+                  <div class="field-row">
+                    <label class="field">
+                      <span data-i18n-text="[&quot;监听地址 &quot;]">监听地址 <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span>
+                      <input id="set-bridge-bind" type="text" class="mono" placeholder="172.17.0.1:1081">
+                    </label>
+                    <label class="field">
+                      <span data-i18n-text="[&quot;容器访问地址（可选）&quot;]">容器访问地址（可选）</span>
+                      <input id="set-bridge-host" type="text" class="mono" placeholder="留空取监听地址的 host" data-i18n-attrs="{&quot;placeholder&quot;:&quot;留空取监听地址的 host&quot;}">
+                    </label>
+                  </div>
+                  <div class="card-foot">
+                    <span class="note" data-i18n-text="[&quot;代理池非空时自动启动；绑定失败只影响代理功能，不影响服务&quot;]">代理池非空时自动启动；绑定失败只影响代理功能，不影响服务</span>
+                  </div>
                 </div>
-              </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;模型网关&quot;]">模型网关</h3>
-                <p class="card-desc" data-i18n-text="[&quot;检查模型流量的扩展（例如循环保护）通过它转发所绑定账号的请求。只在这类扩展启用后监听，与其他扩展无关。&quot;]">检查模型流量的扩展（例如循环保护）通过它转发所绑定账号的请求。只在这类扩展启用后监听，与其他扩展无关。</p>
-                <p id="mgw-state" class="gw-state" role="status"></p>
-                <label class="check"><input id="set-mgw-dedicated" type="checkbox"><span data-i18n="每次请求独占一条连接">每次请求独占一条连接</span> <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></label>
-                <p class="field-hint" data-i18n-text="[&quot;只用 HTTP/1.1、不复用连接：中断回复时直接关掉这次请求的连接，而不只是重置共享连接上的一条流。代价是每次请求重新握手；只管得到网关到上游这一跳，中转站到供应商的连接不受控制。&quot;]">只用 HTTP/1.1、不复用连接：中断回复时直接关掉这次请求的连接，而不只是重置共享连接上的一条流。代价是每次请求重新握手；只管得到网关到上游这一跳，中转站到供应商的连接不受控制。</p>
-                <div class="card-foot">
-                  <span class="note" data-i18n-text="[&quot;监听地址在 config.json 的 model_gateway 里修改，重启服务后生效&quot;]">监听地址在 config.json 的 model_gateway 里修改，重启服务后生效</span>
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;模型网关&quot;]">模型网关</h3>
+                  <p class="card-desc" data-i18n="配置扩展使用的模型流量转发。">配置扩展使用的模型流量转发。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;检查模型流量的扩展（例如循环保护）通过它转发所绑定账号的请求。只在这类扩展启用后监听，与其他扩展无关。&quot;]">检查模型流量的扩展（例如循环保护）通过它转发所绑定账号的请求。只在这类扩展启用后监听，与其他扩展无关。</p>
+                  </details>
+                  <p id="mgw-state" class="gw-state" role="status"></p>
+                  <label class="settings-toggle"><span class="settings-toggle-label"><span data-i18n="每次请求独占一条连接">每次请求独占一条连接</span> <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span><input class="interface-switch" role="switch" id="set-mgw-dedicated" type="checkbox"></label>
+                  <p class="field-hint" data-i18n-text="[&quot;只用 HTTP/1.1、不复用连接：中断回复时直接关掉这次请求的连接，而不只是重置共享连接上的一条流。代价是每次请求重新握手；只管得到网关到上游这一跳，中转站到供应商的连接不受控制。&quot;]">只用 HTTP/1.1、不复用连接：中断回复时直接关掉这次请求的连接，而不只是重置共享连接上的一条流。代价是每次请求重新握手；只管得到网关到上游这一跳，中转站到供应商的连接不受控制。</p>
+                  <div class="card-foot">
+                    <span class="note" data-i18n-text="[&quot;监听地址在 config.json 的 model_gateway 里修改，重启服务后生效&quot;]">监听地址在 config.json 的 model_gateway 里修改，重启服务后生效</span>
+                  </div>
                 </div>
-              </div>
+                </div>
+              </section>
             </section>
 
             <!-- 容器与资源 -->
-            <section id="sec-container" class="set-section hidden">
+            <section id="sec-container" class="set-section settings-form hidden">
               <div class="sec-intro">
                 <div>
                   <h2 data-i18n-text="[&quot;容器与资源&quot;]">容器与资源</h2>
                   <p data-i18n-text="[&quot;镜像变更在空间停止再启动后采用；资源上限在容器创建时生效，已有容器保留原值。&quot;]">镜像变更在空间停止再启动后采用；资源上限在容器创建时生效，已有容器保留原值。</p>
                 </div>
               </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;Agent 镜像&quot;]">Agent 镜像</h3>
-                <label class="field">
-                  <span data-i18n-text="[&quot;镜像名称 &quot;]">镜像名称 <span class="tag live" data-i18n-text="[&quot;新容器生效&quot;]">新容器生效</span></span>
-                  <input id="set-image" type="text" class="mono">
-                  <span class="hint" data-i18n-text="[&quot;重新构建镜像后无需改动此项，重启工作空间即可拉起新镜像。&quot;]">重新构建镜像后无需改动此项，重启工作空间即可拉起新镜像。</span>
-                </label>
-              </div>
-              <div class="card" id="image-update-card">
-                <h3 data-i18n-text="[&quot;Agent 镜像更新&quot;]">Agent 镜像更新</h3>
-                <p class="card-desc" data-i18n-text="[&quot;更新工作空间里的 Claude Code，可选同时更新 Codex。空间停止再启动后使用新版本。&quot;]">更新工作空间里的 Claude Code，可选同时更新 Codex。空间停止再启动后使用新版本。</p>
-                <div class="field-row">
-                  <label class="field"><span data-i18n-text="[&quot;自动更新&quot;]">自动更新</span><select id="image-update-enabled"><option value="off" data-i18n-text="[&quot;关闭 — 手动更新&quot;]">关闭 — 手动更新</option><option value="on" data-i18n-text="[&quot;开启 — 每日检查并应用&quot;]">开启 — 每日检查并应用</option></select></label>
-                  <label class="field"><span data-i18n-text="[&quot;Claude 渠道&quot;]">Claude 渠道</span><select id="image-update-channel"><option value="stable" data-i18n-text="[&quot;stable — 稳定版&quot;]">stable — 稳定版</option><option value="latest" data-i18n-text="[&quot;latest — 最新版&quot;]">latest — 最新版</option></select></label>
-                  <label class="field"><span data-i18n-text="[&quot;每日检查时间&quot;]">每日检查时间</span><input id="image-update-time" type="time" value="04:00" required></label>
-                  <label class="field"><span>Codex</span><select id="image-update-codex"><option value="off" data-i18n-text="[&quot;保持当前版本&quot;]">保持当前版本</option><option value="on" data-i18n-text="[&quot;同时更新到 latest&quot;]">同时更新到 latest</option></select></label>
-                </div>
-                <p id="image-update-schedule" class="note" data-i18n-text="[&quot;按系统时区调度；stable 可能落后于 latest。切换渠道不会自动降级。&quot;]">按系统时区调度；stable 可能落后于 latest。切换渠道不会自动降级。</p>
-              </div>
-              <!-- 状态与一次性操作单独一张卡，和上面的配置分开 -->
-              <div class="card" id="image-update-ops">
-                <h3 data-i18n-text="[&quot;镜像内 CLI 版本&quot;]">镜像内 CLI 版本</h3>
-                <p id="image-update-dirty" class="note"></p>
-                <p id="image-update-validation" class="note" role="status" aria-live="polite"></p>
-                <p id="image-update-status" class="note" role="status" aria-live="polite" data-i18n-text="[&quot;尚未检查镜像内 CLI 版本&quot;]">尚未检查镜像内 CLI 版本</p>
-                <div id="image-update-meter" class="image-update-meter hidden"><div class="image-update-meter-head"><span id="image-update-step"></span><span id="image-update-pct" class="mono"></span></div></div>
-                <p id="image-update-versions" class="note"></p>
-                <p id="image-update-active" class="note image-update-ref"></p>
-                <p class="note" data-i18n="上方版本属于最近任务的起点与目标，不是所有空间的当前版本。更新会验证 CLI 版本、浏览器组件与合成上游行为；真实账号和模型仍需单独验收。">上方版本属于最近任务的起点与目标，不是所有空间的当前版本。更新会验证 CLI 版本、浏览器组件与合成上游行为；真实账号和模型仍需单独验收。</p>
-                <div class="card-foot">
-                  <button id="image-update-check" class="btn btn-sm" data-icon="refresh" data-i18n-text="[&quot;立即检查&quot;]">立即检查</button>
-                  <button id="image-update-update" class="btn btn-sm" data-icon="download" data-i18n-text="[&quot;立即更新&quot;]">立即更新</button>
-                  <button id="image-update-rollback" class="btn btn-sm" data-icon="undo" disabled data-i18n-text="[&quot;回退上次镜像&quot;]">回退上次镜像</button>
-                </div>
-                <details><summary data-i18n-text="[&quot;最近任务日志&quot;]">最近任务日志</summary><pre id="image-update-log" class="image-update-log">暂无日志</pre></details>
-              </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;资源限制&quot;]">资源限制</h3>
-                <div class="field-row">
+              <section id="settings-images" class="settings-topic" data-settings-topic>
+                <h3 class="settings-topic-title" data-i18n="镜像与更新">镜像与更新</h3>
+                <div class="settings-block">
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;Agent 镜像&quot;]">Agent 镜像</h3>
                   <label class="field">
-                    <span data-i18n-text="[&quot;内存上限（MB）&quot;]">内存上限（MB）</span>
-                    <input id="set-mem" type="number" min="128" class="mono">
-                  </label>
-                  <label class="field">
-                    <span data-i18n-text="[&quot;CPU 核数&quot;]">CPU 核数</span>
-                    <input id="set-cpus" type="number" min="0.5" step="0.5" class="mono">
-                  </label>
-                  <label class="field">
-                    <span data-i18n-text="[&quot;进程数上限&quot;]">进程数上限</span>
-                    <input id="set-pids" type="number" min="16" class="mono">
+                    <span data-i18n-text="[&quot;镜像名称 &quot;]">镜像名称 <span class="tag live" data-i18n-text="[&quot;新容器生效&quot;]">新容器生效</span></span>
+                    <input id="set-image" type="text" class="mono">
+                    <span class="hint" data-i18n-text="[&quot;重新构建镜像后无需改动此项，重启工作空间即可拉起新镜像。&quot;]">重新构建镜像后无需改动此项，重启工作空间即可拉起新镜像。</span>
                   </label>
                 </div>
-                <label class="field">
-                  <span data-i18n-text="[&quot;网络模式&quot;]">网络模式</span>
-                  <select id="set-net">
-                    <option value="bridge" data-i18n-text="[&quot;bridge — 默认桥接，可访问外网&quot;]">bridge — 默认桥接，可访问外网</option>
-                    <option value="none" data-i18n-text="[&quot;none — 完全断网&quot;]">none — 完全断网</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <span data-i18n-text="[&quot;出网范围&quot;]">出网范围</span>
-                  <select id="set-egress">
-                    <option value="open" data-i18n-text="[&quot;开放 — 可直连外网和宿主机（默认）&quot;]">开放 — 可直连外网和宿主机（默认）</option>
-                    <option value="restricted" data-i18n-text="[&quot;受限 — 只能经 agentbox 出网（账号代理或服务器直连公网）&quot;]">受限 — 只能经 agentbox 出网（账号代理或服务器直连公网）</option>
-                  </select>
-                  <span class="hint" data-i18n-text="[&quot;受限模式在每个工作空间的网络命名空间里装防火墙规则：不能直连外网、宿主机其他服务和其他工作空间；绑了代理的账号走自己的代理，未绑代理的账号由服务器代为访问公网。需要网络辅助镜像，运行中的空间约 10 秒内生效。&quot;]">受限模式在每个工作空间的网络命名空间里装防火墙规则：不能直连外网、宿主机其他服务和其他工作空间；绑了代理的账号走自己的代理，未绑代理的账号由服务器代为访问公网。需要网络辅助镜像，运行中的空间约 10 秒内生效。</span>
-                </label>
-                <label class="field">
-                  <span data-i18n-text="[&quot;未绑代理的账号&quot;]">未绑代理的账号</span>
-                  <select id="set-unbound-egress">
-                    <option value="server" data-i18n-text="[&quot;由服务器代为访问公网（出口为服务器 IP）&quot;]">由服务器代为访问公网（出口为服务器 IP）</option>
-                    <option value="none" data-i18n-text="[&quot;禁止访问外网（含模型接口，需先绑代理）&quot;]">禁止访问外网（含模型接口，需先绑代理）</option>
-                  </select>
-                  <span class="hint" data-i18n-text="[&quot;仅在受限模式下生效。选「由服务器代为访问」时，空间可通过 IP 回显服务看到服务器真实 IP；要完全隐藏，请为所有账号绑定代理或选择禁止。&quot;]">仅在受限模式下生效。选「由服务器代为访问」时，空间可通过 IP 回显服务看到服务器真实 IP；要完全隐藏，请为所有账号绑定代理或选择禁止。</span>
-                </label>
-                <label class="field">
-                  <span data-i18n-text="[&quot;不受限的用户&quot;]">不受限的用户</span>
-                  <input id="set-egress-exempt" class="mono" placeholder="例如 boxadmin，多个用逗号分隔" data-i18n-attrs="{&quot;placeholder&quot;: &quot;例如 boxadmin，多个用逗号分隔&quot;}">
-                  <span class="hint" data-i18n-text="[&quot;这些用户的空间不加出网限制（可直连、可访问宿主机），用于管理员在空间里维护服务器。只对之后启动或重新检查的空间生效；已加锁的空间需重启才会解除。&quot;]">这些用户的空间不加出网限制（可直连、可访问宿主机），用于管理员在空间里维护服务器。只对之后启动或重新检查的空间生效；已加锁的空间需重启才会解除。</span>
-                </label>
-                <div class="card-foot">
-                  <span class="note" data-i18n-text="[&quot;对新启动的容器生效&quot;]">对新启动的容器生效</span>
+                <div class="card" id="image-update-card">
+                  <h3 data-i18n-text="[&quot;Agent 镜像更新&quot;]">Agent 镜像更新</h3>
+                  <p class="card-desc" data-i18n-text="[&quot;更新工作空间里的 Claude Code，可选同时更新 Codex。空间停止再启动后使用新版本。&quot;]">更新工作空间里的 Claude Code，可选同时更新 Codex。空间停止再启动后使用新版本。</p>
+                  <div class="field-row">
+                    <label class="field"><span data-i18n-text="[&quot;自动更新&quot;]">自动更新</span><select id="image-update-enabled"><option value="off" data-i18n-text="[&quot;关闭 — 手动更新&quot;]">关闭 — 手动更新</option><option value="on" data-i18n-text="[&quot;开启 — 每日检查并应用&quot;]">开启 — 每日检查并应用</option></select></label>
+                    <label class="field"><span data-i18n-text="[&quot;Claude 渠道&quot;]">Claude 渠道</span><select id="image-update-channel"><option value="stable" data-i18n-text="[&quot;stable — 稳定版&quot;]">stable — 稳定版</option><option value="latest" data-i18n-text="[&quot;latest — 最新版&quot;]">latest — 最新版</option></select></label>
+                    <label class="field"><span data-i18n-text="[&quot;每日检查时间&quot;]">每日检查时间</span><input id="image-update-time" type="time" value="04:00" required></label>
+                    <label class="field"><span>Codex</span><select id="image-update-codex"><option value="off" data-i18n-text="[&quot;保持当前版本&quot;]">保持当前版本</option><option value="on" data-i18n-text="[&quot;同时更新到 latest&quot;]">同时更新到 latest</option></select></label>
+                  </div>
+                  <p id="image-update-schedule" class="note" data-i18n-text="[&quot;按系统时区调度；stable 可能落后于 latest。切换渠道不会自动降级。&quot;]">按系统时区调度；stable 可能落后于 latest。切换渠道不会自动降级。</p>
                 </div>
-              </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;容量与磁盘&quot;]">容量与磁盘</h3>
-                <p class="card-desc" data-i18n-text="[&quot;只限制新启动的空间，已运行的任务继续执行。0 表示不限制。&quot;]">只限制新启动的空间，已运行的任务继续执行。0 表示不限制。</p>
-                <div class="field-row">
-                  <label class="field"><span data-i18n-text="[&quot;全局运行容器上限&quot;]">全局运行容器上限</span><input id="set-running" type="number" min="0" step="1" required></label>
-                  <label class="field"><span data-i18n-text="[&quot;每用户运行容器上限&quot;]">每用户运行容器上限</span><input id="set-user-running" type="number" min="0" step="1" required></label>
-                  <label class="field"><span data-i18n-text="[&quot;数据盘保留空间（GiB）&quot;]">数据盘保留空间（GiB）</span><input id="set-free-gib" type="number" min="0" step="0.1" required></label>
+                <!-- 状态与一次性操作单独一张卡，和上面的配置分开 -->
+                <div class="card" id="image-update-ops">
+                  <h3 data-i18n-text="[&quot;镜像内 CLI 版本&quot;]">镜像内 CLI 版本</h3>
+                  <p id="image-update-dirty" class="note"></p>
+                  <p id="image-update-validation" class="note" role="status" aria-live="polite"></p>
+                  <p id="image-update-status" class="note" role="status" aria-live="polite" data-i18n-text="[&quot;尚未检查镜像内 CLI 版本&quot;]">尚未检查镜像内 CLI 版本</p>
+                  <div id="image-update-meter" class="image-update-meter hidden"><div class="image-update-meter-head"><span id="image-update-step"></span><span id="image-update-pct" class="mono"></span></div></div>
+                  <p id="image-update-versions" class="note"></p>
+                  <p id="image-update-active" class="note image-update-ref"></p>
+                  <p class="note" data-i18n="上方版本属于最近任务的起点与目标，不是所有空间的当前版本。更新会验证 CLI 版本、浏览器组件与合成上游行为；真实账号和模型仍需单独验收。">上方版本属于最近任务的起点与目标，不是所有空间的当前版本。更新会验证 CLI 版本、浏览器组件与合成上游行为；真实账号和模型仍需单独验收。</p>
+                  <div class="card-foot">
+                    <button id="image-update-check" class="btn btn-sm" data-icon="refresh" data-i18n-text="[&quot;立即检查&quot;]">立即检查</button>
+                    <button id="image-update-update" class="btn btn-sm" data-icon="download" data-i18n-text="[&quot;立即更新&quot;]">立即更新</button>
+                    <button id="image-update-rollback" class="btn btn-sm" data-icon="undo" disabled data-i18n-text="[&quot;回退上次镜像&quot;]">回退上次镜像</button>
+                  </div>
+                  <details><summary data-i18n-text="[&quot;最近任务日志&quot;]">最近任务日志</summary><pre id="image-update-log" class="image-update-log">暂无日志</pre></details>
                 </div>
-                <p id="storage-report" class="note" data-i18n-text="[&quot;磁盘统计每 5 分钟刷新，按文件大小估算。&quot;]">磁盘统计每 5 分钟刷新，按文件大小估算。</p>
-                <div class="card-foot">
-                  <button id="btn-storage" class="btn btn-sm" data-icon="activity" data-tip="查看磁盘使用统计" data-i18n-text="[&quot;磁盘统计&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;查看磁盘使用统计&quot;}">磁盘统计</button>
-                  <button id="btn-clear-cache" class="btn btn-sm" data-icon="trash" data-tip="清理官方市场下载缓存，下次访问时重新下载" data-i18n-text="[&quot;清理缓存&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;清理官方市场下载缓存，下次访问时重新下载&quot;}">清理缓存</button>
-                  <button id="btn-environment-check" class="btn btn-sm" data-icon="activity" data-i18n-text="[&quot;环境检查&quot;]">环境检查</button>
-                  <button id="btn-diagnostics" class="btn btn-sm" data-icon="download" data-tip="导出脱敏诊断信息" data-i18n-text="[&quot;导出诊断&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;导出脱敏诊断信息&quot;}">导出诊断</button>
                 </div>
-              </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;空闲自动停机&quot;]">空闲自动停机</h3>
-                <p class="card-desc" data-i18n-text="[&quot;没有对话或终端连接的工作空间，到时间后自动休眠以释放资源；发消息或打开终端即可唤醒。&quot;]">没有对话或终端连接的工作空间，到时间后自动休眠以释放资源；发消息或打开终端即可唤醒。</p>
-                <label class="field">
-                  <span data-i18n-text="[&quot;空闲超时（分钟）&quot;]">空闲超时（分钟）<span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span>
-                  <input id="set-idle" type="number" min="0" step="1" class="mono">
-                </label>
-                <div class="card-foot">
-                  <span class="note" data-i18n-text="[&quot;即时生效，无需重启；0 表示永不自动停机&quot;]">即时生效，无需重启；0 表示永不自动停机</span>
+              </section>
+              <section id="settings-resources" class="settings-topic" data-settings-topic>
+                <h3 class="settings-topic-title" data-i18n="资源与容量">资源与容量</h3>
+                <div class="settings-block">
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;资源限制&quot;]">资源限制</h3>
+                  <div class="field-row">
+                    <label class="field">
+                      <span data-i18n-text="[&quot;内存上限（MB）&quot;]">内存上限（MB）</span>
+                      <input id="set-mem" type="number" min="128" class="mono">
+                    </label>
+                    <label class="field">
+                      <span data-i18n-text="[&quot;CPU 核数&quot;]">CPU 核数</span>
+                      <input id="set-cpus" type="number" min="0.5" step="0.5" class="mono">
+                    </label>
+                    <label class="field">
+                      <span data-i18n-text="[&quot;进程数上限&quot;]">进程数上限</span>
+                      <input id="set-pids" type="number" min="16" class="mono">
+                    </label>
+                  </div>
+                  <label class="field">
+                    <span data-i18n-text="[&quot;网络模式&quot;]">网络模式</span>
+                    <select id="set-net">
+                      <option value="bridge" data-i18n-text="[&quot;bridge — 默认桥接，可访问外网&quot;]">bridge — 默认桥接，可访问外网</option>
+                      <option value="none" data-i18n-text="[&quot;none — 完全断网&quot;]">none — 完全断网</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span data-i18n-text="[&quot;出网范围&quot;]">出网范围</span>
+                    <select id="set-egress">
+                      <option value="open" data-i18n-text="[&quot;开放 — 可直连外网和宿主机（默认）&quot;]">开放 — 可直连外网和宿主机（默认）</option>
+                      <option value="restricted" data-i18n-text="[&quot;受限 — 只能经 agentbox 出网（账号代理或服务器直连公网）&quot;]">受限 — 只能经 agentbox 出网（账号代理或服务器直连公网）</option>
+                    </select>
+                    <span class="hint" data-i18n-text="[&quot;受限模式在每个工作空间的网络命名空间里装防火墙规则：不能直连外网、宿主机其他服务和其他工作空间；绑了代理的账号走自己的代理，未绑代理的账号由服务器代为访问公网。需要网络辅助镜像，运行中的空间约 10 秒内生效。&quot;]">受限模式在每个工作空间的网络命名空间里装防火墙规则：不能直连外网、宿主机其他服务和其他工作空间；绑了代理的账号走自己的代理，未绑代理的账号由服务器代为访问公网。需要网络辅助镜像，运行中的空间约 10 秒内生效。</span>
+                  </label>
+                  <label class="field">
+                    <span data-i18n-text="[&quot;未绑代理的账号&quot;]">未绑代理的账号</span>
+                    <select id="set-unbound-egress">
+                      <option value="server" data-i18n-text="[&quot;由服务器代为访问公网（出口为服务器 IP）&quot;]">由服务器代为访问公网（出口为服务器 IP）</option>
+                      <option value="none" data-i18n-text="[&quot;禁止访问外网（含模型接口，需先绑代理）&quot;]">禁止访问外网（含模型接口，需先绑代理）</option>
+                    </select>
+                    <span class="hint" data-i18n-text="[&quot;仅在受限模式下生效。选「由服务器代为访问」时，空间可通过 IP 回显服务看到服务器真实 IP；要完全隐藏，请为所有账号绑定代理或选择禁止。&quot;]">仅在受限模式下生效。选「由服务器代为访问」时，空间可通过 IP 回显服务看到服务器真实 IP；要完全隐藏，请为所有账号绑定代理或选择禁止。</span>
+                  </label>
+                  <label class="field">
+                    <span data-i18n-text="[&quot;不受限的用户&quot;]">不受限的用户</span>
+                    <input id="set-egress-exempt" class="mono" placeholder="例如 boxadmin，多个用逗号分隔" data-i18n-attrs="{&quot;placeholder&quot;: &quot;例如 boxadmin，多个用逗号分隔&quot;}">
+                    <span class="hint" data-i18n-text="[&quot;这些用户的空间不加出网限制（可直连、可访问宿主机），用于管理员在空间里维护服务器。只对之后启动或重新检查的空间生效；已加锁的空间需重启才会解除。&quot;]">这些用户的空间不加出网限制（可直连、可访问宿主机），用于管理员在空间里维护服务器。只对之后启动或重新检查的空间生效；已加锁的空间需重启才会解除。</span>
+                  </label>
+                  <div class="card-foot">
+                    <span class="note" data-i18n-text="[&quot;对新启动的容器生效&quot;]">对新启动的容器生效</span>
+                  </div>
                 </div>
-              </div>
-              <div class="card">
-                <h3 data-i18n="单轮对话时长上限">单轮对话时长上限</h3>
-                <p class="card-desc" data-i18n="一轮对话超过这个时长还没结束，自动中断，免得卡住或失控的回合一直占着工作空间、一直消耗额度。等待用户回答提问的时间不计入。">一轮对话超过这个时长还没结束，自动中断，免得卡住或失控的回合一直占着工作空间、一直消耗额度。等待用户回答提问的时间不计入。</p>
-                <label class="field"><span data-i18n="时长上限（分钟）">时长上限（分钟）</span><input id="set-turn-timeout" type="number" min="5" max="1440" step="1" required class="mono"></label>
-                <div class="card-foot">
-                  <span class="note" data-i18n="即时生效，从之后开始的回合起作用；可设 5–1440 分钟，默认 120。可能委派跑腿的回合至少 2 小时。">即时生效，从之后开始的回合起作用；可设 5–1440 分钟，默认 120。可能委派跑腿的回合至少 2 小时。</span>
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;容量与磁盘&quot;]">容量与磁盘</h3>
+                  <p class="card-desc" data-i18n-text="[&quot;只限制新启动的空间，已运行的任务继续执行。0 表示不限制。&quot;]">只限制新启动的空间，已运行的任务继续执行。0 表示不限制。</p>
+                  <div class="field-row">
+                    <label class="field"><span data-i18n-text="[&quot;全局运行容器上限&quot;]">全局运行容器上限</span><input id="set-running" type="number" min="0" step="1" required></label>
+                    <label class="field"><span data-i18n-text="[&quot;每用户运行容器上限&quot;]">每用户运行容器上限</span><input id="set-user-running" type="number" min="0" step="1" required></label>
+                    <label class="field"><span data-i18n-text="[&quot;数据盘保留空间（GiB）&quot;]">数据盘保留空间（GiB）</span><input id="set-free-gib" type="number" min="0" step="0.1" required></label>
+                  </div>
+                  <p id="storage-report" class="note" data-i18n-text="[&quot;磁盘统计每 5 分钟刷新，按文件大小估算。&quot;]">磁盘统计每 5 分钟刷新，按文件大小估算。</p>
+                  <div class="card-foot">
+                    <button id="btn-storage" class="btn btn-sm" data-icon="activity" data-tip="查看磁盘使用统计" data-i18n-text="[&quot;磁盘统计&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;查看磁盘使用统计&quot;}">磁盘统计</button>
+                    <button id="btn-clear-cache" class="btn btn-sm" data-icon="trash" data-tip="清理官方市场下载缓存，下次访问时重新下载" data-i18n-text="[&quot;清理缓存&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;清理官方市场下载缓存，下次访问时重新下载&quot;}">清理缓存</button>
+                    <button id="btn-environment-check" class="btn btn-sm" data-icon="activity" data-i18n-text="[&quot;环境检查&quot;]">环境检查</button>
+                    <button id="btn-diagnostics" class="btn btn-sm" data-icon="download" data-tip="导出脱敏诊断信息" data-i18n-text="[&quot;导出诊断&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;导出脱敏诊断信息&quot;}">导出诊断</button>
+                  </div>
                 </div>
-              </div>
-              <div class="card">
-                <h3 data-i18n="同时运行的对话数">同时运行的对话数</h3>
-                <p class="card-desc" data-i18n="一个工作空间里最多几个对话线程可以同时运行。每个运行中的对话都是容器里一个独立的 CLI 进程，共用该空间的内存和 CPU；给空间分配的内存越多，可以设得越大。">一个工作空间里最多几个对话线程可以同时运行。每个运行中的对话都是容器里一个独立的 CLI 进程，共用该空间的内存和 CPU；给空间分配的内存越多，可以设得越大。</p>
-                <label class="field"><span data-i18n="每个空间最多（个）">每个空间最多（个）</span><input id="set-max-parallel" type="number" min="1" max="10" step="1" required class="mono"></label>
-                <div class="card-foot">
-                  <span class="note" data-i18n="即时生效：调大后排队等空位的消息马上开始，调小不会中断正在运行的对话。可设 1–10，默认 3。">即时生效：调大后排队等空位的消息马上开始，调小不会中断正在运行的对话。可设 1–10，默认 3。</span>
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;空闲自动停机&quot;]">空闲自动停机</h3>
+                  <p class="card-desc" data-i18n="闲置空间会自动休眠以释放资源。">闲置空间会自动休眠以释放资源。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;没有对话或终端连接的工作空间，到时间后自动休眠以释放资源；发消息或打开终端即可唤醒。&quot;]">没有对话或终端连接的工作空间，到时间后自动休眠以释放资源；发消息或打开终端即可唤醒。</p>
+                  </details>
+                  <label class="field">
+                    <span data-i18n-text="[&quot;空闲超时（分钟）&quot;]">空闲超时（分钟）<span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span>
+                    <input id="set-idle" type="number" min="0" step="1" class="mono">
+                  </label>
+                  <div class="card-foot">
+                    <span class="note" data-i18n-text="[&quot;即时生效，无需重启；0 表示永不自动停机&quot;]">即时生效，无需重启；0 表示永不自动停机</span>
+                  </div>
                 </div>
-              </div>
-              <div class="card" id="set-keepalive">
-                <h3 data-i18n="对话缓存保活">对话缓存保活</h3>
-                <p class="card-desc" data-i18n="用户离开时，服务端定期读一遍 Claude 对话的提示缓存，回来继续聊不用整段重写。每个空间由用户在「⋯ → 缓存保活」里自己开启；这里决定是否允许，以及默认值和上限。">用户离开时，服务端定期读一遍 Claude 对话的提示缓存，回来继续聊不用整段重写。每个空间由用户在「⋯ → 缓存保活」里自己开启；这里决定是否允许，以及默认值和上限。</p>
-                <label class="check"><input id="set-ka-allowed" type="checkbox"><span data-i18n="允许用户开启缓存保活">允许用户开启缓存保活</span></label>
-                <div class="field-row">
-                  <label class="field"><span data-i18n="默认上下文门槛（token）">默认上下文门槛（token）</span><input id="set-ka-min" type="number" min="0" step="1000" required class="mono"></label>
-                  <label class="field"><span data-i18n="默认最长保活（小时）">默认最长保活（小时）</span><input id="set-ka-hours" type="number" min="1" max="24" step="1" required class="mono"></label>
-                  <label class="field"><span data-i18n="用户最长可设（小时）">用户最长可设（小时）</span><input id="set-ka-limit" type="number" min="1" max="24" step="1" required class="mono"></label>
-                  <label class="field"><span data-i18n="保活间隔（分钟）">保活间隔（分钟）</span><input id="set-ka-interval" type="number" min="30" max="55" step="1" required class="mono"></label>
-                  <label id="set-ka-pause-field" class="field"><span data-i18n="默认暂停阈值（5 小时额度 %）">默认暂停阈值（5 小时额度 %）</span><input id="set-ka-pause" type="number" min="50" max="99" step="1" required class="mono"></label>
                 </div>
-                <p class="note" data-i18n="开启保活的空间在 Claude 订阅的 5 小时额度用到暂停阈值时暂停对话，把剩下的额度留给保活，重置后自动继续；用户可在空间里调整或关闭。">开启保活的空间在 Claude 订阅的 5 小时额度用到暂停阈值时暂停对话，把剩下的额度留给保活，重置后自动继续；用户可在空间里调整或关闭。</p>
-                <div class="card-foot">
-                  <span class="note" data-i18n="即时生效；取消允许后所有空间立即停止保活。间隔要小于缓存的 1 小时，可设 30–55 分钟。">即时生效；取消允许后所有空间立即停止保活。间隔要小于缓存的 1 小时，可设 30–55 分钟。</span>
+              </section>
+              <section id="settings-chat-limits" class="settings-topic" data-settings-topic>
+                <h3 class="settings-topic-title" data-i18n="对话限制">对话限制</h3>
+                <div class="settings-block">
+                <div class="card">
+                  <h3 data-i18n="单轮对话时长上限">单轮对话时长上限</h3>
+                  <p class="card-desc" data-i18n="到达时限时自动中断当前回合。">到达时限时自动中断当前回合。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n="一轮对话超过这个时长还没结束，自动中断，免得卡住或失控的回合一直占着工作空间、一直消耗额度。等待用户回答提问的时间不计入。">一轮对话超过这个时长还没结束，自动中断，免得卡住或失控的回合一直占着工作空间、一直消耗额度。等待用户回答提问的时间不计入。</p>
+                  </details>
+                  <label class="field"><span data-i18n="时长上限（分钟）">时长上限（分钟）</span><input id="set-turn-timeout" type="number" min="5" max="1440" step="1" required class="mono"></label>
+                  <div class="card-foot">
+                    <span class="note" data-i18n="即时生效，从之后开始的回合起作用；可设 5–1440 分钟，默认 120。可能委派跑腿的回合至少 2 小时。">即时生效，从之后开始的回合起作用；可设 5–1440 分钟，默认 120。可能委派跑腿的回合至少 2 小时。</span>
+                  </div>
                 </div>
-              </div>
+                <div class="card">
+                  <h3 data-i18n="同时运行的对话数">同时运行的对话数</h3>
+                  <p class="card-desc" data-i18n="限制同一空间同时运行的对话数。">限制同一空间同时运行的对话数。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n="一个工作空间里最多几个对话线程可以同时运行。每个运行中的对话都是容器里一个独立的 CLI 进程，共用该空间的内存和 CPU；给空间分配的内存越多，可以设得越大。">一个工作空间里最多几个对话线程可以同时运行。每个运行中的对话都是容器里一个独立的 CLI 进程，共用该空间的内存和 CPU；给空间分配的内存越多，可以设得越大。</p>
+                  </details>
+                  <label class="field"><span data-i18n="每个空间最多（个）">每个空间最多（个）</span><input id="set-max-parallel" type="number" min="1" max="10" step="1" required class="mono"></label>
+                  <div class="card-foot">
+                    <span class="note" data-i18n="即时生效：调大后排队等空位的消息马上开始，调小不会中断正在运行的对话。可设 1–10，默认 3。">即时生效：调大后排队等空位的消息马上开始，调小不会中断正在运行的对话。可设 1–10，默认 3。</span>
+                  </div>
+                </div>
+                <div class="card" id="set-keepalive">
+                  <h3 data-i18n="对话缓存保活">对话缓存保活</h3>
+                  <p class="card-desc" data-i18n="设置 Claude 对话缓存保活的默认值和上限。">设置 Claude 对话缓存保活的默认值和上限。</p>
+                  <p class="settings-risk" data-i18n="保活请求计入额度。">保活请求计入额度。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n="用户离开时，服务端定期读一遍 Claude 对话的提示缓存，回来继续聊不用整段重写。每个空间由用户在「⋯ → 缓存保活」里自己开启；这里决定是否允许，以及默认值和上限。">用户离开时，服务端定期读一遍 Claude 对话的提示缓存，回来继续聊不用整段重写。每个空间由用户在「⋯ → 缓存保活」里自己开启；这里决定是否允许，以及默认值和上限。</p>
+                  </details>
+                  <label class="settings-toggle"><span class="settings-toggle-label"><span data-i18n="允许用户开启缓存保活">允许用户开启缓存保活</span></span><input class="interface-switch" role="switch" id="set-ka-allowed" type="checkbox"></label>
+                  <div class="field-row">
+                    <label class="field"><span data-i18n="默认上下文门槛（token）">默认上下文门槛（token）</span><input id="set-ka-min" type="number" min="0" step="1000" required class="mono"></label>
+                    <label class="field"><span data-i18n="默认最长保活（小时）">默认最长保活（小时）</span><input id="set-ka-hours" type="number" min="1" max="24" step="1" required class="mono"></label>
+                    <label class="field"><span data-i18n="用户最长可设（小时）">用户最长可设（小时）</span><input id="set-ka-limit" type="number" min="1" max="24" step="1" required class="mono"></label>
+                    <label class="field"><span data-i18n="保活间隔（分钟）">保活间隔（分钟）</span><input id="set-ka-interval" type="number" min="30" max="55" step="1" required class="mono"></label>
+                    <label id="set-ka-pause-field" class="field"><span data-i18n="默认暂停阈值（5 小时额度 %）">默认暂停阈值（5 小时额度 %）</span><input id="set-ka-pause" type="number" min="50" max="99" step="1" required class="mono"></label>
+                  </div>
+                  <p class="note" data-i18n="开启保活的空间在 Claude 订阅的 5 小时额度用到暂停阈值时暂停对话，把剩下的额度留给保活，重置后自动继续；用户可在空间里调整或关闭。">开启保活的空间在 Claude 订阅的 5 小时额度用到暂停阈值时暂停对话，把剩下的额度留给保活，重置后自动继续；用户可在空间里调整或关闭。</p>
+                  <div class="card-foot">
+                    <span class="note" data-i18n="即时生效；取消允许后所有空间立即停止保活。间隔要小于缓存的 1 小时，可设 30–55 分钟。">即时生效；取消允许后所有空间立即停止保活。间隔要小于缓存的 1 小时，可设 30–55 分钟。</span>
+                  </div>
+                </div>
+                </div>
+              </section>
             </section>
 
             <!-- 模型管理 -->
@@ -1152,10 +1213,15 @@
                     </div>
                     <div class="price-sync-row">
                       <div class="price-sync-options">
-                        <label class="price-auto" data-i18n-text="[&quot;每天自动检查&quot;]"><input id="price-auto" type="checkbox">每天自动检查</label>
-                        <label class="price-auto" data-i18n-text="[&quot;自动跟随已选模型&quot;]"><input id="price-auto-apply" type="checkbox">自动跟随已选模型</label>
+                        <label class="settings-toggle"><span class="settings-toggle-label" data-i18n="每天自动检查">每天自动检查</span><input id="price-auto" class="interface-switch" type="checkbox" role="switch"></label>
+                        <label class="settings-toggle"><span class="settings-toggle-label" data-i18n="自动跟随已选模型">自动跟随已选模型</span><input id="price-auto-apply" class="interface-switch" type="checkbox" role="switch"></label>
                       </div>
-                      <span class="help" tabindex="0" aria-label="价格目录说明" data-i18n-attrs="{&quot;aria-label&quot;:&quot;价格目录说明&quot;}">?<span class="help-tip" role="tooltip"><span class="help-line" data-i18n="「检查更新」只预览变化；勾选模型并应用后，这些模型会跟随目录价格。">「检查更新」只预览变化；勾选模型并应用后，这些模型会跟随目录价格。</span><span class="help-line" data-i18n="开启自动跟随后，每日检查会更新已选模型；单价变化超过 25%、零价格或长上下文规则变化留待手动核对。自定义价格、新模型和目录里没有的模型不会自动修改。">开启自动跟随后，每日检查会更新已选模型；单价变化超过 25%、零价格或长上下文规则变化留待手动核对。自定义价格、新模型和目录里没有的模型不会自动修改。</span><span class="help-line" data-i18n="models.dev 是第三方价格源，只导入 Anthropic / OpenAI 文本模型的标准 API 价格。Claude 缓存写入换算为 1 小时口径；缺失的价格不会按 0 导入。">models.dev 是第三方价格源，只导入 Anthropic / OpenAI 文本模型的标准 API 价格。Claude 缓存写入换算为 1 小时口径；缺失的价格不会按 0 导入。</span></span></span>
+                      <details class="learn-more settings-details">
+                        <summary data-i18n="了解更多">了解更多</summary>
+                        <p data-i18n="「检查更新」只预览变化；勾选模型并应用后，这些模型会跟随目录价格。">「检查更新」只预览变化；勾选模型并应用后，这些模型会跟随目录价格。</p>
+                        <p data-i18n="开启自动跟随后，每日检查会更新已选模型；单价变化超过 25%、零价格或长上下文规则变化留待手动核对。自定义价格、新模型和目录里没有的模型不会自动修改。">开启自动跟随后，每日检查会更新已选模型；单价变化超过 25%、零价格或长上下文规则变化留待手动核对。自定义价格、新模型和目录里没有的模型不会自动修改。</p>
+                        <p data-i18n="models.dev 是第三方价格源，只导入 Anthropic / OpenAI 文本模型的标准 API 价格。Claude 缓存写入换算为 1 小时口径；缺失的价格不会按 0 导入。">models.dev 是第三方价格源，只导入 Anthropic / OpenAI 文本模型的标准 API 价格。Claude 缓存写入换算为 1 小时口径；缺失的价格不会按 0 导入。</p>
+                      </details>
                     </div>
                     <div id="price-source-issues" class="price-notice hidden" role="status"></div>
                     <div id="price-diff" class="hidden">
@@ -1209,10 +1275,14 @@
             </section>
 
             <!-- 智能决策 -->
-            <section id="sec-decision" class="set-section hidden">
-              <div class="sec-intro"><div><h2 data-i18n="智能决策">智能决策</h2><p data-i18n="对话开启「委派」时，Jev 可在标签规则之后判断交给哪个跑腿模型，或建议主 Agent 自己做。关闭后仍按跑腿标签路由。">对话开启「委派」时，Jev 可在标签规则之后判断交给哪个跑腿模型，或建议主 Agent 自己做。关闭后仍按跑腿标签路由。</p></div></div>
+            <section id="sec-decision" class="set-section settings-form hidden">
+              <div class="sec-intro"><div><h2 data-i18n="智能决策">智能决策</h2><p data-i18n="用 Jev 为委派任务选择执行模型。">用 Jev 为委派任务选择执行模型。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n="对话开启「委派」时，Jev 可在标签规则之后判断交给哪个跑腿模型，或建议主 Agent 自己做。关闭后仍按跑腿标签路由。">对话开启「委派」时，Jev 可在标签规则之后判断交给哪个跑腿模型，或建议主 Agent 自己做。关闭后仍按跑腿标签路由。</p>
+                  </details></div></div>
               <p id="decision-settings-unavailable" class="dc-callout warn" hidden data-i18n="当前服务端不支持决策插件。">当前服务端不支持决策插件。</p>
-              <fieldset id="decision-settings-fields" class="decision-settings-fields" disabled>
+              <fieldset id="decision-settings-fields" class="decision-settings-fields settings-block" disabled>
                 <input id="set-decision-revision" type="hidden" value="0">
                 <input id="set-decision-key-gateway" type="hidden" value="typesafe">
                 <input id="set-decision-key-configured" type="hidden" value="false">
@@ -1220,9 +1290,9 @@
                   <div class="dc-head">
                     <div class="dc-head-text">
                       <h3 data-i18n="Jev 辅助决策">Jev 辅助决策</h3>
-                      <p class="card-desc" data-i18n="只在任务选择自动模型且需要判断时调用。固定模型不产生决策调用费用。">只在任务选择自动模型且需要判断时调用。固定模型不产生决策调用费用。</p>
+                      <p class="settings-risk" data-i18n="只在任务选择自动模型且需要判断时调用。固定模型不产生决策调用费用。">只在任务选择自动模型且需要判断时调用。固定模型不产生决策调用费用。</p>
                     </div>
-                    <label class="dc-switch"><span data-i18n="启用 Jev">启用 Jev</span><input id="set-decision-enabled" type="checkbox" class="mv-switch"></label>
+                    <label class="dc-switch settings-toggle"><span class="settings-toggle-label" data-i18n="启用 Jev">启用 Jev</span><input id="set-decision-enabled" type="checkbox" role="switch" class="interface-switch"></label>
                   </div>
                   <div class="field-row">
                     <label class="field"><span data-i18n="默认决策方式">默认决策方式</span><select id="set-decision-default"><option value="builtin" data-i18n="内置规则">内置规则</option><option value="jev" data-i18n="Jev 辅助判断">Jev 辅助判断</option></select></label>
@@ -1401,104 +1471,128 @@
             </section>
 
             <!-- 安全与访问 -->
-            <section id="sec-security" class="set-section hidden">
+            <section id="sec-security" class="set-section settings-form hidden">
               <div class="sec-intro">
                 <div>
                   <h2 data-i18n-text="[&quot;安全与访问&quot;]">安全与访问</h2>
                   <p data-i18n-text="[&quot;控制台的访问凭证与 Agent 的权限边界。&quot;]">控制台的访问凭证与 Agent 的权限边界。</p>
                 </div>
               </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;用户管理&quot;]">用户管理</h3>
-                <p class="card-desc" data-i18n-text="[&quot;普通用户只能访问自己的工作空间和本机偏好，无法查看服务端配置。删除用户会一并移除其工作空间和容器，文件仍保留在服务器磁盘上。&quot;]">普通用户只能访问自己的工作空间和本机偏好，无法查看服务端配置。删除用户会一并移除其工作空间和容器，文件仍保留在服务器磁盘上。</p>
-                <div id="user-list" class="user-list"></div>
-                <div class="user-add">
-                  <input id="user-new-name" type="text" class="mono" placeholder="用户名（小写字母数字开头，可含 - _）" autocapitalize="none" spellcheck="false" data-i18n-attrs="{&quot;placeholder&quot;:&quot;用户名（小写字母数字开头，可含 - _）&quot;}">
-                  <input id="user-new-pass" type="password" placeholder="初始密码（至少 8 位）" autocomplete="new-password" data-i18n-attrs="{&quot;placeholder&quot;:&quot;初始密码（至少 8 位）&quot;}">
-                  <button id="btn-user-add" class="btn btn-sm" data-icon="plus" data-i18n-text="[&quot;添加用户&quot;]">添加用户</button>
+              <section id="settings-user-access" class="settings-topic" data-settings-topic>
+                <h3 class="settings-topic-title" data-i18n="用户与凭证">用户与凭证</h3>
+                <div class="settings-block">
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;用户管理&quot;]">用户管理</h3>
+                  <p class="card-desc" data-i18n="普通用户只能访问自己的工作空间和本机偏好，无法查看服务端配置。">普通用户只能访问自己的工作空间和本机偏好，无法查看服务端配置。</p>
+                  <p class="settings-risk" data-i18n="删除用户会一并移除其工作空间和容器，文件仍保留在服务器磁盘上。">删除用户会一并移除其工作空间和容器，文件仍保留在服务器磁盘上。</p>
+                  <div id="user-list" class="user-list"></div>
+                  <div class="user-add">
+                    <input id="user-new-name" type="text" class="mono" placeholder="用户名（小写字母数字开头，可含 - _）" autocapitalize="none" spellcheck="false" data-i18n-attrs="{&quot;placeholder&quot;:&quot;用户名（小写字母数字开头，可含 - _）&quot;}">
+                    <input id="user-new-pass" type="password" placeholder="初始密码（至少 8 位）" autocomplete="new-password" data-i18n-attrs="{&quot;placeholder&quot;:&quot;初始密码（至少 8 位）&quot;}">
+                    <button id="btn-user-add" class="btn btn-sm" data-icon="plus" data-i18n-text="[&quot;添加用户&quot;]">添加用户</button>
+                  </div>
+                  <!-- 存储上限：服务端启用存储配额时才显示，占位文字带默认值，由 user-storage.ts 填 -->
+                  <div id="user-add-storage" class="user-add-storage hidden">
+                    <input id="user-new-data" type="text" class="mono" inputmode="decimal" autocomplete="off">
+                    <input id="user-new-cache" type="text" class="mono" inputmode="decimal" autocomplete="off">
+                    <span id="user-storage-note" class="field-hint"></span>
+                  </div>
                 </div>
-                <!-- 存储上限：服务端启用存储配额时才显示，占位文字带默认值，由 user-storage.ts 填 -->
-                <div id="user-add-storage" class="user-add-storage hidden">
-                  <input id="user-new-data" type="text" class="mono" inputmode="decimal" autocomplete="off">
-                  <input id="user-new-cache" type="text" class="mono" inputmode="decimal" autocomplete="off">
-                  <span id="user-storage-note" class="field-hint"></span>
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;修改登录密码&quot;]">修改登录密码</h3>
+                  <p class="card-desc" data-i18n="修改当前管理员的登录密码。">修改当前管理员的登录密码。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;修改当前管理员账号的登录密码。修改后本端保持登录，其他已登录端下次请求起需重新登录。&quot;]">修改当前管理员账号的登录密码。修改后本端保持登录，其他已登录端下次请求起需重新登录。</p>
+                  </details>
+                  <div class="field-row">
+                    <label class="field">
+                      <span data-i18n-text="[&quot;当前密码&quot;]">当前密码</span>
+                      <input id="pw-old" type="password" autocomplete="current-password">
+                    </label>
+                    <label class="field">
+                      <span data-i18n-text="[&quot;新密码（至少 8 位）&quot;]">新密码（至少 8 位）</span>
+                      <input id="pw-new" type="password" autocomplete="new-password">
+                    </label>
+                  </div>
+                  <div class="card-foot">
+                    <span class="note" data-i18n-text="[&quot;密码保存在服务端数据库（PBKDF2 哈希），不再依赖 config.json 的 auth_token&quot;]">密码保存在服务端数据库（PBKDF2 哈希），不再依赖 config.json 的 auth_token</span>
+                    <button id="btn-pw-save" class="btn btn-primary btn-sm" data-icon="key" data-i18n-text="[&quot;修改密码&quot;]">修改密码</button>
+                  </div>
                 </div>
-              </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;修改登录密码&quot;]">修改登录密码</h3>
-                <p class="card-desc" data-i18n-text="[&quot;修改当前管理员账号的登录密码。修改后本端保持登录，其他已登录端下次请求起需重新登录。&quot;]">修改当前管理员账号的登录密码。修改后本端保持登录，其他已登录端下次请求起需重新登录。</p>
-                <div class="field-row">
-                  <label class="field">
-                    <span data-i18n-text="[&quot;当前密码&quot;]">当前密码</span>
-                    <input id="pw-old" type="password" autocomplete="current-password">
-                  </label>
-                  <label class="field">
-                    <span data-i18n-text="[&quot;新密码（至少 8 位）&quot;]">新密码（至少 8 位）</span>
-                    <input id="pw-new" type="password" autocomplete="new-password">
-                  </label>
                 </div>
-                <div class="card-foot">
-                  <span class="note" data-i18n-text="[&quot;密码保存在服务端数据库（PBKDF2 哈希），不再依赖 config.json 的 auth_token&quot;]">密码保存在服务端数据库（PBKDF2 哈希），不再依赖 config.json 的 auth_token</span>
-                  <button id="btn-pw-save" class="btn btn-primary btn-sm" data-icon="key" data-i18n-text="[&quot;修改密码&quot;]">修改密码</button>
-                </div>
-              </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;Agent 权限模式&quot;]">Agent 权限模式</h3>
-                <label class="field">
-                  <span data-i18n-text="[&quot;容器内 Agent 的操作确认策略 &quot;]">容器内 Agent 的操作确认策略 <span class="tag live" data-i18n-text="[&quot;下一轮对话生效&quot;]">下一轮对话生效</span></span>
-                  <select id="set-perm">
-                    <option value="bypassPermissions" data-i18n-text="[&quot;bypassPermissions — 免确认（容器已隔离，推荐）&quot;]">bypassPermissions — 免确认（容器已隔离，推荐）</option>
-                    <option value="acceptEdits" data-i18n-text="[&quot;acceptEdits — 自动接受文件编辑&quot;]">acceptEdits — 自动接受文件编辑</option>
-                    <option value="plan" data-i18n-text="[&quot;plan — 仅规划，不执行&quot;]">plan — 仅规划，不执行</option>
-                    <option value="default" data-i18n-text="[&quot;default — 每步确认&quot;]">default — 每步确认</option>
-                  </select>
-                </label>
-              </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;内网反向隧道&quot;]">内网反向隧道</h3>
-                <p class="card-desc" data-i18n-text="[&quot;本机运行 abox-link 后，工作空间可以访问你放行的内网服务。保存后立即生效。&quot;]">本机运行 abox-link 后，工作空间可以访问你放行的内网服务。保存后立即生效。</p>
-                <details class="learn-more"><summary data-i18n-text="[&quot;了解更多&quot;]">了解更多</summary><p data-i18n-text="[&quot;两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。&quot;]">两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。</p><p data-i18n-text="[&quot;：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。&quot;]"><b data-i18n-text="[&quot;透明模式（默认，推荐）&quot;]">透明模式（默认，推荐）</b>：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。</p><p data-i18n-text="[&quot;：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。&quot;]"><b data-i18n-text="[&quot;兼容代理模式（不推荐）&quot;]">兼容代理模式（不推荐）</b>：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。</p></details>
-                <label class="check" data-i18n-text="[&quot; 使用透明模式（默认，推荐）&quot;]"><input type="checkbox" id="set-tunnel-transparent"> 使用透明模式（默认，推荐）</label>
-                <div class="field-row"><label class="field"><span data-i18n-text="[&quot;网络控制监听地址&quot;]">网络控制监听地址</span><input id="set-network-bind" class="mono" placeholder="默认网桥地址:1082" data-i18n-attrs="{&quot;placeholder&quot;:&quot;默认网桥地址:1082&quot;}"></label><label class="field"><span data-i18n-text="[&quot;网络辅助镜像&quot;]">网络辅助镜像</span><input id="set-network-image" class="mono" placeholder="agentbox-network:latest"></label></div>
-                <label class="check" data-i18n-text="[&quot; 启用隧道 &quot;]"><input type="checkbox" id="set-tunnel-on"> 启用隧道 <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></label>
-                <div class="field-row">
+              </section>
+              <section id="settings-agent-access" class="settings-topic" data-settings-topic>
+                <h3 class="settings-topic-title" data-i18n="权限与网络">权限与网络</h3>
+                <div class="settings-block">
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;Agent 权限模式&quot;]">Agent 权限模式</h3>
                   <label class="field">
-                    <span data-i18n-text="[&quot;SOCKS 监听地址（须容器可达）&quot;]">SOCKS 监听地址（须容器可达）</span>
-                    <input id="set-tunnel-bind" type="text" class="mono" placeholder="172.17.0.1:1080">
-                  </label>
-                  <label class="field">
-                    <span data-i18n-text="[&quot;注入容器的代理主机（可选）&quot;]">注入容器的代理主机（可选）</span>
-                    <input id="set-tunnel-host" type="text" class="mono" placeholder="默认取监听地址的主机" data-i18n-attrs="{&quot;placeholder&quot;:&quot;默认取监听地址的主机&quot;}">
+                    <span data-i18n-text="[&quot;容器内 Agent 的操作确认策略 &quot;]">容器内 Agent 的操作确认策略 <span class="tag live" data-i18n-text="[&quot;下一轮对话生效&quot;]">下一轮对话生效</span></span>
+                    <select id="set-perm">
+                      <option value="bypassPermissions" data-i18n-text="[&quot;bypassPermissions — 免确认（容器已隔离，推荐）&quot;]">bypassPermissions — 免确认（容器已隔离，推荐）</option>
+                      <option value="acceptEdits" data-i18n-text="[&quot;acceptEdits — 自动接受文件编辑&quot;]">acceptEdits — 自动接受文件编辑</option>
+                      <option value="plan" data-i18n-text="[&quot;plan — 仅规划，不执行&quot;]">plan — 仅规划，不执行</option>
+                      <option value="default" data-i18n-text="[&quot;default — 每步确认&quot;]">default — 每步确认</option>
+                    </select>
                   </label>
                 </div>
-                <div class="card-foot">
-                  <span id="tunnel-note" class="note" data-i18n-text="[&quot;默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达&quot;]">默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达</span>
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;内网反向隧道&quot;]">内网反向隧道</h3>
+                  <p class="card-desc" data-i18n="通过 abox-link 访问允许的内网服务。">通过 abox-link 访问允许的内网服务。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;本机运行 abox-link 后，工作空间可以访问你放行的内网服务。保存后立即生效。&quot;]">本机运行 abox-link 后，工作空间可以访问你放行的内网服务。保存后立即生效。</p>
+                  </details>
+                  <details class="learn-more"><summary data-i18n-text="[&quot;了解更多&quot;]">了解更多</summary><p data-i18n-text="[&quot;两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。&quot;]">两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。</p><p data-i18n-text="[&quot;：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。&quot;]"><b data-i18n-text="[&quot;透明模式（默认，推荐）&quot;]">透明模式（默认，推荐）</b>：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。</p><p data-i18n-text="[&quot;：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。&quot;]"><b data-i18n-text="[&quot;兼容代理模式（不推荐）&quot;]">兼容代理模式（不推荐）</b>：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。</p></details>
+                  <label class="settings-toggle"><span class="settings-toggle-label" data-i18n="使用透明模式（默认，推荐）">使用透明模式（默认，推荐）</span><input class="interface-switch" role="switch" type="checkbox" id="set-tunnel-transparent"></label>
+                  <div class="field-row"><label class="field"><span data-i18n-text="[&quot;网络控制监听地址&quot;]">网络控制监听地址</span><input id="set-network-bind" class="mono" placeholder="默认网桥地址:1082" data-i18n-attrs="{&quot;placeholder&quot;:&quot;默认网桥地址:1082&quot;}"></label><label class="field"><span data-i18n-text="[&quot;网络辅助镜像&quot;]">网络辅助镜像</span><input id="set-network-image" class="mono" placeholder="agentbox-network:latest"></label></div>
+                  <label class="settings-toggle"><span class="settings-toggle-label"><span data-i18n="启用隧道">启用隧道</span> <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span><input class="interface-switch" role="switch" type="checkbox" id="set-tunnel-on"></label>
+                  <div class="field-row">
+                    <label class="field">
+                      <span data-i18n-text="[&quot;SOCKS 监听地址（须容器可达）&quot;]">SOCKS 监听地址（须容器可达）</span>
+                      <input id="set-tunnel-bind" type="text" class="mono" placeholder="172.17.0.1:1080">
+                    </label>
+                    <label class="field">
+                      <span data-i18n-text="[&quot;注入容器的代理主机（可选）&quot;]">注入容器的代理主机（可选）</span>
+                      <input id="set-tunnel-host" type="text" class="mono" placeholder="默认取监听地址的主机" data-i18n-attrs="{&quot;placeholder&quot;:&quot;默认取监听地址的主机&quot;}">
+                    </label>
+                  </div>
+                  <div class="card-foot">
+                    <span id="tunnel-note" class="note" data-i18n-text="[&quot;默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达&quot;]">默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达</span>
+                  </div>
                 </div>
-              </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;上传与监听&quot;]">上传与监听</h3>
-                <div class="field-row">
-                  <label class="field">
-                    <span data-i18n-text="[&quot;上传大小上限（MB）&quot;]">上传大小上限（MB）</span>
-                    <input id="set-upload" type="number" min="1" class="mono">
-                    <span class="hint" data-i18n="适用于项目、文件及聊天附件（含图片和 PDF），默认 512 MB。">适用于项目、文件及聊天附件（含图片和 PDF），默认 512 MB。</span>
-                  </label>
-                  <label class="field">
-                    <span data-i18n-text="[&quot;监听地址 &quot;]">监听地址 <span class="tag restart" data-i18n-text="[&quot;需重启&quot;]">需重启</span></span>
-                    <input id="set-listen" type="text" class="mono" placeholder="127.0.0.1:8180">
-                  </label>
                 </div>
-                <div class="field-row">
-                  <label class="field">
-                    <span data-i18n="历史加载超时（秒）">历史加载超时（秒）</span>
-                    <input id="set-history-timeout" type="number" min="1" max="3600" step="1" class="mono">
-                    <span class="hint" data-i18n="适用于打开空间和加载更早历史，默认 120 秒。其他已打开的页面刷新后生效。">适用于打开空间和加载更早历史，默认 120 秒。其他已打开的页面刷新后生效。</span>
-                  </label>
+              </section>
+              <section id="settings-transport-limits" class="settings-topic" data-settings-topic>
+                <h3 class="settings-topic-title" data-i18n="上传与监听">上传与监听</h3>
+                <div class="settings-block">
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;上传与监听&quot;]">上传与监听</h3>
+                  <div class="field-row">
+                    <label class="field">
+                      <span data-i18n-text="[&quot;上传大小上限（MB）&quot;]">上传大小上限（MB）</span>
+                      <input id="set-upload" type="number" min="1" class="mono">
+                      <span class="hint" data-i18n="适用于项目、文件及聊天附件（含图片和 PDF），默认 512 MB。">适用于项目、文件及聊天附件（含图片和 PDF），默认 512 MB。</span>
+                    </label>
+                    <label class="field">
+                      <span data-i18n-text="[&quot;监听地址 &quot;]">监听地址 <span class="tag restart" data-i18n-text="[&quot;需重启&quot;]">需重启</span></span>
+                      <input id="set-listen" type="text" class="mono" placeholder="127.0.0.1:8180">
+                    </label>
+                  </div>
+                  <div class="field-row">
+                    <label class="field">
+                      <span data-i18n="历史加载超时（秒）">历史加载超时（秒）</span>
+                      <input id="set-history-timeout" type="number" min="1" max="3600" step="1" class="mono">
+                      <span class="hint" data-i18n="适用于打开空间和加载更早历史，默认 120 秒。其他已打开的页面刷新后生效。">适用于打开空间和加载更早历史，默认 120 秒。其他已打开的页面刷新后生效。</span>
+                    </label>
+                  </div>
+                  <div class="card-foot">
+                    <span id="security-note" class="note" data-i18n-text="[&quot;权限模式与上传上限即时生效；监听地址需重启 agentbox 服务&quot;]">权限模式与上传上限即时生效；监听地址需重启 agentbox 服务</span>
+                  </div>
                 </div>
-                <div class="card-foot">
-                  <span id="security-note" class="note" data-i18n-text="[&quot;权限模式与上传上限即时生效；监听地址需重启 agentbox 服务&quot;]">权限模式与上传上限即时生效；监听地址需重启 agentbox 服务</span>
                 </div>
-              </div>
+              </section>
             </section>
 
             <!-- 运维监控 -->
@@ -1506,12 +1600,16 @@
               <div class="sec-intro">
                 <div>
                   <h2 data-i18n-text="[&quot;运维监控&quot;]">运维监控</h2>
-                  <p data-i18n-text="[&quot;服务端与主机的实时资源占用，每个工作空间容器的 CPU / 内存 / 磁盘，以及每个用户的存储配额。&quot;]">服务端与主机的实时资源占用，每个工作空间容器的 CPU / 内存 / 磁盘，以及每个用户的存储配额。</p>
+                  <p data-i18n="查看资源占用和存储配额。">查看资源占用和存储配额。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;服务端与主机的实时资源占用，每个工作空间容器的 CPU / 内存 / 磁盘，以及每个用户的存储配额。&quot;]">服务端与主机的实时资源占用，每个工作空间容器的 CPU / 内存 / 磁盘，以及每个用户的存储配额。</p>
+                  </details>
                 </div>
-                <label class="mon-auto" data-i18n-text="[&quot; 自动刷新&quot;]"><input type="checkbox" id="mon-auto" checked> 自动刷新</label>
+                <label class="mon-auto settings-toggle"><span class="settings-toggle-label" data-i18n="自动刷新">自动刷新</span><input type="checkbox" id="mon-auto" class="interface-switch" role="switch" checked></label>
               </div>
               <div id="mon-tiles" class="mon-tiles"></div>
-              <div class="card mon-card">
+              <div id="settings-containers" class="card mon-card" data-settings-topic="工作空间容器">
                 <div class="mon-card-head">
                   <h3 data-i18n-text="[&quot;工作空间容器&quot;]">工作空间容器</h3>
                   <span id="mon-sub" class="note"></span>
@@ -1536,7 +1634,7 @@
                   </table>
                 </div>
               </div>
-              <div class="card mon-card">
+              <div id="settings-user-storage" class="card mon-card" data-settings-topic="用户存储">
                 <div class="mon-card-head">
                   <h3 data-i18n-text="[&quot;用户存储&quot;]">用户存储</h3>
                   <span id="mon-storage-sub" class="note"></span>
@@ -1563,11 +1661,15 @@
               <div class="sec-intro">
                 <div>
                   <h2 data-i18n="登录与活跃">登录与活跃</h2>
-                  <p data-i18n="最后活跃统计用户在网页上的点击和输入，所有页面都算，Agent 自己运行不算。登录记录保留 180 天，只有管理员能看到。">最后活跃统计用户在网页上的点击和输入，所有页面都算，Agent 自己运行不算。登录记录保留 180 天，只有管理员能看到。</p>
+                  <p data-i18n="登录记录保留 180 天，仅管理员可见。">登录记录保留 180 天，仅管理员可见。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n="最后活跃统计用户在网页上的点击和输入，所有页面都算，Agent 自己运行不算。登录记录保留 180 天，只有管理员能看到。">最后活跃统计用户在网页上的点击和输入，所有页面都算，Agent 自己运行不算。登录记录保留 180 天，只有管理员能看到。</p>
+                  </details>
                 </div>
                 <button id="ua-refresh" type="button" class="btn btn-sm" data-icon="refresh" data-i18n="刷新">刷新</button>
               </div>
-              <div class="card mon-card">
+              <div id="settings-active-users" class="card mon-card" data-settings-topic="用户活跃">
                 <div class="mon-card-head">
                   <h3 data-i18n="用户活跃">用户活跃</h3>
                 </div>
@@ -1586,7 +1688,7 @@
                   </table>
                 </div>
               </div>
-              <div class="card mon-card">
+              <div id="settings-login-events" class="card mon-card" data-settings-topic="登录记录">
                 <div class="mon-card-head ua-events-head">
                   <h3 data-i18n="登录记录">登录记录</h3>
                   <label class="ua-filter"><span data-i18n="筛选用户">筛选用户</span>
@@ -1616,58 +1718,67 @@
               <div class="sec-intro">
                 <div>
                   <h2 data-i18n-text="[&quot;系统通告&quot;]">系统通告</h2>
-                  <p data-i18n-text="[&quot;向所有登录用户在页面顶部显示一条通告，例如提前告知发版维护。同一时间只有一条，重新发布会替换旧的；发版通告到点后显示「正在发版」，新版本启动后自动变成「已升级」，10 分钟后消失。&quot;]">向所有登录用户在页面顶部显示一条通告，例如提前告知发版维护。同一时间只有一条，重新发布会替换旧的；发版通告到点后显示「正在发版」，新版本启动后自动变成「已升级」，10 分钟后消失。</p>
+                  <p data-i18n="向已登录用户发布通告。新通告会替换旧通告。">向已登录用户发布通告。新通告会替换旧通告。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;向所有登录用户在页面顶部显示一条通告，例如提前告知发版维护。同一时间只有一条，重新发布会替换旧的；发版通告到点后显示「正在发版」，新版本启动后自动变成「已升级」，10 分钟后消失。&quot;]">向所有登录用户在页面顶部显示一条通告，例如提前告知发版维护。同一时间只有一条，重新发布会替换旧的；发版通告到点后显示「正在发版」，新版本启动后自动变成「已升级」，10 分钟后消失。</p>
+                  </details>
                 </div>
               </div>
-              <div class="card">
-                <h3 data-i18n-text="[&quot;当前通告&quot;]">当前通告</h3>
-                <div id="ann-current" class="ann-current"></div>
-                <div class="card-foot">
-                  <span id="ann-current-meta" class="note"></span>
-                  <button id="ann-clear" type="button" class="btn btn-sm btn-ghost hidden" data-icon="trash" data-i18n-text="[&quot;撤下通告&quot;]">撤下通告</button>
+              <section id="settings-announcement-editor" class="settings-topic" data-settings-topic>
+                <h3 class="settings-topic-title" data-i18n="通告管理">通告管理</h3>
+                <div class="settings-block">
+                <div class="card">
+                  <h3 data-i18n-text="[&quot;当前通告&quot;]">当前通告</h3>
+                  <div id="ann-current" class="ann-current"></div>
+                  <div class="card-foot">
+                    <span id="ann-current-meta" class="note"></span>
+                    <button id="ann-clear" type="button" class="btn btn-sm btn-ghost hidden" data-icon="trash" data-i18n-text="[&quot;撤下通告&quot;]">撤下通告</button>
+                  </div>
                 </div>
-              </div>
-              <form id="ann-form" class="card" novalidate>
-                <h3 data-i18n-text="[&quot;发布通告&quot;]">发布通告</h3>
-                <label class="field">
-                  <span data-i18n-text="[&quot;类型&quot;]">类型</span>
-                  <select id="ann-kind">
-                    <option value="release" data-i18n-text="[&quot;发版维护 — 显示倒计时，升级后自动提示完成&quot;]">发版维护 — 显示倒计时，升级后自动提示完成</option>
-                    <option value="notice" data-i18n-text="[&quot;普通通知 — 一直显示，直到撤下&quot;]">普通通知 — 一直显示，直到撤下</option>
-                  </select>
-                </label>
-                <div id="ann-release-fields" class="field-row">
+                <form id="ann-form" class="card" novalidate>
+                  <h3 data-i18n-text="[&quot;发布通告&quot;]">发布通告</h3>
                   <label class="field">
-                    <span data-i18n-text="[&quot;计划时间&quot;]">计划时间</span>
-                    <select id="ann-lead">
-                      <option value="5" data-i18n-text="[&quot;5 分钟后&quot;]">5 分钟后</option>
-                      <option value="10" selected data-i18n-text="[&quot;10 分钟后&quot;]">10 分钟后</option>
-                      <option value="15" data-i18n-text="[&quot;15 分钟后&quot;]">15 分钟后</option>
-                      <option value="30" data-i18n-text="[&quot;30 分钟后&quot;]">30 分钟后</option>
-                      <option value="60" data-i18n-text="[&quot;1 小时后&quot;]">1 小时后</option>
-                      <option value="at" data-i18n-text="[&quot;指定时间&quot;]">指定时间</option>
+                    <span data-i18n-text="[&quot;类型&quot;]">类型</span>
+                    <select id="ann-kind">
+                      <option value="release" data-i18n-text="[&quot;发版维护 — 显示倒计时，升级后自动提示完成&quot;]">发版维护 — 显示倒计时，升级后自动提示完成</option>
+                      <option value="notice" data-i18n-text="[&quot;普通通知 — 一直显示，直到撤下&quot;]">普通通知 — 一直显示，直到撤下</option>
                     </select>
                   </label>
-                  <label id="ann-at-field" class="field hidden">
-                    <span data-i18n-text="[&quot;开始时间&quot;]">开始时间</span>
-                    <input id="ann-at" type="datetime-local" class="mono">
-                  </label>
+                  <div id="ann-release-fields" class="field-row">
+                    <label class="field">
+                      <span data-i18n-text="[&quot;计划时间&quot;]">计划时间</span>
+                      <select id="ann-lead">
+                        <option value="5" data-i18n-text="[&quot;5 分钟后&quot;]">5 分钟后</option>
+                        <option value="10" selected data-i18n-text="[&quot;10 分钟后&quot;]">10 分钟后</option>
+                        <option value="15" data-i18n-text="[&quot;15 分钟后&quot;]">15 分钟后</option>
+                        <option value="30" data-i18n-text="[&quot;30 分钟后&quot;]">30 分钟后</option>
+                        <option value="60" data-i18n-text="[&quot;1 小时后&quot;]">1 小时后</option>
+                        <option value="at" data-i18n-text="[&quot;指定时间&quot;]">指定时间</option>
+                      </select>
+                    </label>
+                    <label id="ann-at-field" class="field hidden">
+                      <span data-i18n-text="[&quot;开始时间&quot;]">开始时间</span>
+                      <input id="ann-at" type="datetime-local" class="mono">
+                    </label>
+                    <label class="field">
+                      <span data-i18n-text="[&quot;预计中断（分钟）&quot;]">预计中断（分钟）</span>
+                      <input id="ann-duration" type="number" min="0" max="240" value="2" class="mono">
+                    </label>
+                  </div>
                   <label class="field">
-                    <span data-i18n-text="[&quot;预计中断（分钟）&quot;]">预计中断（分钟）</span>
-                    <input id="ann-duration" type="number" min="0" max="240" value="2" class="mono">
+                    <span data-i18n-text="[&quot;内容&quot;]">内容</span>
+                    <textarea id="ann-message" rows="3" maxlength="500" placeholder="发版通告可留空，或补充本次更新内容" data-i18n-attrs="{&quot;placeholder&quot;: &quot;发版通告可留空，或补充本次更新内容&quot;}"></textarea>
+                    <span class="hint" data-i18n-text="[&quot;纯文本，最多 500 字。发布后已打开的页面几秒内就会看到。&quot;]">纯文本，最多 500 字。发布后已打开的页面几秒内就会看到。</span>
                   </label>
+                  <div class="card-foot">
+                    <span id="ann-form-note" class="note" data-i18n-text="[&quot;会替换当前通告&quot;]">会替换当前通告</span>
+                    <button id="ann-post" type="submit" class="btn btn-sm btn-primary" data-icon="send" data-i18n-text="[&quot;发布&quot;]">发布</button>
+                  </div>
+                </form>
                 </div>
-                <label class="field">
-                  <span data-i18n-text="[&quot;内容&quot;]">内容</span>
-                  <textarea id="ann-message" rows="3" maxlength="500" placeholder="发版通告可留空，或补充本次更新内容" data-i18n-attrs="{&quot;placeholder&quot;: &quot;发版通告可留空，或补充本次更新内容&quot;}"></textarea>
-                  <span class="hint" data-i18n-text="[&quot;纯文本，最多 500 字。发布后已打开的页面几秒内就会看到。&quot;]">纯文本，最多 500 字。发布后已打开的页面几秒内就会看到。</span>
-                </label>
-                <div class="card-foot">
-                  <span id="ann-form-note" class="note" data-i18n-text="[&quot;会替换当前通告&quot;]">会替换当前通告</span>
-                  <button id="ann-post" type="submit" class="btn btn-sm btn-primary" data-icon="send" data-i18n-text="[&quot;发布&quot;]">发布</button>
-                </div>
-              </form>
-              <div class="card mon-card">
+              </section>
+              <div id="settings-announcement-impact" class="card mon-card" data-settings-topic="现在重启会影响谁">
                 <div class="mon-card-head">
                   <h3 data-i18n-text="[&quot;现在重启会影响谁&quot;]">现在重启会影响谁</h3>
                   <button id="ann-refresh" type="button" class="btn btn-sm btn-ghost" data-icon="refresh" data-i18n-text="[&quot;刷新&quot;]">刷新</button>
@@ -1694,7 +1805,11 @@
               <div class="sec-intro">
                 <div>
                   <h2 data-i18n-text="[&quot;图标管理&quot;]">图标管理</h2>
-                  <p data-i18n-text="[&quot;界面上每个用图标的位置都可以换成 Tabler 或 Lucide 图标库里的其他图标。语义位（如「刷新」）被许多按钮共用，换一次全站生效；具体位置默认跟随语义位，也可以单独设置。&quot;]">界面上每个用图标的位置都可以换成 Tabler 或 Lucide 图标库里的其他图标。语义位（如「刷新」）被许多按钮共用，换一次全站生效；具体位置默认跟随语义位，也可以单独设置。</p>
+                  <p data-i18n="为常用操作或指定位置更换图标。">为常用操作或指定位置更换图标。</p>
+                  <details class="learn-more settings-details">
+                    <summary data-i18n="了解更多">了解更多</summary>
+                    <p data-i18n-text="[&quot;界面上每个用图标的位置都可以换成 Tabler 或 Lucide 图标库里的其他图标。语义位（如「刷新」）被许多按钮共用，换一次全站生效；具体位置默认跟随语义位，也可以单独设置。&quot;]">界面上每个用图标的位置都可以换成 Tabler 或 Lucide 图标库里的其他图标。语义位（如「刷新」）被许多按钮共用，换一次全站生效；具体位置默认跟随语义位，也可以单独设置。</p>
+                  </details>
                 </div>
                 <div class="action-tools">
                   <button id="icons-reset-all" type="button" class="btn btn-sm btn-ghost" data-icon="undo" data-i18n-text="[&quot;全部恢复默认&quot;]">全部恢复默认</button>
@@ -1724,7 +1839,7 @@
                   <p data-i18n-text="[&quot;版本信息、软件更新与服务运行状态。&quot;]">版本信息、软件更新与服务运行状态。</p>
                 </div>
               </div>
-              <div class="update-panel">
+              <div id="settings-update-panel" class="update-panel" data-settings-topic="服务端更新">
                 <div class="update-product">
                   <span class="update-mark" data-mark></span>
                   <div><h3>AGENTBOX</h3><p data-i18n-text="[&quot;服务端 &quot;]">服务端 <span data-update-version>—</span></p><p id="update-build" class="update-meta"></p></div>
@@ -1751,7 +1866,7 @@
                   </div>
                 </div>
               </div>
-              <section class="update-components" aria-labelledby="component-title">
+              <section id="settings-update-components" class="update-components" data-settings-topic="更新对象与生效范围" aria-labelledby="component-title">
                 <div class="component-head"><h3 id="component-title" data-i18n="更新对象与生效范围">更新对象与生效范围</h3><button id="component-refresh" type="button" class="btn btn-sm" data-icon="refresh" data-i18n="刷新本地版本信息">刷新本地版本信息</button></div>
                 <p id="component-read-status" class="note" role="status"></p>
                 <table class="component-table">
@@ -1763,7 +1878,8 @@
                   </tbody>
                 </table>
               </section>
-              <div class="card">
+              <div id="settings-runtime-info" class="card" data-settings-topic="服务运行状态">
+                <h3 data-i18n="服务运行状态">服务运行状态</h3>
                 <dl id="about-kv" class="kv"></dl>
               </div>
             </section>

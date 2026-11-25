@@ -1,4 +1,5 @@
 import { api } from "../../api.js";
+import { APIError } from "../../problems.js";
 import { S, emit } from "../../state.js";
 import { refreshAll } from "../../data.js";
 import { setText, setTextRender, t } from "../../i18n.js";
@@ -87,12 +88,12 @@ export function initWorkspaceCreation() {
             directory.value = flow.latest()?.directory || flow.spec.directory || "project";
         }
     };
-    const render = () => {
+    const render = (preferredAccount = account.value) => {
         if (!current())
             return;
         const locked = !!flow.requestID, exists = !!flow.view?.workspace_exists, last = flow.latest();
         const uncertain = last?.state === "uncertain" || last?.state === "running";
-        const previous = locked ? flow.spec.account_id : account.value, available = new Set(accounts.map(a => a.type));
+        const previous = locked ? flow.spec.account_id : preferredAccount, available = new Set(accounts.map(a => a.type));
         if (!locked && accounts.length && !available.has(agent())) {
             const first = radios.find(r => available.has(r.value));
             if (first)
@@ -171,6 +172,7 @@ export function initWorkspaceCreation() {
             setSelectValue(importConnection, old || git.value);
     };
     const load = async () => {
+        const preferredAccount = account.value;
         controller?.abort();
         const request = controller = new AbortController(), turn = ++epoch, timer = setTimeout(() => request.abort(), 15000);
         loading = true;
@@ -219,7 +221,7 @@ export function initWorkspaceCreation() {
             clearTimeout(timer);
             if (current() && dialog.open && turn === epoch) {
                 loading = false;
-                render();
+                render(preferredAccount);
             }
         }
     };
@@ -276,7 +278,6 @@ export function initWorkspaceCreation() {
     dialog.addEventListener("close", () => { if (!dialog.open) {
         ++epoch;
         controller?.abort();
-        selectedModel = "";
         closeModelGuide(modelGuide);
     } }, options);
     modelGuide.addEventListener("click", () => {
@@ -298,15 +299,15 @@ export function initWorkspaceCreation() {
         });
     }, options);
     for (const radio of radios)
-        radio.addEventListener("change", render, options);
-    account.addEventListener("change", render, options);
-    source.addEventListener("change", render, options);
+        radio.addEventListener("change", () => render(), options);
+    account.addEventListener("change", () => render(), options);
+    source.addEventListener("change", () => render(), options);
     uploadMode.addEventListener("change", () => { files.value = ""; files.multiple = uploadMode.value !== "archive"; files.accept = uploadMode.value === "archive" ? ".zip,.tar,.tgz,.tar.gz" : ""; files.toggleAttribute("webkitdirectory", uploadMode.value === "directory"); }, options);
     $("new-git-manage").addEventListener("click", () => { dialog.close(); emit("open-git", "connections"); }, options);
     $("new-resume").addEventListener("click", () => void perform(async (signal) => { await flow.resume(pending.value, signal); setSpec(); }), options);
     $("new-query").addEventListener("click", () => void perform(async (signal) => { await flow.reconcile(signal); }), options);
     $("new-review").addEventListener("click", () => void perform(async (signal) => { await flow.review(signal); }), options);
-    $("new-restart").addEventListener("click", () => void perform(async (signal) => { await flow.abandon(signal); $("new-name").value = ""; files.value = ""; repository.value = ""; }), options);
+    $("new-restart").addEventListener("click", () => void perform(async (signal) => { await flow.abandon(signal); selectedModel = ""; $("new-name").value = ""; files.value = ""; repository.value = ""; }), options);
     $("new-inspect").addEventListener("click", () => { if (flow.view?.workspace_exists)
         void showWorkspace(flow.view.session, "files"); }, options);
     form.addEventListener("submit", event => {
@@ -335,7 +336,19 @@ export function initWorkspaceCreation() {
                 throw new Error(t("请选择项目压缩包、文件或目录。"));
             if (spec.source === "git" && (!importConnection.value || !repository.value.trim()) && !flow.view?.workspace_exists)
                 throw new Error(t("请选择 Git 连接并填写仓库地址。"));
-            const view = await flow.ensure(spec, signal);
+            const view = await flow.ensure(spec, signal).catch(async (error) => {
+                if (error instanceof APIError && error.problem.code === "creation_model_unavailable") {
+                    selectedModel = "";
+                    const saved = setup?.accounts.find(a => a.id === spec.account_id);
+                    if (saved)
+                        saved.models = saved.models?.filter(model => model.id !== expectedModel);
+                    try {
+                        setup = await api("/onboarding", { signal });
+                    }
+                    catch { /* Keep the last configuration without the rejected choice. */ }
+                }
+                throw error;
+            });
             if (!current())
                 return;
             setSpec(false);
@@ -356,6 +369,7 @@ export function initWorkspaceCreation() {
             const session = await flow.finish(signal);
             if (!current())
                 return;
+            selectedModel = "";
             emit("workspace-created", { session, source: spec.source, directory: spec.directory });
             $("new-name").value = "";
             files.value = "";

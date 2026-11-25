@@ -18,6 +18,14 @@
       "retryable": false
     },
     {
+      "code": "creation_model_unavailable",
+      "http_status": 409,
+      "error": "所选模型已不适用于此账号",
+      "hint": "请重新选择模型或使用账号默认模型。",
+      "action": "edit_request",
+      "retryable": false
+    },
+    {
       "code": "creation_gone",
       "http_status": 410,
       "error": "该创建已放弃或空间已删除",

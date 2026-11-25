@@ -204,7 +204,15 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 	defaultModel := s.cfg.NewWorkspaceModel(acct)
 	if req.DefaultModel != "" {
 		if !slices.ContainsFunc(s.workspaceCreationModels(acct, defaultModel), func(m onboardingModel) bool { return m.ID == req.DefaultModel }) {
-			writeErr(w, http.StatusBadRequest, "Selected model is no longer available for this account")
+			// Fence this request before allowing the client to edit and submit a
+			// new one. A competing accepted request keeps its existing receipt.
+			if req.RequestID != "" {
+				if err := s.store.AbandonUnknownWorkspaceCreation(reqUser(r), req.RequestID, newOperationID()); err != nil {
+					writeCreationError(w, r, err)
+					return
+				}
+			}
+			writeProblem(w, r, "session.create", "creation_model_unavailable")
 			return
 		}
 		defaultModel = req.DefaultModel

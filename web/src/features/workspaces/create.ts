@@ -1,4 +1,5 @@
 import {api} from "../../api.js";
+import {APIError} from "../../problems.js";
 import {S,emit} from "../../state.js";
 import {refreshAll} from "../../data.js";
 import {setText,setTextRender,t} from "../../i18n.js";
@@ -70,11 +71,11 @@ export function initWorkspaceCreation(){
   for(const radio of radios)radio.checked=radio.value===flow.spec.agent;
   if(restoreSource){setSelectValue(source,flow.latest()?.kind||flow.spec.source||"empty");directory.value=flow.latest()?.directory||flow.spec.directory||"project";}
  };
- const render=()=>{
+ const render=(preferredAccount=account.value)=>{
   if(!current())return;
   const locked=!!flow.requestID,exists=!!flow.view?.workspace_exists,last=flow.latest();
   const uncertain=last?.state==="uncertain"||last?.state==="running";
-  const previous=locked?flow.spec!.account_id:account.value,available=new Set(accounts.map(a=>a.type));
+  const previous=locked?flow.spec!.account_id:preferredAccount,available=new Set(accounts.map(a=>a.type));
   if(!locked&&accounts.length&&!available.has(agent())){const first=radios.find(r=>available.has(r.value));if(first)first.checked=true;}
   for(const radio of radios)radio.disabled=loading||busy||locked||!available.has(radio.value);
   account.replaceChildren();
@@ -128,6 +129,7 @@ export function initWorkspaceCreation(){
   if(connections.some(c=>c.enabled&&c.id===(old||git.value)))setSelectValue(importConnection,old||git.value);
  };
  const load=async()=>{
+  const preferredAccount=account.value;
   controller?.abort();const request=controller=new AbortController(),turn=++epoch,timer=setTimeout(()=>request.abort(),15000);
   loading=true;loadFailed=false;accounts=[];$("new-error").classList.add("hidden");render();
   try{
@@ -146,7 +148,7 @@ export function initWorkspaceCreation(){
     updateConnections();
    }catch(error){connections=[];updateConnections();if(current()&&dialog.open)showError(t("读取 Git 连接失败，可选择不绑定后创建：")+(error as Error).message);}
   }catch(error){if(current()&&dialog.open&&turn===epoch){loadFailed=true;showError((error as Error).message);}}
-  finally{clearTimeout(timer);if(current()&&dialog.open&&turn===epoch){loading=false;render();}}
+  finally{clearTimeout(timer);if(current()&&dialog.open&&turn===epoch){loading=false;render(preferredAccount);}}
  };
  const showWorkspace=async(session:Session,tab:string)=>{
   dialog.close();await refreshAll();if(!current())return;
@@ -166,7 +168,7 @@ export function initWorkspaceCreation(){
  $("new-configure").addEventListener("click",()=>{dialog.close();openSetupSettings("accounts");},options);
  close.addEventListener("click",()=>{if(!busy)dialog.close();},options);
  dialog.addEventListener("cancel",event=>{if(busy)event.preventDefault();},options);
- dialog.addEventListener("close",()=>{if(!dialog.open){++epoch;controller?.abort();selectedModel="";closeModelGuide(modelGuide);}},options);
+ dialog.addEventListener("close",()=>{if(!dialog.open){++epoch;controller?.abort();closeModelGuide(modelGuide);}},options);
  modelGuide.addEventListener("click",()=>{
   if(!current()||!dialog.open||loading||busy||loadFailed||flow.requestID||!ready())return;
   const id=account.value,label=accounts.find(item=>item.id===id)?.label||id;
@@ -180,15 +182,15 @@ export function initWorkspaceCreation(){
    },
   });
  },options);
- for(const radio of radios)radio.addEventListener("change",render,options);
- account.addEventListener("change",render,options);
- source.addEventListener("change",render,options);
+ for(const radio of radios)radio.addEventListener("change",()=>render(),options);
+ account.addEventListener("change",()=>render(),options);
+ source.addEventListener("change",()=>render(),options);
  uploadMode.addEventListener("change",()=>{files.value="";files.multiple=uploadMode.value!=="archive";files.accept=uploadMode.value==="archive"?".zip,.tar,.tgz,.tar.gz":"";files.toggleAttribute("webkitdirectory",uploadMode.value==="directory");},options);
  $("new-git-manage").addEventListener("click",()=>{dialog.close();emit("open-git","connections");},options);
  $("new-resume").addEventListener("click",()=>void perform(async signal=>{await flow.resume(pending.value,signal);setSpec();}),options);
  $("new-query").addEventListener("click",()=>void perform(async signal=>{await flow.reconcile(signal);}),options);
  $("new-review").addEventListener("click",()=>void perform(async signal=>{await flow.review(signal);}),options);
- $("new-restart").addEventListener("click",()=>void perform(async signal=>{await flow.abandon(signal);$<HTMLInputElement>("new-name").value="";files.value="";repository.value="";}),options);
+ $("new-restart").addEventListener("click",()=>void perform(async signal=>{await flow.abandon(signal);selectedModel="";$<HTMLInputElement>("new-name").value="";files.value="";repository.value="";}),options);
  $("new-inspect").addEventListener("click",()=>{if(flow.view?.workspace_exists)void showWorkspace(flow.view.session,"files");},options);
  form.addEventListener("submit",event=>{
   event.preventDefault();if(busy||loading||loadFailed||!current()||!dialog.open||flow.view?.busy||["running","uncertain"].includes(flow.latest()?.state||"")||(!flow.requestID&&!ready()))return;
@@ -211,7 +213,15 @@ export function initWorkspaceCreation(){
    // Validate the selected source before allocating a new workspace.
    if(spec.source==="upload"&&!files.files?.length&&!flow.view?.workspace_exists)throw new Error(t("请选择项目压缩包、文件或目录。"));
    if(spec.source==="git"&&(!importConnection.value||!repository.value.trim())&&!flow.view?.workspace_exists)throw new Error(t("请选择 Git 连接并填写仓库地址。"));
-   const view=await flow.ensure(spec,signal);if(!current())return;setSpec(false);
+   const view=await flow.ensure(spec,signal).catch(async error=>{
+    if(error instanceof APIError&&error.problem.code==="creation_model_unavailable"){
+     selectedModel="";
+     const saved=setup?.accounts.find(a=>a.id===spec.account_id);
+     if(saved)saved.models=saved.models?.filter(model=>model.id!==expectedModel);
+     try{setup=await api<OnboardingSnapshot>("/onboarding",{signal});}catch{/* Keep the last configuration without the rejected choice. */}
+    }
+    throw error;
+   });if(!current())return;setSpec(false);
    if(view.session.default_model!==expectedModel||resourceKey(view.container_resources)!==expectedResources){
     render();throw new Error(t("配置已变化，空间已保留。请核对上方的实际配置，再次点击继续。"));
    }
@@ -221,6 +231,7 @@ export function initWorkspaceCreation(){
     finally{meter.hide();}
    }
    const session=await flow.finish(signal);if(!current())return;
+   selectedModel="";
    emit("workspace-created",{session,source:spec.source,directory:spec.directory});
    $<HTMLInputElement>("new-name").value="";files.value="";repository.value="";
    await showWorkspace(session,spec.source==="empty"?"chat":spec.source==="git"?"changes":"files");

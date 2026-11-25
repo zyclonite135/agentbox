@@ -36,6 +36,7 @@ try{
   const errors=[];page.on('pageerror',e=>{errors.push(e.stack||e.message);console.error('Onboarding page error:',e.stack||e.message);});
   let accounts=[],spaces=[],created=0,modelTurns=0,accountFailure=false,setupFailure=false,holdAccounts=false;
   let loseCreateAck=false,loseImportAck=false,uncertainImport=false,failUpload=false,failGit=false,uploadCalls=0,gitCalls=0,gitBackground=0,pendingImport=null;
+  let revokeModelOnCreate=false,rejectedCreationID;
   const creations=new Map();
   const pendingAccountReads=[];const releaseAccounts=()=>pendingAccountReads.splice(0).forEach(release=>release());
   const models={claude:[{id:'claude-fixture',label:'Claude fixture'}],codex:[{id:'codex-first',label:'First'},{id:'codex-second',label:'Second'}]};
@@ -65,6 +66,12 @@ try{
       const id=path.split('/')[3];let receipt=creations.get(id);
       if(method==='PUT'){
         const data=route.request().postDataJSON();
+        assert.notEqual(id,rejectedCreationID,'a rejected model request ID was reused');
+        if(revokeModelOnCreate&&data.default_model){
+          revokeModelOnCreate=false;rejectedCreationID=id;
+          accounts.find(account=>account.id===data.account_id).models=[models.codex[0]];
+          await route.fulfill({status:409,json:{code:'creation_model_unavailable'}});return;
+        }
         if(!receipt){
           assert.ok(accounts.some(a=>a.id===data.account_id&&a.type===data.agent));created++;
           const session={...data,id:'created-'+created,default_model:data.default_model||settings.default_models[data.agent],status:'stopped',account_label:'Fixture account',updated_at:new Date().toISOString()};spaces.push(session);
@@ -221,7 +228,7 @@ try{
     }
     assert.equal(await page.locator('#empty-new').isDisabled(),false);
     const checkGuide=locale==='en'&&role==='user';
-    if(checkGuide) accounts.push({id:'codex-other',type:'codex',label:'Other account',cred_status:'ok',sessions:0,models:[models.codex[0]]});
+    if(checkGuide) accounts.push({id:'codex-other',type:'codex',label:'Other account',cred_status:'ok',sessions:0,models:[models.codex[0],{id:'other-model',label:'Other model'}]});
     // Account read failures cannot use S.accounts as an authorization fallback.
     accountFailure=true;await page.locator('#btn-new').click();await page.waitForFunction(()=>!document.querySelector('#new-refresh').disabled);
     assert.equal(await page.locator('#new-ok').isDisabled(),true);assert.equal(await page.locator('#new-fields').isVisible(),false);
@@ -247,9 +254,25 @@ try{
       await pickAccount('Other account');
       await page.locator('#new-error').waitFor({state:'visible'});
       await open();
+      assert.deepEqual(await guide.locator('h3').allTextContents(),['First','Other model']);
+      await guide.locator('button[data-guide-model="other-model"]').click();
+      await page.locator('#new-cancel').click();await page.locator('#btn-new').click();
+      await page.locator('#new-model-guide').waitFor({state:'visible'});
+      assert.equal(await page.locator('#new-account').inputValue(),'codex-other');
+      assert.match(await page.locator('#new-config-summary').innerText(),/Other model/);
+      await pickAccount('Fixture account');
+      await open();await selectSecond();
+      revokeModelOnCreate=true;
+      await page.locator('#new-ok').click();
+      await page.locator('#new-error').filter({hasText:'Choose another model'}).waitFor();
+      assert.equal(created,0);
+      assert.equal(await page.locator('#new-name').inputValue(),'First project');
+      assert.equal(await page.locator('#new-flow-actions').isVisible(),false,'rejected model left the wizard locked');
+      await open();
       assert.deepEqual(await guide.locator('h3').allTextContents(),['First']);
       await page.keyboard.press('Escape');
-      await pickAccount('Fixture account');
+      delete accounts.find(account=>account.id==='codex-fixture').models;
+      await page.locator('#new-cancel').click();await page.locator('#btn-new').click();
       await open();await selectSecond();
     }
     await page.locator('#new-form').evaluate(form=>{form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});

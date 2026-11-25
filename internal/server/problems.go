@@ -41,6 +41,7 @@ var problemCatalog = map[string]problemDefinition{
 	"delegation_unavailable":          {503, "委派工具暂时无法准备", "请关闭「委派」后重新发送，或联系管理员检查账号出口网桥配置。", "edit_request", false},
 	"project_upload_limits":           {413, "项目上传超过限制", "请减少文件数量或体积；大小限制可由管理员调整。", "edit_request", false},
 	"creation_conflict":               {409, "创建信息与已接收记录不一致", "请继续原创建流程，或明确开始新的创建。", "review_creation", false},
+	"creation_model_unavailable":      {409, "所选模型已不适用于此账号", "请重新选择模型或使用账号默认模型。", "edit_request", false},
 	"creation_gone":                   {410, "该创建已放弃或空间已删除", "请刷新空间列表；不会重新创建已删除空间。", "refresh_sessions", false},
 	"import_pending":                  {409, "导入仍在执行或结果待核对", "请先查询结果或查看已有目录，不要重复提交。", "check_result", false},
 	"import_failed":                   {422, "项目导入失败", "请检查上传内容、仓库地址或 Git 连接，在同一空间重试。", "review_import", false},

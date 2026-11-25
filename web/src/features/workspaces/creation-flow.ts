@@ -59,7 +59,13 @@ export class CreationFlow {
     await this.reconcile(signal);
     if(this.view?.state==="abandoned")throw new Error(t("该创建已放弃或空间已删除，请明确开始新的创建。"));
     if(!this.view||this.view.state==="reserved"){
-      await api(this.path(),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(this.pending.spec),signal});
+      try{
+        await api(this.path(),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(this.pending.spec),signal});
+      }catch(error){
+        // The server fenced this ID without creating a workspace.
+        if(error instanceof APIError&&error.problem.code==="creation_model_unavailable")this.clear();
+        throw error;
+      }
       await this.reconcile(signal);
     }
     if(!this.view?.workspace_exists)throw new Error(t("尚未确认空间创建结果，请查询状态后继续。"));

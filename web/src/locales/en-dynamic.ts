@@ -1758,6 +1758,8 @@ export default {
   "语音输入": "Voice input",
   "请求格式错误": "Invalid request",
   "请检查输入后重新提交。": "Check your input and submit again.",
+  "所选模型已不适用于此账号": "The selected model is no longer available for this account.",
+  "请重新选择模型或使用账号默认模型。": "Choose another model or use the account default.",
   "请核对用户名和密码后重新登录。": "Check your username and password, then sign in again.",
   "登录尝试过于频繁": "Too many sign-in attempts",
   "请稍后再登录；忘记密码请联系管理员。": "Try signing in later. Contact an administrator if you forgot your password.",

@@ -120,14 +120,24 @@ func TestOnboardingIsActorScopedAndDoesNotClaimModelAvailability(t *testing.T) {
 	if !slices.Equal(own.Accounts[0].Models, []onboardingModel{{ID: "relay-a", Label: "Relay A"}, {ID: "relay-b", Label: "Relay B"}}) {
 		t.Fatal("account-specific model choices incorrect", listed.Body.String())
 	}
-	for _, model := range []string{"relay-hidden", "claude-opus-5"} {
+	for i, model := range []string{"relay-hidden", "claude-opus-5"} {
+		id := strings.Repeat(string(rune('a'+i)), 32)
 		rec := httptest.NewRecorder()
-		req := accessRequest("alice", "PUT", "/create", `{"name":"first project","agent":"claude","account_id":"shared","default_model":"`+model+`"}`)
-		req.SetPathValue("request", strings.Repeat("f", 32))
-		s.handleCreateSession(rec, req)
-		if rec.Code != http.StatusBadRequest || len(s.store.All()) != 1 {
+		req := httptest.NewRequest("PUT", "/api/session-creations/"+id, strings.NewReader(`{"name":"first project","agent":"claude","account_id":"shared","default_model":"`+model+`"}`))
+		req.Header.Set("Authorization", "Bearer setup-alice")
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusConflict || len(s.store.All()) != 1 {
 			t.Fatal("unavailable model made it past creation validation", rec.Code, rec.Body.String())
 		}
+		assertProblem(t, rec.Body.Bytes(), "creation_model_unavailable")
+		retry := httptest.NewRecorder()
+		req = httptest.NewRequest("PUT", "/api/session-creations/"+id, strings.NewReader(`{"name":"first project","agent":"claude","account_id":"shared","default_model":"relay-a"}`))
+		req.Header.Set("Authorization", "Bearer setup-alice")
+		handler.ServeHTTP(retry, req)
+		if retry.Code != http.StatusConflict || len(s.store.All()) != 1 {
+			t.Fatal("a rejected creation ID could allocate a workspace", retry.Code, retry.Body.String())
+		}
+		assertProblem(t, retry.Body.Bytes(), "creation_conflict")
 	}
 	if err := s.cfg.RemoveAccount("shared"); err != nil {
 		t.Fatal(err)

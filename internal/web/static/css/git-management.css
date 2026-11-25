@@ -10,6 +10,12 @@
   margin-inline: auto;
   padding-inline: 0;
 }
+@media (min-width: 761px) {
+  #view-git > .set-head,
+  #view-git > .set-body {
+    margin-inline-start: var(--git-page-gutter);
+  }
+}
 #view-git > .set-head {
   padding-block: 20px 14px;
   background: transparent;

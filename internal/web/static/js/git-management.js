@@ -34,23 +34,21 @@ function renderGuide(host) {
       <li><div><h3><span data-i18n="添加仓库连接">${trHTML("添加仓库连接")}</span></h3><p><span data-i18n="选择 Token、SSH 或网页授权。需要推送代码时，关闭「只允许读取仓库」，并确保平台凭证也有写权限。">${trHTML("选择 Token、SSH 或网页授权。需要推送代码时，关闭「只允许读取仓库」，并确保平台凭证也有写权限。")}</span></p><button class="btn btn-sm" data-git-go="connections" data-icon="link"><span class="action-label" data-i18n="管理仓库连接">${trHTML("管理仓库连接")}</span></button></div></li>
       <li><div><h3><span data-i18n="在工作空间使用">${trHTML("在工作空间使用")}</span></h3><p><span data-i18n="从侧栏打开工作空间，进入「变更」。新项目选择「克隆」；已有仓库打开「远程」，选择连接并点击「绑定」。">${trHTML("从侧栏打开工作空间，进入「变更」。新项目选择「克隆」；已有仓库打开「远程」，选择连接并点击「绑定」。")}</span></p><p><span data-i18n="先「获取」检查远程更新，再按需拉取或预览推送。设置默认连接只提供默认选择，不会替换已有仓库绑定。">${trHTML("先「获取」检查远程更新，再按需拉取或预览推送。设置默认连接只提供默认选择，不会替换已有仓库绑定。")}</span></p></div></li>
     </ol>
-    <div class="git-guide-reference">
-      <section class="git-guide-section"><h2><span data-i18n="连接方式怎么选？">${trHTML("连接方式怎么选？")}</span></h2>
-        <dl class="git-methods">
-          <div><dt><span data-i18n="HTTPS Token">${trHTML("HTTPS Token")}</span> <span><span data-i18n="通用选择">${trHTML("通用选择")}</span></span></dt><dd><span data-i18n="在代码平台创建个人访问令牌（Personal Access Token），开放目标仓库的读取权限；需要推送时再开放写入权限。选择「添加连接」，填写服务地址和 Token。">${trHTML("在代码平台创建个人访问令牌（Personal Access Token），开放目标仓库的读取权限；需要推送时再开放写入权限。选择「添加连接」，填写服务地址和 Token。")}</span></dd></div>
-          <div><dt><span data-i18n="网页授权">${trHTML("网页授权")}</span> <span><span data-i18n="无需粘贴 Token">${trHTML("无需粘贴 Token")}</span></span></dt><dd><span data-i18n="选择「网页授权」，生成链接后在 GitHub / GitLab 完成授权，返回连接列表点击「刷新」。若没有可用服务，请联系管理员配置 OAuth 应用，或使用 Token。">${trHTML("选择「网页授权」，生成链接后在 GitHub / GitLab 完成授权，返回连接列表点击「刷新」。若没有可用服务，请联系管理员配置 OAuth 应用，或使用 Token。")}</span></dd></div>
-          <div><dt><span data-i18n="SSH 私钥">${trHTML("SSH 私钥")}</span> <span><span data-i18n="已有 SSH 配置">${trHTML("已有 SSH 配置")}</span></span></dt><dd><span data-i18n="选择「添加连接 → SSH 私钥」，填写私钥及口令（如有），并向 Git 服务管理员核对服务器主机公钥。个人公钥需提前登记到代码平台。">${trHTML("选择「添加连接 → SSH 私钥」，填写私钥及口令（如有），并向 Git 服务管理员核对服务器主机公钥。个人公钥需提前登记到代码平台。")}</span></dd></div>
-        </dl>
-        <p class="git-note"><span data-i18n="服务地址填写平台根地址，如">${trHTML("服务地址填写平台根地址，如")}</span> <code>https://gitlab.example.com</code><span data-i18n="；仓库地址则是">${trHTML("；仓库地址则是")}</span> <code>https://gitlab.example.com/team/project.git</code><span data-i18n="，在克隆或绑定远程时使用。">${trHTML("，在克隆或绑定远程时使用。")}</span></p>
-      </section>
-      <section class="git-guide-section"><h2><span data-i18n="日常操作速查">${trHTML("日常操作速查")}</span></h2>
-        <dl class="git-methods">
-          <div><dt><span data-i18n="提交到本地">${trHTML("提交到本地")}</span></dt><dd><span data-i18n="将选中的文件改动保存为当前仓库的一次提交。不会自动上传到代码平台。">${trHTML("将选中的文件改动保存为当前仓库的一次提交。不会自动上传到代码平台。")}</span></dd></div>
-          <div><dt><span data-i18n="获取 / 拉取">${trHTML("获取 / 拉取")}</span></dt><dd><span data-i18n="「获取」只更新远程分支信息，不改工作文件。「拉取」会快进更新工作文件，需要工作区干净；分支已分叉时会停止。">${trHTML("「获取」只更新远程分支信息，不改工作文件。「拉取」会快进更新工作文件，需要工作区干净；分支已分叉时会停止。")}</span></dd></div>
-          <div><dt><span data-i18n="预览推送">${trHTML("预览推送")}</span></dt><dd><span data-i18n="先核对目标仓库、分支和待推送提交，确认后点击「推送」，才会更新远程仓库。">${trHTML("先核对目标仓库、分支和待推送提交，确认后点击「推送」，才会更新远程仓库。")}</span></dd></div>
-        </dl>
-      </section>
-    </div>
+    <section class="git-guide-section"><h2><span data-i18n="连接方式怎么选？">${trHTML("连接方式怎么选？")}</span></h2>
+      <dl class="git-methods">
+        <div><dt><span data-i18n="HTTPS Token">${trHTML("HTTPS Token")}</span> <span><span data-i18n="通用选择">${trHTML("通用选择")}</span></span></dt><dd><span data-i18n="在代码平台创建个人访问令牌（Personal Access Token），开放目标仓库的读取权限；需要推送时再开放写入权限。选择「添加连接」，填写服务地址和 Token。">${trHTML("在代码平台创建个人访问令牌（Personal Access Token），开放目标仓库的读取权限；需要推送时再开放写入权限。选择「添加连接」，填写服务地址和 Token。")}</span></dd></div>
+        <div><dt><span data-i18n="网页授权">${trHTML("网页授权")}</span> <span><span data-i18n="无需粘贴 Token">${trHTML("无需粘贴 Token")}</span></span></dt><dd><span data-i18n="选择「网页授权」，生成链接后在 GitHub / GitLab 完成授权，返回连接列表点击「刷新」。若没有可用服务，请联系管理员配置 OAuth 应用，或使用 Token。">${trHTML("选择「网页授权」，生成链接后在 GitHub / GitLab 完成授权，返回连接列表点击「刷新」。若没有可用服务，请联系管理员配置 OAuth 应用，或使用 Token。")}</span></dd></div>
+        <div><dt><span data-i18n="SSH 私钥">${trHTML("SSH 私钥")}</span> <span><span data-i18n="已有 SSH 配置">${trHTML("已有 SSH 配置")}</span></span></dt><dd><span data-i18n="选择「添加连接 → SSH 私钥」，填写私钥及口令（如有），并向 Git 服务管理员核对服务器主机公钥。个人公钥需提前登记到代码平台。">${trHTML("选择「添加连接 → SSH 私钥」，填写私钥及口令（如有），并向 Git 服务管理员核对服务器主机公钥。个人公钥需提前登记到代码平台。")}</span></dd></div>
+      </dl>
+      <p class="git-note"><span data-i18n="服务地址填写平台根地址，如">${trHTML("服务地址填写平台根地址，如")}</span> <code>https://gitlab.example.com</code><span data-i18n="；仓库地址则是">${trHTML("；仓库地址则是")}</span> <code>https://gitlab.example.com/team/project.git</code><span data-i18n="，在克隆或绑定远程时使用。">${trHTML("，在克隆或绑定远程时使用。")}</span></p>
+    </section>
+    <section class="git-guide-section"><h2><span data-i18n="日常操作速查">${trHTML("日常操作速查")}</span></h2>
+      <dl class="git-methods">
+        <div><dt><span data-i18n="提交到本地">${trHTML("提交到本地")}</span></dt><dd><span data-i18n="将选中的文件改动保存为当前仓库的一次提交。不会自动上传到代码平台。">${trHTML("将选中的文件改动保存为当前仓库的一次提交。不会自动上传到代码平台。")}</span></dd></div>
+        <div><dt><span data-i18n="获取 / 拉取">${trHTML("获取 / 拉取")}</span></dt><dd><span data-i18n="「获取」只更新远程分支信息，不改工作文件。「拉取」会快进更新工作文件，需要工作区干净；分支已分叉时会停止。">${trHTML("「获取」只更新远程分支信息，不改工作文件。「拉取」会快进更新工作文件，需要工作区干净；分支已分叉时会停止。")}</span></dd></div>
+        <div><dt><span data-i18n="预览推送">${trHTML("预览推送")}</span></dt><dd><span data-i18n="先核对目标仓库、分支和待推送提交，确认后点击「推送」，才会更新远程仓库。">${trHTML("先核对目标仓库、分支和待推送提交，确认后点击「推送」，才会更新远程仓库。")}</span></dd></div>
+      </dl>
+    </section>
     <section class="git-guide-section"><h2><span data-i18n="常见问题">${trHTML("常见问题")}</span></h2>
       <details><summary><span data-i18n="保存连接后，为什么还不能访问仓库？">${trHTML("保存连接后，为什么还不能访问仓库？")}</span></summary><p><span data-i18n="保存只记录连接配置。可在连接列表点击「测试」，输入完整仓库地址验证读取权限；随后到工作空间的「远程」绑定该连接。若失败，请检查 Token 是否过期、是否开放目标仓库权限，以及仓库地址是否属于该连接的平台。">${trHTML("保存只记录连接配置。可在连接列表点击「测试」，输入完整仓库地址验证读取权限；随后到工作空间的「远程」绑定该连接。若失败，请检查 Token 是否过期、是否开放目标仓库权限，以及仓库地址是否属于该连接的平台。")}</span></p></details>
       <details><summary><span data-i18n="为什么不能推送？">${trHTML("为什么不能推送？")}</span></summary><p><span data-i18n="检查连接是否允许推送、平台凭证是否有写权限，以及仓库分支是否受保护。管理员共享的连接还需授予你写权限。「测试」通过只代表可以读取，不能证明可以推送。">${trHTML("检查连接是否允许推送、平台凭证是否有写权限，以及仓库分支是否受保护。管理员共享的连接还需授予你写权限。「测试」通过只代表可以读取，不能证明可以推送。")}</span></p></details>

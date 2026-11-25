@@ -67,15 +67,15 @@ try{
    assert.equal(await page.locator('#chat-draft-options, .composer #chat-draft-enabled').count(),0,'saving control remained in the composer');
    await page.locator('#btn-settings').click();await page.locator('#set-local-saving').waitFor({state:'visible'});
    assert.equal(new URL(page.url()).hash,'#/settings/interface');
-   assert.deepEqual(await page.locator('#set-nav button:not(.hidden)').evaluateAll(nodes=>nodes.map(n=>n.dataset.sec)),['interface']);
+   assert.equal(await page.locator('#set-nav').isVisible(),false);
    assert.equal(await page.locator('#set-timezone').isVisible(),false);
    assert.equal(await page.locator('#chat-draft-enabled').isChecked(),true);
    // Ordinary users normalize privileged routes to their local preferences, including reload.
    await page.evaluate(()=>location.hash='#/settings/security');await page.waitForFunction(()=>location.hash==='#/settings/interface');
    await page.reload();await page.locator('#set-local-saving').waitFor({state:'visible'});
-   await page.setViewportSize({width:390,height:844});await page.locator('#mobile-section-btn').click();
-   assert.equal(await page.locator('#mobile-section-menu [role=menuitemradio]').count(),1);
-   await page.locator('#mobile-section-menu [role=menuitemradio]').click();
+   await page.setViewportSize({width:390,height:844});
+   assert.equal(await page.locator('#mobile-section-btn').isVisible(),false);
+   assert.equal(await page.locator('#set-title').isVisible(),true);
    assert.equal(await page.locator('#sec-interface').evaluate(el=>el.scrollWidth<=el.clientWidth),true,'local preferences overflow on mobile');
    if(locale==='en'){await mkdir('output/playwright',{recursive:true});await page.screenshot({path:'output/playwright/local-saving-settings-mobile.png',animations:'disabled'});}
    await page.setViewportSize({width:1280,height:900});await go('space-a');

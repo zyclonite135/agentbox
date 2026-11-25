@@ -160,6 +160,7 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
   const title=page.locator('#set-title');
   const description=page.locator('#set-description');
   const grid=page.locator('.interface-preferences');
+  assert.equal(await grid.getByRole('heading',{level:2}).count(),3);
   for (const [width,columns] of [[1720,3],[1080,2],[320,1]]) {
    await page.setViewportSize({width,height:900});
    assert.equal(await title.isVisible(),true);
@@ -440,6 +441,7 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
   await page.locator('#set-nav [data-sec="interface"]').click();
   const interfaceSection=page.locator('#sec-interface');
   await interfaceSection.waitFor();
+  assert.equal(await interfaceSection.locator('.interface-preferences').getByRole('heading',{level:3}).count(),3);
   assert.equal(await interfaceSection.getByRole('switch').count(),3);
   assert.equal(await interfaceSection.getByRole('switch',{name:'Сохранение черновиков'}).isVisible(),true);
   const draftDetails=interfaceSection.locator('#set-local-saving .interface-details');

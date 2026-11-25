@@ -945,11 +945,15 @@ function initSaveBar(signal: AbortSignal) {
 }
 
 function initSettings() {
- $("view-settings").classList.toggle("personal-settings", role !== "admin");
- for (const el of document.querySelectorAll<HTMLElement>("[data-settings-admin]")) el.classList.toggle("hidden", role !== "admin");
+ const personal = role !== "admin";
+ $("view-settings").classList.toggle("personal-settings", personal);
+ for (const el of document.querySelectorAll<HTMLElement>("[data-settings-admin]")) el.classList.toggle("hidden", personal);
+ for (const heading of document.querySelectorAll(".interface-preferences .interface-group-title")) {
+  heading.setAttribute("aria-level", personal ? "2" : "3");
+ }
  initSettingsLayout($("set-content"), lifetime.signal);
- setText($("set-title"), role === "admin" ? "系统设置" : "个人设置");
- setText($("set-description"), role === "admin" ? "账号池、服务端配置与此浏览器的个人偏好。需要重启的项会单独标出。" : "更改会在此浏览器中即时生效。");
+ setText($("set-title"), personal ? "个人设置" : "系统设置");
+ setText($("set-description"), personal ? "更改会在此浏览器中即时生效。" : "账号池、服务端配置与此浏览器的个人偏好。需要重启的项会单独标出。");
  $("set-savebar").hidden = true;
  $("set-nav").addEventListener("click", async (e) => {
   const btn = (e.target as Element).closest<HTMLElement>("button[data-sec]");

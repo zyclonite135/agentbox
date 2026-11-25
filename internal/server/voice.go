@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -51,6 +52,11 @@ func (s *Server) handleVoiceTranscription(w http.ResponseWriter, r *http.Request
 	}
 
 	pcm, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxVoicePCM))
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		http.Error(w, "PCM recording exceeds 30 seconds", http.StatusRequestEntityTooLarge)
+		return
+	}
 	if err != nil || len(pcm) == 0 || len(pcm)%2 != 0 {
 		http.Error(w, "Invalid PCM recording", http.StatusBadRequest)
 		return

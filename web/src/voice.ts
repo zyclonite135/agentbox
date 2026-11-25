@@ -18,6 +18,7 @@ const serverSupported = canRecordVoice();
 let useServer = false;
 try { useServer = localStorage.getItem(serverPreference) === "true"; } catch (_) {}
 let serverRec: ReturnType<typeof recordServerVoice> | undefined;
+let voiceAttempt = 0;
 
 function preferServer(enabled: boolean) {
   useServer = enabled;
@@ -52,6 +53,7 @@ btn.addEventListener("click", (event) => {
     stopAndSend();
     return;
   }
+  voiceAttempt++;
   if (event.shiftKey && SR && serverSupported) preferServer(!useServer);
   if (serverSupported && (!SR || useServer)) startServer();
   else if (SR) start();
@@ -62,6 +64,7 @@ function startServer() {
   const prefix = original && !/\s$/.test(original) ? original + " " : original;
   const thread = S.thread;
   const session = S.current;
+  let transcript = "";
   try {
     serverRec = recordServerVoice({
       onReady: () => toast(i18nText("正在聆听，再点一次 🎤 停止并发送")),
@@ -70,14 +73,15 @@ function startServer() {
           abortServerRecording();
           return;
         }
-        input.value = text ? prefix + text : original;
+        transcript = text.trim();
+        input.value = transcript ? prefix + transcript : original;
         autoGrow();
       },
       onEnd: (send, reachedLimit) => {
         serverRec = undefined;
         setRecUI(false);
         if (reachedLimit) toast(i18nText("单次服务器语音输入限时 30 秒，文字已保留"));
-        if (send && S.thread?.id === thread?.id && S.current?.id === session?.id) sendVoiceText();
+        if (send && transcript && S.thread?.id === thread?.id && S.current?.id === session?.id) sendVoiceText();
       },
       onError: (error) => {
         serverRec = undefined;
@@ -107,8 +111,9 @@ function sendVoiceText() {
 
 function offerServerVoice() {
   if (!serverSupported) return;
+  const attempt = voiceAttempt;
   void serverVoiceEnabled().then((enabled) => {
-    if (!enabled || rec || serverRec) return;
+    if (!enabled || attempt !== voiceAttempt || rec || serverRec) return;
     preferServer(true);
     setRecUI(false);
     toast(i18nText("浏览器语音识别不可用。再次点击麦克风即可使用服务器识别，请重新说一遍。"));
@@ -128,6 +133,7 @@ function start() {
   let failed = false; // 出错后 onend 不再自动续听
 
   r.onresult = (e) => {
+    if (rec !== r) return;
     let interim = "";
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const res = e.results[i];
@@ -138,6 +144,7 @@ function start() {
     autoGrow();
   };
   r.onerror = (e) => {
+    if (rec !== r) return;
     if (e.error === "no-speech" || e.error === "aborted") return;
     failed = true;
     fallback = e.error === "network" || e.error === "service-not-allowed" || e.error === "language-not-supported";
@@ -153,7 +160,7 @@ function start() {
     if (rec !== r) return; // 已被手动发送等路径掐掉
     // 静音等原因自动结束：用户没点停就悄悄续上
     if (!sendOnEnd && !failed) {
-      try { r.start(); return; } catch (_) {}
+      try { r.start(); return; } catch (_) { fallback = true; }
     }
     rec = null;
     setRecUI(false);
@@ -187,12 +194,13 @@ function abortServerRecording() {
   setRecUI(false);
 }
 
-for (const event of ["thread-changed", "open-session", "unauthorized"]) {
-  bus.addEventListener(event, abortServerRecording);
+for (const event of ["thread-changed", "open-session", "view-changed", "unauthorized"]) {
+  bus.addEventListener(event, abortIfRecording);
 }
 input.addEventListener("input", abortServerRecording);
 
 function abortIfRecording() {
+  voiceAttempt++;
   abortServerRecording();
   if (!rec) return;
   const r = rec;

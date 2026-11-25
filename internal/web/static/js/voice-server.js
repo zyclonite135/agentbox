@@ -1,4 +1,5 @@
 import { api } from "./api.js";
+import { APIError } from "./problems.js";
 const sampleRate = 16000;
 const maxSamples = 30 * sampleRate;
 const updateInterval = 2 * sampleRate;
@@ -17,13 +18,18 @@ export function recordServerVoice(options) {
     let recorder;
     let count = 0;
     let requested = 0;
+    let transcribed = 0;
     let stopping = false;
     let send = false;
     let reachedLimit = false;
     let pending;
     let flushTimer;
     let finalizing = false;
+    let released = false;
     function release() {
+        if (released)
+            return;
+        released = true;
         window.clearTimeout(flushTimer);
         recorder?.disconnect();
         recorder?.port.close();
@@ -50,6 +56,7 @@ export function recordServerVoice(options) {
             body: snapshot.buffer,
             signal: controller.signal,
         });
+        transcribed = snapshot.length;
         if (!controller.signal.aborted)
             options.onText(result.text);
     }
@@ -62,7 +69,7 @@ export function recordServerVoice(options) {
             await pending;
             if (controller.signal.aborted)
                 return;
-            if (count > requested)
+            if (count > transcribed)
                 await transcribe();
             if (!controller.signal.aborted)
                 options.onEnd(send, reachedLimit);
@@ -104,6 +111,11 @@ export function recordServerVoice(options) {
             return;
         recorder = new AudioWorkletNode(audio, "agentbox-pcm", { channelCount: 1, channelCountMode: "explicit" });
         recorder.onprocessorerror = fail;
+        for (const track of stream.getAudioTracks()) {
+            track.addEventListener("ended", () => stop(false), { once: true });
+            if (track.readyState === "ended")
+                throw new Error("microphone_disconnected");
+        }
         recorder.port.onmessage = (event) => {
             if (finalizing || controller.signal.aborted)
                 return;
@@ -120,7 +132,11 @@ export function recordServerVoice(options) {
                 stop(false);
             }
             else if (!stopping && !pending && count - requested >= updateInterval) {
-                pending = transcribe().catch(fail).finally(() => { pending = undefined; });
+                pending = transcribe().catch((error) => {
+                    // The next snapshot still includes the audio skipped by a busy worker.
+                    if (!(error instanceof APIError && error.status === 429))
+                        fail(error);
+                }).finally(() => { pending = undefined; });
             }
         };
         audio.createMediaStreamSource(stream).connect(recorder).connect(audio.destination);

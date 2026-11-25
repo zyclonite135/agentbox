@@ -19,6 +19,7 @@ try {
 }
 catch (_) { }
 let serverRec;
+let voiceAttempt = 0;
 function preferServer(enabled) {
     useServer = enabled;
     try {
@@ -52,6 +53,7 @@ btn.addEventListener("click", (event) => {
         stopAndSend();
         return;
     }
+    voiceAttempt++;
     if (event.shiftKey && SR && serverSupported)
         preferServer(!useServer);
     if (serverSupported && (!SR || useServer))
@@ -64,6 +66,7 @@ function startServer() {
     const prefix = original && !/\s$/.test(original) ? original + " " : original;
     const thread = S.thread;
     const session = S.current;
+    let transcript = "";
     try {
         serverRec = recordServerVoice({
             onReady: () => toast(i18nText("正在聆听，再点一次 🎤 停止并发送")),
@@ -72,7 +75,8 @@ function startServer() {
                     abortServerRecording();
                     return;
                 }
-                input.value = text ? prefix + text : original;
+                transcript = text.trim();
+                input.value = transcript ? prefix + transcript : original;
                 autoGrow();
             },
             onEnd: (send, reachedLimit) => {
@@ -80,7 +84,7 @@ function startServer() {
                 setRecUI(false);
                 if (reachedLimit)
                     toast(i18nText("单次服务器语音输入限时 30 秒，文字已保留"));
-                if (send && S.thread?.id === thread?.id && S.current?.id === session?.id)
+                if (send && transcript && S.thread?.id === thread?.id && S.current?.id === session?.id)
                     sendVoiceText();
             },
             onError: (error) => {
@@ -117,8 +121,9 @@ function sendVoiceText() {
 function offerServerVoice() {
     if (!serverSupported)
         return;
+    const attempt = voiceAttempt;
     void serverVoiceEnabled().then((enabled) => {
-        if (!enabled || rec || serverRec)
+        if (!enabled || attempt !== voiceAttempt || rec || serverRec)
             return;
         preferServer(true);
         setRecUI(false);
@@ -137,6 +142,8 @@ function start() {
     let fallback = false;
     let failed = false; // 出错后 onend 不再自动续听
     r.onresult = (e) => {
+        if (rec !== r)
+            return;
         let interim = "";
         for (let i = e.resultIndex; i < e.results.length; i++) {
             const res = e.results[i];
@@ -149,6 +156,8 @@ function start() {
         autoGrow();
     };
     r.onerror = (e) => {
+        if (rec !== r)
+            return;
         if (e.error === "no-speech" || e.error === "aborted")
             return;
         failed = true;
@@ -170,7 +179,9 @@ function start() {
                 r.start();
                 return;
             }
-            catch (_) { }
+            catch (_) {
+                fallback = true;
+            }
         }
         rec = null;
         setRecUI(false);
@@ -212,11 +223,12 @@ function abortServerRecording() {
     serverRec = undefined;
     setRecUI(false);
 }
-for (const event of ["thread-changed", "open-session", "unauthorized"]) {
-    bus.addEventListener(event, abortServerRecording);
+for (const event of ["thread-changed", "open-session", "view-changed", "unauthorized"]) {
+    bus.addEventListener(event, abortIfRecording);
 }
 input.addEventListener("input", abortServerRecording);
 function abortIfRecording() {
+    voiceAttempt++;
     abortServerRecording();
     if (!rec)
         return;

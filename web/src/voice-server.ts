@@ -3,7 +3,7 @@ import { APIError } from "./problems.js";
 
 const sampleRate = 16000;
 const maxSamples = 30 * sampleRate;
-const updateInterval = 2 * sampleRate;
+const updateIntervalSamples = sampleRate;
 
 export function canRecordVoice() {
   return window.isSecureContext && !!navigator.mediaDevices?.getUserMedia
@@ -129,7 +129,7 @@ export function recordServerVoice(options: {
       if (count === maxSamples && !stopping) {
         reachedLimit = true;
         stop();
-      } else if (!stopping && !pending && count - requested >= updateInterval) {
+      } else if (!stopping && !pending && count - requested >= updateIntervalSamples) {
         pending = transcribe().catch((error: unknown) => {
           // The next snapshot still includes the audio skipped by a busy worker.
           if (!(error instanceof APIError && error.status === 429)) fail(error);

@@ -266,7 +266,7 @@ export async function remoteBrowserSmoke(page) {
  await setLanguage('ru');
  const longAddress = 'https://example.org/a/long/path?department=research&tab=architecture';
  browserTabs[0].url = longAddress;
- await page.locator('#browser-start').click();
+ await page.locator('#browser-start').press('Enter');
  const strip = page.locator('#browser-tab-strip');
  const list = strip.locator('#browser-tab-list');
  const cards = list.locator('.browser-tab-card');
@@ -275,6 +275,7 @@ export async function remoteBrowserSmoke(page) {
  assert.equal(await page.locator('#browser-url').inputValue(),longAddress);
  assert.equal(await page.locator('.browser-status').isVisible(),false);
  assert.equal(await connection.getAttribute('data-state'),'connected');
+ assert.equal(await connection.evaluate(el=>el === document.activeElement),true,'the indicator receives focus when starting with the keyboard');
  assert.match(await connection.getAttribute('data-tip'),/Подключено.*Google Chrome/);
  await connection.hover();
  const statusTip = page.locator('#tip.show').filter({hasText:'Подключено'});
@@ -346,6 +347,36 @@ export async function remoteBrowserSmoke(page) {
    await page.locator('.browser-toolbar').screenshot({path:`output/playwright/remote-browser-tabs-${width}.png`});
   }
  }
+ const fitsLongWorkspace = await page.locator('.browser-toolbar').evaluate(toolbar=>{
+  const pane = toolbar.parentElement;
+  const originalWidth = pane.style.width;
+  const wasFolded = toolbar.classList.contains('wb-peek-host');
+  const currentPeek = toolbar.querySelector('.wb-peek');
+  const wasHidden = currentPeek?.hidden;
+  const peek = document.createElement('button');
+  const name = document.createElement('span');
+  peek.className = 'wb-peek';
+  name.className = 'wb-peek-name';
+  name.textContent = 'Рабочее пространство с очень длинным именем для проверки узкой панели';
+  peek.append(name);
+  try {
+   if (currentPeek) currentPeek.hidden = true;
+   pane.style.width = '480px';
+   toolbar.classList.add('wb-peek-host');
+   toolbar.prepend(peek);
+   const rect = selector => toolbar.querySelector(selector).getBoundingClientRect();
+   const lifecycle = rect('.browser-lifecycle');
+   const display = rect('.browser-display');
+   return peek.getBoundingClientRect().right < lifecycle.left && lifecycle.right < display.left &&
+    display.right <= toolbar.getBoundingClientRect().right && name.scrollWidth > name.clientWidth;
+  } finally {
+   pane.style.width = originalWidth;
+   toolbar.classList.toggle('wb-peek-host',wasFolded);
+   if (currentPeek) currentPeek.hidden = wasHidden;
+   peek.remove();
+  }
+ });
+ assert.equal(fitsLongWorkspace,true,'a long workspace name yields space to the lifecycle and quality controls');
  await cards.last().locator('.browser-tab-select').focus();
  await page.setViewportSize({width:320,height:740});
  await picker.waitFor();
@@ -371,8 +402,9 @@ export async function remoteBrowserSmoke(page) {
  assert.equal(await cards.count(),1);
  assert.equal(await cards.first().locator('.browser-tab-close').isDisabled(),true);
  assert.equal(await list.evaluate(el=>el.scrollLeft),0);
- await page.locator('#browser-stop').click();
+ await page.locator('#browser-stop').press('Enter');
  await page.waitForFunction(() => !document.getElementById('browser-start').disabled);
+ assert.equal(await connection.evaluate(el=>el === document.activeElement),true,'the indicator receives focus when closing with the keyboard');
  await setLanguage('zh-CN');
  hasNavigation = false;
  // Late startup must not reconnect a desktop after switching workspace/tab.

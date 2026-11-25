@@ -330,18 +330,26 @@ function controls() {
  const pane = $("tab-browser");
  pane.toggleAttribute("data-connected", connected);
  const more = $<HTMLButtonElement>("browser-more");
- more.disabled = pending();
+ const start = $<HTMLButtonElement>("browser-start");
+ const stop = $<HTMLButtonElement>("browser-stop");
+ const disabled = pending();
+ more.disabled = disabled;
  if (!connected && compactLayout.matches) {
   if (more.getAttribute("aria-expanded") === "true") closeMenu();
   $<HTMLDetailsElement>("browser-clipboard-panel").open = false;
   if (document.fullscreenElement === pane) void document.exitFullscreen().catch(() => {});
  }
  // 同一时刻只露一个：没连上时「启动浏览器」，连上后「关闭浏览器」
- $("browser-start").classList.toggle("hidden", connected);
- $("browser-stop").classList.toggle("hidden", !connected);
- for (const id of ["browser-stop", "browser-start", "browser-launch"]) {
-  $<HTMLButtonElement>(id).disabled = pending();
+ const focused = document.activeElement;
+ const hidden = connected ? start : stop;
+ if (!compactLayout.matches && (focused === hidden || (disabled && (focused === start || focused === stop)))) {
+  $("browser-connection").focus({preventScroll:true});
  }
+ start.classList.toggle("hidden", connected);
+ stop.classList.toggle("hidden", !connected);
+ start.disabled = disabled;
+ stop.disabled = disabled;
+ $<HTMLButtonElement>("browser-launch").disabled = disabled;
  $<HTMLButtonElement>("browser-paste").disabled = !connected;
  $<HTMLButtonElement>("browser-copy").disabled = !connected;
  renderNavigation();

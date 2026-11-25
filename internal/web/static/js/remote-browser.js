@@ -327,7 +327,10 @@ function controls() {
     const pane = $("tab-browser");
     pane.toggleAttribute("data-connected", connected);
     const more = $("browser-more");
-    more.disabled = pending();
+    const start = $("browser-start");
+    const stop = $("browser-stop");
+    const disabled = pending();
+    more.disabled = disabled;
     if (!connected && compactLayout.matches) {
         if (more.getAttribute("aria-expanded") === "true")
             closeMenu();
@@ -336,11 +339,16 @@ function controls() {
             void document.exitFullscreen().catch(() => { });
     }
     // 同一时刻只露一个：没连上时「启动浏览器」，连上后「关闭浏览器」
-    $("browser-start").classList.toggle("hidden", connected);
-    $("browser-stop").classList.toggle("hidden", !connected);
-    for (const id of ["browser-stop", "browser-start", "browser-launch"]) {
-        $(id).disabled = pending();
+    const focused = document.activeElement;
+    const hidden = connected ? start : stop;
+    if (!compactLayout.matches && (focused === hidden || (disabled && (focused === start || focused === stop)))) {
+        $("browser-connection").focus({ preventScroll: true });
     }
+    start.classList.toggle("hidden", connected);
+    stop.classList.toggle("hidden", !connected);
+    start.disabled = disabled;
+    stop.disabled = disabled;
+    $("browser-launch").disabled = disabled;
     $("browser-paste").disabled = !connected;
     $("browser-copy").disabled = !connected;
     renderNavigation();

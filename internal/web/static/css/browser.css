@@ -68,7 +68,8 @@
 .browser-mobile-only { display:none; }
 @container browser-work (max-width:850px) {
  .browser-toolbar { grid-template-columns:minmax(0,1fr) auto; gap:6px 10px; padding:8px 12px; }
- .browser-toolbar.wb-peek-host { grid-template-columns:auto minmax(0,1fr) auto; }
+ .browser-toolbar.wb-peek-host { grid-template-columns:minmax(0,max-content) max-content minmax(0,1fr) max-content; }
+ .browser-toolbar.wb-peek-host > .browser-display { grid-column:-2; }
  .browser-navigation { grid-row:2; grid-column:1 / -1; }
  .browser-lifecycle { justify-self:start; }
 }

@@ -36,7 +36,7 @@ function renderGuide(host) {
     </ol>
     <section class="git-guide-section"><h2><span data-i18n="连接方式怎么选？">${trHTML("连接方式怎么选？")}</span></h2>
       <dl class="git-methods">
-        <div><dt>HTTPS Token <span><span data-i18n="通用选择">${trHTML("通用选择")}</span></span></dt><dd><span data-i18n="在代码平台创建个人访问令牌（Personal Access Token），开放目标仓库的读取权限；需要推送时再开放写入权限。选择「添加连接」，填写服务地址和 Token。">${trHTML("在代码平台创建个人访问令牌（Personal Access Token），开放目标仓库的读取权限；需要推送时再开放写入权限。选择「添加连接」，填写服务地址和 Token。")}</span></dd></div>
+        <div><dt><span data-i18n="HTTPS Token">${trHTML("HTTPS Token")}</span> <span><span data-i18n="通用选择">${trHTML("通用选择")}</span></span></dt><dd><span data-i18n="在代码平台创建个人访问令牌（Personal Access Token），开放目标仓库的读取权限；需要推送时再开放写入权限。选择「添加连接」，填写服务地址和 Token。">${trHTML("在代码平台创建个人访问令牌（Personal Access Token），开放目标仓库的读取权限；需要推送时再开放写入权限。选择「添加连接」，填写服务地址和 Token。")}</span></dd></div>
         <div><dt><span data-i18n="网页授权">${trHTML("网页授权")}</span> <span><span data-i18n="无需粘贴 Token">${trHTML("无需粘贴 Token")}</span></span></dt><dd><span data-i18n="选择「网页授权」，生成链接后在 GitHub / GitLab 完成授权，返回连接列表点击「刷新」。若没有可用服务，请联系管理员配置 OAuth 应用，或使用 Token。">${trHTML("选择「网页授权」，生成链接后在 GitHub / GitLab 完成授权，返回连接列表点击「刷新」。若没有可用服务，请联系管理员配置 OAuth 应用，或使用 Token。")}</span></dd></div>
         <div><dt><span data-i18n="SSH 私钥">${trHTML("SSH 私钥")}</span> <span><span data-i18n="已有 SSH 配置">${trHTML("已有 SSH 配置")}</span></span></dt><dd><span data-i18n="选择「添加连接 → SSH 私钥」，填写私钥及口令（如有），并向 Git 服务管理员核对服务器主机公钥。个人公钥需提前登记到代码平台。">${trHTML("选择「添加连接 → SSH 私钥」，填写私钥及口令（如有），并向 Git 服务管理员核对服务器主机公钥。个人公钥需提前登记到代码平台。")}</span></dd></div>
       </dl>

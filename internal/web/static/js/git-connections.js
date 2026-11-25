@@ -85,7 +85,7 @@ function renderGitConnections(host) {
             setTextRender(title, () => c.label + (!managed ? i18nText(" · 共享自 ") + c.owner : "") + (def.connection_id === c.id ? i18nText(" · 默认") : ""));
             const meta = document.createElement("p");
             meta.className = "field-hint";
-            setTextRender(meta, () => `${c.provider} · ${c.auth_type === "oauth" ? "OAuth" : c.auth_type === "ssh" ? "SSH" : "Token"} · ${c.base_url}\n${c.enabled ? i18nText("已保存") : i18nText("已停用")} · ${c.read_only ? i18nText("只读") : i18nText("允许推送")} · ${c.network?.route === "tunnel" ? i18nText("内网隧道") : i18nText("直连")}${c.host_fingerprint ? i18nText("\n主机指纹：") + c.host_fingerprint : ""}`);
+            setTextRender(meta, () => `${c.provider} · ${c.auth_type === "oauth" ? "OAuth" : c.auth_type === "ssh" ? "SSH" : i18nText("HTTPS Token")} · ${c.base_url}\n${c.enabled ? i18nText("已保存") : i18nText("已停用")} · ${c.read_only ? i18nText("只读") : i18nText("允许推送")} · ${c.network?.route === "tunnel" ? i18nText("内网隧道") : i18nText("直连")}${c.host_fingerprint ? i18nText("\n主机指纹：") + c.host_fingerprint : ""}`);
             // 行内只露三个常用动作；启停、授权、公钥这些低频动作与删除收进 ⋯，删除放最后。
             const buttons = document.createElement("div");
             buttons.className = "git-connection-tools";
@@ -145,12 +145,12 @@ function renderGitConnections(host) {
 function editConnection(c, saved) {
     const token = S.token;
     const d = createGitSurface(() => c ? i18nText("编辑 Git 连接") : i18nText("添加 Git 连接"), `<form>
-    <label><span data-i18n="认证方式">${trHTML("认证方式")}</span><select name="auth_type"><option value="pat">HTTPS Token</option><option value="ssh" data-i18n="SSH 私钥">${trHTML("SSH 私钥")}</option></select></label>
+    <label><span data-i18n="认证方式">${trHTML("认证方式")}</span><select name="auth_type"><option value="pat" data-i18n="HTTPS Token">${trHTML("HTTPS Token")}</option><option value="ssh" data-i18n="SSH 私钥">${trHTML("SSH 私钥")}</option></select></label>
     <label><span data-i18n="连接名称">${trHTML("连接名称")}</span><input type="text" name="label" maxlength="128" required placeholder="${trHTML("例如：公司 GitLab")}" data-i18n-attrs="{&quot;placeholder&quot;:&quot;例如：公司 GitLab&quot;}"></label>
     <div class="dlg-row"><label><span data-i18n="平台">${trHTML("平台")}</span><select name="provider"><option value="github">GitHub</option><option value="gitlab" data-i18n="GitLab / 自建 GitLab">${trHTML("GitLab / 自建 GitLab")}</option><option value="generic" data-i18n="其他 HTTPS Git">${trHTML("其他 HTTPS Git")}</option></select></label>
     <label><span data-i18n="服务地址">${trHTML("服务地址")}</span><input type="url" name="base_url" required placeholder="https://git.example.com"></label></div>
     <label><span data-i18n="Git 用户名">${trHTML("Git 用户名")}</span><input type="text" name="username" maxlength="256" placeholder="${trHTML("GitHub / GitLab 留空可使用默认值")}" data-i18n-attrs="{&quot;placeholder&quot;:&quot;GitHub / GitLab 留空可使用默认值&quot;}"></label>
-    <label data-token-row>${c ? i18nText("替换 Token（留空保留）") : "Personal Access Token"}<input type="password" name="token" autocomplete="new-password" maxlength="16384" ${c ? "" : "required"}></label>
+    <label data-token-row><span data-i18n="${c ? "替换 Token（留空保留）" : "Personal Access Token"}">${trHTML(c ? "替换 Token（留空保留）" : "Personal Access Token")}</span><input type="password" name="token" autocomplete="new-password" maxlength="16384" ${c ? "" : "required"}></label>
     <div data-ssh class="hidden"><label><span data-i18n="SSH 私钥">${trHTML("SSH 私钥")}</span><textarea name="private_key" rows="4" autocomplete="off" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea></label>
     <label><span data-i18n="私钥口令（如有）">${trHTML("私钥口令（如有）")}</span><input type="password" name="passphrase" autocomplete="new-password"></label>
     <label><span data-i18n="服务器主机公钥">${trHTML("服务器主机公钥")}</span><textarea name="host_key" rows="2" spellcheck="false" placeholder="ssh-ed25519 AAAA…"></textarea></label>

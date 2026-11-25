@@ -4,6 +4,7 @@ import { S, bus } from "./state.js";
 import { api, wsURL } from "./api.js";
 import { enhanceSelects, setSelectValue } from "./select.js";
 import { closeMenu, openMenu } from "./menu.js";
+import { setTip } from "./tip.js";
 import { setupBrowserClipboard } from "./browser-clipboard.js";
 import { $, toast } from "./util.js";
 import type { BrowserInfo } from "./types.js";
@@ -291,6 +292,7 @@ function syncFullscreen() {
 
 function state(text: string, compact = "", error = "") {
  $("browser-state").textContent = text;
+ setTip($("browser-connection"), text);
  const short = $("browser-mobile-state");
  setText(short, compact);
  short.parentElement!.toggleAttribute("data-mobile-text", !!compact);
@@ -305,8 +307,10 @@ function problem(message: string) {
  state(message, "浏览器操作失败", message);
 }
 function updateDot() {
- $("browser-dot").dataset.state = !$("browser-error-details").classList.contains("hidden") ? "error" :
+ const status = !$("browser-error-details").classList.contains("hidden") ? "error" :
   pending() ? "busy" : connected ? "connected" : "idle";
+ $("browser-dot").dataset.state = status;
+ $("browser-connection").dataset.state = status;
 }
 function setClipboardFallback(open: boolean) {
  const panel = $<HTMLDetailsElement>("browser-clipboard-panel");

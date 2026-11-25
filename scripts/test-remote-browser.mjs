@@ -69,6 +69,7 @@ export async function remoteBrowserSmoke(page) {
  await setLanguage('ru');
  await page.setViewportSize({width:320,height:740});
  const mobileState = page.locator('#browser-mobile-state');
+ const connection = page.locator('#browser-connection');
  const errorDetails = page.locator('#browser-error-details');
  const actions = page.locator('#browser-more');
  const clipboardPanel = page.locator('#browser-clipboard-panel');
@@ -81,6 +82,7 @@ export async function remoteBrowserSmoke(page) {
    `${selector} fits ${width}×${height}: ${JSON.stringify(box)}`);
  };
  assert.equal(await page.locator('#browser-start').isVisible(),false);
+ assert.equal(await connection.isVisible(),false);
  assert.equal(await launch.isEnabled(),true);
  assert.equal(await clipboardPanel.isVisible(),false);
  assert.equal(await actions.isVisible(),false);
@@ -195,7 +197,8 @@ export async function remoteBrowserSmoke(page) {
  unavailable = true;
  await page.locator('#browser-start').click();
  const message = 'В текущем образе агента браузер не установлен. Попросите администратора собрать и выбрать образ agentbox-agent:browser. Затем остановите и снова запустите рабочее пространство. Идентификатор операции: ' + operationID;
- await page.getByText(message,{exact:true}).first().waitFor();
+ await page.locator('#browser-connection[data-state="error"]').waitFor();
+ assert.equal(await connection.getAttribute('data-tip'),message);
  assert.equal(await page.locator('#browser-state').textContent(),message);
  await page.locator('.toast').filter({hasText:message}).waitFor();
  await setLanguage('zh-CN');
@@ -261,12 +264,28 @@ export async function remoteBrowserSmoke(page) {
 
  hasNavigation = true;
  await setLanguage('ru');
+ const longAddress = 'https://example.org/a/long/path?department=research&tab=architecture';
+ browserTabs[0].url = longAddress;
  await page.locator('#browser-start').click();
  const strip = page.locator('#browser-tab-strip');
  const list = strip.locator('#browser-tab-list');
  const cards = list.locator('.browser-tab-card');
  const picker = page.locator('#browser-tabs');
  await cards.nth(35).waitFor();
+ assert.equal(await page.locator('#browser-url').inputValue(),longAddress);
+ assert.equal(await page.locator('.browser-status').isVisible(),false);
+ assert.equal(await connection.getAttribute('data-state'),'connected');
+ assert.match(await connection.getAttribute('data-tip'),/Подключено.*Google Chrome/);
+ await connection.hover();
+ const statusTip = page.locator('#tip.show').filter({hasText:'Подключено'});
+ await statusTip.waitFor();
+ await fitsOnScreen('#tip');
+ const stopButton = page.getByRole('button',{name:'Закрыть браузер',exact:true});
+ assert.equal((await stopButton.textContent()).trim(),'');
+ await page.locator('#browser-quality').evaluate(el=>{el.value='balanced';el.dispatchEvent(new Event('change',{bubbles:true}));});
+ const quality = page.locator('.browser-quality .select-trigger');
+ const qualityCaption = quality.locator('.select-caption');
+ assert.equal(await qualityCaption.textContent(),'Сбалансированный');
  assert.equal(await picker.isVisible(),false);
  assert.equal(await list.evaluate(el=>el.scrollWidth > el.clientWidth),true);
  assert.equal(await cards.first().locator('.browser-tab-close').evaluate(el=>getComputedStyle(el).opacity),'0');
@@ -311,6 +330,17 @@ export async function remoteBrowserSmoke(page) {
    `address and tabs share a row at ${width}px`);
   await fitsOnScreen('#browser-new-tab');
   await fitsOnScreen('#browser-fullscreen');
+  await fitsOnScreen('#browser-connection');
+  const controls = await Promise.all([stopButton,connection,quality,page.locator('#browser-fullscreen'),
+   page.locator('#browser-new-tab'),cards.first()].map(el=>el.boundingBox()));
+  const [stop,status,qualityBox,full,add,tab] = controls;
+  const center = box => box.y + box.height/2;
+  assert.ok(controls.every(box=>Math.abs(box.height-address.height) < 1),`consistent control heights at ${width}px`);
+  assert.ok([status,qualityBox,full].every(box=>Math.abs(center(box)-center(stop)) < 1),`aligned toolbar controls at ${width}px`);
+  assert.ok([add,tab].every(box=>Math.abs(center(box)-center(address)) < 1),`aligned address and tabs at ${width}px`);
+  if (width === 1440) assert.ok(Math.abs(center(address)-center(stop)) < 1,'desktop toolbar shares one vertical axis');
+  assert.ok(address.width >= 248,`expanded address stays usable at ${width}px`);
+  assert.equal(await qualityCaption.evaluate(el=>el.scrollWidth<=Math.ceil(el.clientWidth)),true,`quality caption fits at ${width}px`);
   assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth <= innerWidth),true);
   if (process.env.AGENTBOX_BROWSER_TAB_SCREENSHOTS === '1') {
    await page.locator('.browser-toolbar').screenshot({path:`output/playwright/remote-browser-tabs-${width}.png`});
@@ -354,7 +384,7 @@ export async function remoteBrowserSmoke(page) {
  release(); delayResolve=null;
  await page.waitForTimeout(100);
  assert.equal(await page.locator('#browser-screen').innerText(),'');
- console.log('Browser layouts: desktop clipboard fallback, mobile clipboard controls, responsive tab strip and keyboard focus passed');
+ console.log('Browser layouts: status tooltip, quality label, address and control alignment, clipboard and mobile controls passed');
  await page.unroute('**/vendor/novnc/core/rfb.js');
  await page.unroute('**/api/sessions/*/browser');
  await page.unroute('**/api/sessions/*/browser/navigation*');

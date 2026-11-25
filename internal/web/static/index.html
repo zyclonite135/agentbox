@@ -584,11 +584,11 @@
           <!-- 远程浏览器 -->
           <section id="tab-browser" class="pane hidden">
             <div class="browser-toolbar" aria-label="远程浏览器工具栏" data-i18n-attrs="{&quot;aria-label&quot;:&quot;远程浏览器工具栏&quot;}">
-              <!-- 带字的单个切换按钮：与工作台头部「启动 / 停止工作空间」区分开，
-                   曾经两组同样的播放/停止图标上下叠着，点错就把整个空间停了 -->
               <div class="browser-lifecycle" role="group" aria-label="浏览器连接" data-i18n-attrs="{&quot;aria-label&quot;:&quot;浏览器连接&quot;}">
+                <span id="browser-connection" class="browser-connection" role="img" tabindex="0" aria-labelledby="browser-state" data-tip-pos="bottom" data-tip-tap data-tip="浏览器未启动" data-i18n-attrs='{"data-tip":"浏览器未启动"}'><span class="browser-dot" aria-hidden="true"></span></span>
+                <p id="browser-state" class="browser-state browser-status-text" role="status" data-i18n-text='["浏览器未启动"]'>浏览器未启动</p>
                 <button id="browser-start" class="btn btn-sm" data-icon="globe" aria-label="启动浏览器" data-tip="启动远程浏览器，继续上次的登录状态" data-i18n-text="[&quot;启动浏览器&quot;]" data-i18n-attrs="{&quot;aria-label&quot;:&quot;启动浏览器&quot;,&quot;data-tip&quot;:&quot;启动远程浏览器，继续上次的登录状态&quot;}">启动浏览器</button>
-                <button id="browser-stop" class="btn btn-sm hidden" data-icon="close" aria-label="关闭浏览器" data-tip="关闭远程浏览器，登录状态保留" data-i18n-text="[&quot;关闭浏览器&quot;]" data-i18n-attrs="{&quot;aria-label&quot;:&quot;关闭浏览器&quot;,&quot;data-tip&quot;:&quot;关闭远程浏览器，登录状态保留&quot;}">关闭浏览器</button>
+                <button id="browser-stop" class="btn browser-tool hidden" type="button" data-icon="close" aria-label="关闭浏览器" data-tip="关闭远程浏览器，登录状态保留" data-i18n-attrs="{&quot;aria-label&quot;:&quot;关闭浏览器&quot;,&quot;data-tip&quot;:&quot;关闭远程浏览器，登录状态保留&quot;}"></button>
               </div>
               <div class="browser-navigation">
                 <form id="browser-address" class="browser-address">
@@ -615,7 +615,6 @@
             </div>
             <div class="browser-status">
               <span id="browser-dot" class="browser-dot" aria-hidden="true"></span>
-              <p id="browser-state" class="browser-state" role="status" data-i18n-text='["浏览器未启动"]'>浏览器未启动</p>
               <p id="browser-mobile-state" class="browser-state browser-mobile-only" role="status"></p>
               <details id="browser-error-details" class="browser-mobile-only hidden">
                 <summary data-i18n="了解更多">了解更多</summary>

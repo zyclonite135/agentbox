@@ -1,20 +1,13 @@
 /* Keep the Git header, navigation and content aligned in the workspace. */
 #view-git {
-  --git-page-width: 1040px;
   --git-page-gutter: clamp(16px, 3vw, 32px);
   --git-panel-padding: clamp(16px, 2.5vw, 28px);
 }
 #view-git > .set-head,
 #view-git > .set-body {
-  width: min(100% - 2 * var(--git-page-gutter), var(--git-page-width));
-  margin-inline: auto;
+  width: calc(100% - 2 * var(--git-page-gutter));
+  margin-inline: var(--git-page-gutter);
   padding-inline: 0;
-}
-@media (min-width: 761px) {
-  #view-git > .set-head,
-  #view-git > .set-body {
-    margin-inline-start: var(--git-page-gutter);
-  }
 }
 #view-git > .set-head {
   padding-block: 20px 14px;
@@ -55,7 +48,7 @@
 .git-surface h3, .git-guide h3 { margin: 0; font-size: 14px; font-weight: 600; }
 .git-surface p, .git-guide p { overflow-wrap: anywhere; }
 .git-surface > .sec-intro { margin-bottom: 20px; }
-.git-surface form { display: flex; flex-direction: column; gap: 16px; max-width: 680px; }
+.git-surface form { display: flex; flex-direction: column; gap: 16px; }
 .git-surface fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 16px; }
 .git-surface label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
 .git-surface label.check { flex-direction: row; align-items: center; }
@@ -107,6 +100,7 @@
 @media (max-width: 760px) {
   #view-git { --git-page-gutter: 16px; }
   #view-git > .set-body { padding-top: 12px; }
+  .git-surface form { max-width: 680px; }
   #git-connections > .git-connection-tools > [data-add] {
     flex: 0 0 100%;
     justify-content: center;

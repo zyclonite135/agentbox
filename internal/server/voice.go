@@ -19,7 +19,7 @@ const maxVoicePCM = 30 * 16000 * 2
 var voiceInferenceSlot = make(chan struct{}, 1)
 
 var voiceHTTP = &http.Client{
-	Timeout: 45 * time.Second,
+	Timeout:   45 * time.Second,
 	Transport: &http.Transport{},
 	CheckRedirect: func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
@@ -93,6 +93,7 @@ func (s *Server) handleVoiceTranscription(w http.ResponseWriter, r *http.Request
 	file.Write(wav[:])
 	file.Write(pcm)
 	form.WriteField("response_format", "json")
+	form.WriteField("language", "ru")
 	form.Close()
 
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, "http://127.0.0.1:"+strconv.Itoa(port)+"/inference", &body)

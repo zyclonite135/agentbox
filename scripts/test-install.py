@@ -43,7 +43,7 @@ scenario=$2
 systemctl() {
   printf '%s\n' "$*" >> "$logs"
   if [[ "$*" == 'start agentbox-whisper.service' ]]; then
-    grep -q '^ExecStart=.* -l auto -ng$' "$unit_dir/agentbox-whisper.service"
+    grep -q '^ExecStart=.* -l ru -ng$' "$unit_dir/agentbox-whisper.service"
   fi
 }
 journalctl() { printf 'Whisper startup log: fixture\n'; }

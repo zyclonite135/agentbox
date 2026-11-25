@@ -1,11 +1,11 @@
 import { i18n, setAttrRender, t as i18nText } from "./i18n.js";
 /* voice：语音输入。用浏览器内置的 Web Speech API 识别（Chrome/Edge/Safari；
  * Firefox 不支持则隐藏入口）。点击开始录音，边说边把文字实时写进输入框，
- * 再点一次停止并直接发送；Agent 执行中则把文字留在输入框里。 */
+ * 再点一次停止，识别文字留在输入框里。 */
 "use strict";
 import { S, bus } from "./state.js";
 import { $, toast, isImeEnter, enterInsertsNewline } from "./util.js";
-import { sendChat, autoGrow } from "./chat.js";
+import { autoGrow } from "./chat.js";
 import { setTip } from "./tip.js";
 import { canRecordVoice, recordServerVoice, serverVoiceEnabled } from "./voice-server.js";
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -34,13 +34,13 @@ function idleTitle() {
             : i18nText("服务器语音输入");
     }
     return serverSupported
-        ? i18nText("语音输入：点击说话，再点一次停止并发送（Shift+点击使用服务器识别）")
-        : i18nText("语音输入：点击说话，再点一次停止并发送");
+        ? i18nText("语音输入：点击说话，再点一次停止（Shift+点击使用服务器识别）")
+        : i18nText("语音输入：点击说话，再点一次停止");
 }
 let rec = null; // 当前识别实例，非 null 即录音中
 let base = ""; // 录音开始时输入框已有的内容
 let finalText = ""; // 已定稿的识别结果（interim 部分每次整体重写）
-let sendOnEnd = false; // 用户主动点停：识别收尾后自动发送
+let stopRequested = false;
 if (!SR && !serverSupported)
     btn.classList.add("hidden");
 setRecUI(false);
@@ -50,7 +50,7 @@ btn.addEventListener("click", (event) => {
         return;
     }
     if (rec) {
-        stopAndSend();
+        stopNativeRecording();
         return;
     }
     voiceAttempt++;
@@ -66,26 +66,23 @@ function startServer() {
     const prefix = original && !/\s$/.test(original) ? original + " " : original;
     const thread = S.thread;
     const session = S.current;
-    let transcript = "";
     try {
         serverRec = recordServerVoice({
-            onReady: () => toast(i18nText("正在聆听，再点一次 🎤 停止并发送")),
+            onReady: () => toast(i18nText("正在聆听，再点一次 🎤 停止")),
             onText: (text) => {
                 if (S.thread?.id !== thread?.id || S.current?.id !== session?.id) {
                     abortServerRecording();
                     return;
                 }
-                transcript = text.trim();
+                const transcript = text.trim();
                 input.value = transcript ? prefix + transcript : original;
                 autoGrow();
             },
-            onEnd: (send, reachedLimit) => {
+            onEnd: (reachedLimit) => {
                 serverRec = undefined;
                 setRecUI(false);
                 if (reachedLimit)
                     toast(i18nText("单次服务器语音输入限时 30 秒，文字已保留"));
-                if (send && transcript && S.thread?.id === thread?.id && S.current?.id === session?.id)
-                    sendVoiceText();
             },
             onError: (error) => {
                 serverRec = undefined;
@@ -110,14 +107,6 @@ function startServer() {
         toast(i18nText("服务器语音识别失败，请重试"), true);
     }
 }
-function sendVoiceText() {
-    if (!input.value.trim())
-        return;
-    if (S.chatState === "running")
-        toast(i18nText("Agent 执行中，识别文字已放入输入框"));
-    else
-        void sendChat();
-}
 function offerServerVoice() {
     if (!serverSupported)
         return;
@@ -138,7 +127,7 @@ function start() {
     r.interimResults = true;
     base = input.value && !/\s$/.test(input.value) ? input.value + " " : input.value;
     finalText = "";
-    sendOnEnd = false;
+    stopRequested = false;
     let fallback = false;
     let failed = false; // 出错后 onend 不再自动续听
     r.onresult = (e) => {
@@ -174,7 +163,7 @@ function start() {
         if (rec !== r)
             return; // 已被手动发送等路径掐掉
         // 静音等原因自动结束：用户没点停就悄悄续上
-        if (!sendOnEnd && !failed) {
+        if (!stopRequested && !failed) {
             try {
                 r.start();
                 return;
@@ -187,8 +176,6 @@ function start() {
         setRecUI(false);
         if (fallback)
             offerServerVoice();
-        if (sendOnEnd && !fallback)
-            sendVoiceText();
     };
     try {
         r.start();
@@ -200,10 +187,10 @@ function start() {
     }
     rec = r;
     setRecUI(true);
-    toast(i18nText("正在聆听，再点一次 🎤 停止并发送"));
+    toast(i18nText("正在聆听，再点一次 🎤 停止"));
 }
-function stopAndSend() {
-    sendOnEnd = true;
+function stopNativeRecording() {
+    stopRequested = true;
     try {
         rec.stop();
     }
@@ -211,7 +198,7 @@ function stopAndSend() {
 }
 function setRecUI(on) {
     btn.classList.toggle("rec", on);
-    setTip(btn, () => on ? i18nText("停止录音并发送") : idleTitle());
+    setTip(btn, () => on ? i18nText("停止录音") : idleTitle());
     setAttrRender(btn, "aria-label", () => on ? i18nText("停止录音") : i18nText("语音输入")); // 纯图标按钮，可访问名称得跟着状态走
 }
 /* 录音途中手动发送（Enter / 发送键）：先掐掉识别，

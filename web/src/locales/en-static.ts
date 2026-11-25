@@ -574,7 +574,7 @@ export default {
   "该账号的全部官方请求都会经此代理出网，对新对话和新开终端立即生效。代理在「系统设置 → IP 代理」里维护。": "All official requests from this account use the proxy, effective for new conversations and terminals. Manage proxies in Settings → IP proxies.",
   "语言": "Language",
   "语音输入": "Voice input",
-  "语音输入：点击说话，再点一次停止并发送": "Voice input: click to speak, then click again to stop and send",
+  "语音输入：点击说话，再点一次停止": "Voice input: click to speak, click again to stop",
   "读取中…": "Loading…",
   "读取代理列表…": "Loading proxies…",
   "读取系统信息中…": "Loading system information…",

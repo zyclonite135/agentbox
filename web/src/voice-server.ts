@@ -17,7 +17,7 @@ export async function serverVoiceEnabled(signal?: AbortSignal) {
 export function recordServerVoice(options: {
   onReady: () => void;
   onText: (text: string) => void;
-  onEnd: (send: boolean, reachedLimit: boolean) => void;
+  onEnd: (reachedLimit: boolean) => void;
   onError: (error: unknown) => void;
 }) {
   const controller = new AbortController();
@@ -29,7 +29,6 @@ export function recordServerVoice(options: {
   let requested = 0;
   let transcribed = 0;
   let stopping = false;
-  let send = false;
   let reachedLimit = false;
   let pending: Promise<void> | undefined;
   let flushTimer: number | undefined;
@@ -78,19 +77,18 @@ export function recordServerVoice(options: {
       await pending;
       if (controller.signal.aborted) return;
       if (count > transcribed) await transcribe();
-      if (!controller.signal.aborted) options.onEnd(send, reachedLimit);
+      if (!controller.signal.aborted) options.onEnd(reachedLimit);
     } catch (error) {
       fail(error);
     }
   }
 
-  function stop(shouldSend = true) {
+  function stop() {
     if (stopping || controller.signal.aborted) return;
     stopping = true;
-    send = shouldSend;
     if (!recorder) {
       cancel();
-      options.onEnd(false, false);
+      options.onEnd(false);
       return;
     }
     recorder.port.postMessage("flush");
@@ -115,7 +113,7 @@ export function recordServerVoice(options: {
     recorder = new AudioWorkletNode(audio, "agentbox-pcm", { channelCount: 1, channelCountMode: "explicit" });
     recorder.onprocessorerror = fail;
     for (const track of stream.getAudioTracks()) {
-      track.addEventListener("ended", () => stop(false), { once: true });
+      track.addEventListener("ended", stop, { once: true });
       if (track.readyState === "ended") throw new Error("microphone_disconnected");
     }
     recorder.port.onmessage = (event: MessageEvent<Int16Array | null>) => {
@@ -130,7 +128,7 @@ export function recordServerVoice(options: {
       count += Math.min(chunk.length, remaining);
       if (count === maxSamples && !stopping) {
         reachedLimit = true;
-        stop(false);
+        stop();
       } else if (!stopping && !pending && count - requested >= updateInterval) {
         pending = transcribe().catch((error: unknown) => {
           // The next snapshot still includes the audio skipped by a busy worker.

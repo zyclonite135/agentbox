@@ -17,6 +17,35 @@
   width: 100%;
   padding: 18px 28px 0;
 }
+/* Shared page frame for Git management and personal preferences. */
+:is(#view-git, #view-settings.personal-settings) {
+  --management-gutter: clamp(16px, 3vw, 32px);
+}
+:is(#view-git, #view-settings.personal-settings) > :is(.set-head, .set-body) {
+  width: calc(100% - 2 * var(--management-gutter));
+  margin-inline: var(--management-gutter);
+  padding-inline: 0;
+}
+:is(#view-git, #view-settings.personal-settings) > .set-head {
+  padding-block: 20px 14px;
+  background: transparent;
+  border-bottom: 0;
+}
+:is(#view-git, #view-settings.personal-settings) > .set-body {
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 0;
+}
+#git-content > :is(.git-surface, .git-guide), .interface-preferences {
+  padding: clamp(16px, 2.5vw, 28px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: calc(12px * var(--radius-scale));
+}
+@media (max-width: 760px) {
+  :is(#view-git, #view-settings.personal-settings) { --management-gutter: 16px; }
+  :is(#view-git, #view-settings.personal-settings) > .set-body { padding-top: 12px; }
+}
 .set-nav {
   width: 184px; flex: none;
   display: flex; flex-direction: column; gap: 2px;
@@ -100,20 +129,27 @@
 .interface-copy > span,.interface-status { color:var(--muted); font-size:12.5px; line-height:1.45; }
 .interface-status { margin:0; }
 .interface-preferences {
-  display:grid; grid-template-columns:minmax(0,1fr); align-items:start;
-  gap:var(--settings-gap);
+  display:flex; flex-direction:column; gap:24px; min-width:0;
 }
+#view-settings .interface-preferences > .sec-intro { padding:0; border:0; }
+.interface-preferences .interface-group { gap:12px; }
+.interface-preferences .interface-group-title {
+  color:var(--text); font-size:16px; letter-spacing:normal; text-transform:none;
+}
+.interface-preferences .interface-card {
+  padding-inline:14px; border-radius:calc(8px * var(--radius-scale)); background:transparent;
+}
+.interface-preferences .interface-entry { gap:6px; padding-block:10px; }
 .interface-preferences .interface-entry > :is(.interface-details,.interface-warning,.interface-status) {
   margin-inline-start:25px;
 }
-@container (min-width:740px) {
-  .interface-preferences { grid-template-columns:repeat(2,minmax(0,1fr)); }
-}
-@container (min-width:1120px) {
-  .interface-preferences { grid-template-columns:repeat(3,minmax(0,1fr)); }
-}
+.interface-preferences .interface-details { max-width:65ch; }
 @media (min-width:761px) {
-  .interface-preferences .interface-select-row { grid-template-columns:minmax(0,1fr) minmax(0,min(44%,11rem)); }
+  .interface-preferences :is(.interface-toggle,.interface-select-row) {
+    width:min(100%,36rem);
+    grid-template-columns:minmax(0,1fr) minmax(0,min(34%,11rem));
+  }
+  .interface-preferences .interface-switch { justify-self:start; }
 }
 .interface-switch {
   appearance:none; -webkit-appearance:none; position:relative; width:44px; height:26px; margin:0;
@@ -757,7 +793,7 @@
 #view-settings .set-head { padding-block:8px; }
 #view-settings .set-body { gap:20px; }
 #view-settings .set-nav { width:max-content; min-width:174px; overflow-y:auto; scrollbar-width:thin; scrollbar-gutter:stable; }
-#view-settings.personal-settings :is(#set-nav,#sec-interface > .sec-intro) { display:none; }
+#view-settings.personal-settings :is(#set-nav,.interface-preferences > .sec-intro) { display:none; }
 .settings-nav-group,.section-menu-heading {
   margin:10px 0 2px; padding-inline:10px; color:var(--muted);
   font-size:11px; line-height:1.4; font-weight:600; letter-spacing:.045em; text-transform:uppercase;
@@ -818,7 +854,7 @@
   #view-settings .set-body { gap:0; padding-inline:12px; }
   #view-settings.personal-settings > .set-head { display:flex; }
   #view-settings .set-section { gap:12px; }
-  #view-settings #sec-interface { max-width:680px; }
+  #view-settings:not(.personal-settings) #sec-interface { max-width:680px; }
   #view-settings .sec-intro { gap:8px; }
   #view-settings .sec-intro h2 { display:none; }
   #view-settings :is(.settings-block,.interface-card) { padding-inline:11px; }

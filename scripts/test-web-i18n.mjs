@@ -159,9 +159,9 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
   await language('ru');
   const title=page.locator('#set-title');
   const description=page.locator('#set-description');
-  const grid=page.locator('.interface-preferences');
-  assert.equal(await grid.getByRole('heading',{level:2}).count(),3);
-  for (const [width,columns] of [[1720,3],[1080,2],[320,1]]) {
+  const panel=page.locator('.interface-preferences');
+  assert.equal(await panel.getByRole('heading',{level:2}).count(),3);
+  for (const width of [2560,1280,768,320]) {
    await page.setViewportSize({width,height:900});
    assert.equal(await title.isVisible(),true);
    assert.equal(await title.textContent(),'Личные настройки');
@@ -169,32 +169,53 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
    assert.equal(await page.locator('#set-nav').isVisible(),false);
    assert.equal(await page.locator('#mobile-section-btn').isVisible(),false);
    assert.equal(await page.locator('#interface-admin-title').isVisible(),false);
-   const layout=await grid.evaluate(el=>({
-    columns:getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length,
-    overflow:el.scrollWidth-el.clientWidth,
-   }));
-   assert.equal(layout.columns,columns,`personal settings at ${width}px`);
+   const layout=await panel.evaluate(el=>{
+    const panelBounds=el.getBoundingClientRect();
+    const groups=[...el.querySelectorAll(':scope > .interface-group')].map(group=>group.getBoundingClientRect());
+    const controls=[...el.querySelectorAll('.interface-switch, .interface-select-row .select-trigger')].map(control=>control.getBoundingClientRect().left-panelBounds.left);
+    return {
+     stacked:groups.every((group,i)=>i===0 || (group.left===groups[0].left && group.top>=groups[i-1].bottom)),
+     overflow:el.scrollWidth-el.clientWidth,
+     controls,
+    };
+   });
+   assert.equal(layout.stacked,true,`personal settings groups at ${width}px`);
    assert.ok(layout.overflow<=1,`personal settings overflow at ${width}px`);
+   if (width>760) {
+    assert.ok(Math.max(...layout.controls)-Math.min(...layout.controls)<=1,`settings control alignment at ${width}px`);
+    assert.ok(Math.max(...layout.controls)<500,`settings controls must stay near their labels at ${width}px`);
+   }
   }
-  const details=grid.locator('.interface-details').first();
+  const details=panel.locator('.interface-details').first();
   assert.equal(await details.evaluate(el=>el.open),false);
   await details.locator('summary').click();
   assert.equal(await details.evaluate(el=>el.open),true);
-  assert.equal(await grid.locator('.interface-warning:visible').count(),2);
-  const suggestion=grid.locator('#chat-suggest-enabled');
+  assert.equal(await panel.locator('.interface-warning:visible').count(),2);
+  const suggestion=panel.locator('#chat-suggest-enabled');
   const enabled=await suggestion.isChecked();
   const writesBefore=writes;
   await suggestion.press('Space');
-  const followup=grid.locator('#chat-followup-mode');
-  await grid.locator('#chat-followup-mode + .select-trigger').click();
+  const followup=panel.locator('#chat-followup-mode');
+  await panel.locator('#chat-followup-mode + .select-trigger').click();
   await page.getByRole('option').last().click();
   await page.reload();
-  await grid.waitFor();
+  await panel.waitFor();
   assert.equal(await suggestion.isChecked(),!enabled);
   assert.equal(await followup.inputValue(),'steer');
   assert.equal(writes,writesBefore,'personal preferences only change local state');
   await language('en');
   assert.equal(await title.textContent(),'Personal settings');
+  await page.setViewportSize({width:1720,height:900});
+  const appearance=locator=>locator.evaluate(el=>{
+   const {padding,borderRadius,borderColor,backgroundColor}=getComputedStyle(el);
+   const {left,right}=el.closest('.view').querySelector('.set-head').getBoundingClientRect();
+   return {padding,borderRadius,borderColor,backgroundColor,left,right};
+  });
+  const settingsAppearance=await appearance(panel);
+  await page.goto(base+'/#/git/guide');
+  const guide=page.locator('#git-content .git-guide');
+  await guide.waitFor();
+  assert.deepEqual(await appearance(guide),settingsAppearance,'Git and personal settings share the same page frame and panel');
  };
  try {
   await page.goto(base);

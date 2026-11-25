@@ -1,24 +1,4 @@
-/* Keep the Git header, navigation and content aligned in the workspace. */
-#view-git {
-  --git-page-gutter: clamp(16px, 3vw, 32px);
-  --git-panel-padding: clamp(16px, 2.5vw, 28px);
-}
-#view-git > .set-head,
-#view-git > .set-body {
-  width: calc(100% - 2 * var(--git-page-gutter));
-  margin-inline: var(--git-page-gutter);
-  padding-inline: 0;
-}
-#view-git > .set-head {
-  padding-block: 20px 14px;
-  background: transparent;
-  border-bottom: 0;
-}
-#view-git > .set-body {
-  flex-direction: column;
-  gap: 12px;
-  padding-top: 0;
-}
+/* Git navigation and content within the shared settings page frame. */
 #git-nav {
   width: 100%;
   flex-flow: row wrap;
@@ -36,10 +16,6 @@
 }
 #git-content > :is(.git-surface, .git-guide) {
   max-width: none;
-  padding: var(--git-panel-padding);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: calc(12px * var(--radius-scale));
 }
 #git-content:focus, .git-surface:focus { outline: none; }
 .git-covered { display: none !important; }
@@ -98,8 +74,6 @@
 .git-guide details p { color: var(--muted); margin: 0 0 16px; }
 .git-guide code { overflow-wrap: anywhere; }
 @media (max-width: 760px) {
-  #view-git { --git-page-gutter: 16px; }
-  #view-git > .set-body { padding-top: 12px; }
   .git-surface form { max-width: 680px; }
   #git-connections > .git-connection-tools > [data-add] {
     flex: 0 0 100%;

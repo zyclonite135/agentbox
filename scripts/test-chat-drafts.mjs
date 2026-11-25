@@ -29,7 +29,7 @@ try{
    const url=new URL(route.request().url());
    await route.fulfill({response:await route.fetch({url:localBase+url.pathname+url.search})});
   });
-  const errors=[],sent=[],requests=[],sockets=new Map(),allSockets=new Set();let identity='alice',holdUpload=false;const uploads=[],validPaths=new Set();let uploadCount=0;
+  const errors=[],sent=[],requests=[],sockets=new Map(),allSockets=new Set();let identity='alice',holdUpload=false,validationGate;const uploads=[],validPaths=new Set();let uploadCount=0;
   const threads={'space-a':'thread-one','space-b':'thread-one'};
   const spaces=['a','b'].map(id=>({id:'space-'+id,name:'Space '+id.toUpperCase(),user:'alice',agent:'codex',account_id:'fixture',account_label:'Fixture',status:'stopped',default_model:'fixture'}));
   await context.addInitScript(locale=>{if(window===window.top&&/^https?:$/.test(location.protocol))localStorage.setItem('agentbox.language',locale);},locale);
@@ -47,7 +47,10 @@ try{
    else if(path.endsWith('/chat/threads')&&request.method()==='POST'){threads[id]='thread-two';body={id:'thread-two',created:true};}
    else if(path.endsWith('/chat/threads'))body={threads:['thread-one','thread-two'].map(id=>({id,title:id,ts:new Date().toISOString(),updated:new Date().toISOString(),turns:0,resumable:true})),active:threads[id]};
    else if(path.endsWith('/activate')){threads[id]=path.split('/')[6];body={resumable:true};}
-   else if(path.endsWith('/attachments/validate'))body={valid:request.postDataJSON().paths.map(path=>validPaths.has(path))};
+   else if(path.endsWith('/attachments/validate')){
+    body={valid:request.postDataJSON().paths.map(path=>validPaths.has(path))};
+    if(validationGate)await validationGate;
+   }
    else if(path.endsWith('/images')){
     const n=++uploadCount;body={path:`/shared/.file/file-${n}.txt`,name:`file-${n}.txt`,orig:'attachment.txt'};validPaths.add(body.path);
     if(holdUpload)await new Promise(r=>uploads.push(r));
@@ -98,9 +101,32 @@ try{
    assert.equal(await input.inputValue(),'B private draft');assert.equal(await page.locator('#chat-attach').isVisible(),false);
    await go('space-a');assert.equal(await input.inputValue(),'A revised draft');assert.equal(await page.locator('#chat-send').isDisabled(),true);
    await page.locator('.attachment-invalid button').click();assert.equal(await input.inputValue(),'A revised draft');
+   // Removing an in-flight upload immediately frees the composer.
+   holdUpload=true;
+   const cancelled=page.waitForRequest(r=>new URL(r.url()).pathname.endsWith('/images'));
+   await page.locator('#attach-input').setInputFiles({name:'cancelled.txt',mimeType:'text/plain',buffer:Buffer.from('fixture')});await cancelled;
+   assert.equal(await page.locator('#chat-send').isDisabled(),true);
+   await page.locator('#chat-attach .attach-remove').click();
+   assert.equal(await page.locator('#chat-send').isEnabled(),true);
+   assert.equal(await input.inputValue(),'A revised draft');
+   holdUpload=false;for(const release of uploads.splice(0))release();
    await page.locator('#attach-input').setInputFiles({name:'attachment.txt',mimeType:'text/plain',buffer:Buffer.from('fixture')});
    await page.waitForFunction(()=>!document.querySelector('#chat-send').disabled);
-   await page.reload();await ready(page);assert.equal(await page.locator('.attachment-invalid').count(),0);
+   // A late send-time check must leave newer uploads alone and require a new send.
+   await page.reload();await ready(page);
+   await page.waitForFunction(()=>!document.querySelector('#chat-send').disabled);
+   let finishValidation;
+   validationGate=new Promise(resolve=>{finishValidation=resolve;});
+   const checking=page.waitForRequest(r=>new URL(r.url()).pathname.endsWith('/attachments/validate'));
+   await page.locator('#chat-send').click();await checking;
+   const secondUpload=page.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/images'));
+   await page.locator('#attach-input').setInputFiles({name:'new.txt',mimeType:'text/plain',buffer:Buffer.from('fixture')});await secondUpload;
+   await page.locator('#chat-attach .attach-file .spin').waitFor({state:'detached'});
+   finishValidation();validationGate=undefined;
+   await page.waitForFunction(()=>!document.querySelector('#chat-send').disabled);
+   assert.equal(await page.locator('.attachment-invalid').count(),0);
+   assert.equal(await page.locator('#chat-attach .attach-remove').count(),2);
+   await page.locator('#chat-attach .attach-remove').last().click();
    validPaths.clear();await page.reload();await ready(page);assert.equal(await page.locator('#chat-send').isDisabled(),true);
    assert.equal(await page.locator('.attachment-invalid').count(),1);
    await page.locator('.attachment-invalid button').click();

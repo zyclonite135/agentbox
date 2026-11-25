@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
+import { chatImagePNG } from './test-chat-codex-items.mjs';
+export const chatAttachmentBytes = Buffer.from('synthetic attachment bytes');
 
 // Shared synthetic browser suite: the composer's "@" file mentions, fed by a
 // synthetic /files/search. Ranking is the server's (Go tests); here only what
@@ -201,7 +203,7 @@ export async function chatMentionsSmoke(page, { setHistory, messages, socket, se
  await input.fill('看这张哪里不对');
  await input.press('Escape');
  await input.evaluate(el => el.setSelectionRange(3, 5));
- await page.locator('#attach-input').setInputFiles({name:'shot.png',mimeType:'image/png',buffer:Buffer.from('synthetic image')});
+ await page.locator('#attach-input').setInputFiles({name:'shot.png',mimeType:'',buffer:chatImagePNG});
  await thumbs.locator('img').waitFor();
  assert.equal(await input.inputValue(), '看这张哪里不对');
  assert.deepEqual(await input.evaluate(el => [el.selectionStart, el.selectionEnd]), [3, 5]);
@@ -286,6 +288,18 @@ export async function chatMentionsSmoke(page, { setHistory, messages, socket, se
  assert.equal(await attachedStrip.locator('.msg-file').getAttribute('download'), 'long-spreadsheet-name-for-the-mobile-layout.xlsx');
  assert.equal(await attachedStrip.locator('.attach-file-type').innerText(), 'XLSX');
  assert.equal(await attachedStrip.evaluate(el => el.nextElementSibling.matches('.msg.user')), true);
+ const thumbnail = attachedStrip.getByRole('button',{name:'shot.png'});
+ await thumbnail.scrollIntoViewIfNeeded();
+ await page.waitForFunction(() => document.querySelector('.msg-thumb img')?.naturalWidth > 0);
+ await thumbnail.click();
+ await page.locator('#dlg-img[open]').waitFor();
+ assert.equal(await page.locator('#lb-name').innerText(), 'shot.png');
+ await page.keyboard.press('Escape');
+ const downloading = page.waitForEvent('download');
+ await attachedStrip.locator('.msg-file').click();
+ const download = await downloading;
+ assert.equal(download.suggestedFilename(), 'long-spreadsheet-name-for-the-mobile-layout.xlsx');
+ assert.deepEqual(await readFile(await download.path()), chatAttachmentBytes);
  await page.locator('#chat-log').evaluate(el => { el.scrollTop = 0; });
  await page.screenshot({path:'output/playwright/chat-syntax-bubbles.png', animations:'disabled'});
  await page.emulateMedia({colorScheme:'dark'});

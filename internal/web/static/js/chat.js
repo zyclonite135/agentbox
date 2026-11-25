@@ -488,7 +488,7 @@ export function setChatStatus(state, problem) {
         send.classList.remove("stop");
         setTip(send, () => i18nText("发送"));
         setAttrRender(send, "aria-label", () => i18nText("发送"));
-        send.disabled = chatImgs.uploading > 0;
+        send.disabled = attachmentUploads.size > 0;
         if (state === "error" && problem)
             appendChat(problemChip(problem));
         if (state === "interrupted")
@@ -544,7 +544,7 @@ export function autoGrow() {
 }
 const attachmentFingerprint = () => JSON.stringify([...chatImgs.map].map(([id, { valid, ...a }]) => [id, a]));
 const sender = new ChatSender({
-    allowed: () => !S.histLoading && !S.histError && !outbox?.blocked(!!sendingFollow) && (S.chatState === "idle" || !!sendingFollow) && chatImgs.uploading === 0,
+    allowed: () => !S.histLoading && !S.histError && !outbox?.blocked(!!sendingFollow) && (S.chatState === "idle" || !!sendingFollow) && attachmentUploads.size === 0,
     read: () => {
         if (!S.current)
             return;
@@ -601,7 +601,7 @@ export async function sendChat() {
         autoGrow();
         return;
     }
-    if (chatImgs.uploading > 0) {
+    if (attachmentUploads.size) {
         appendChat(chip(i18nText("附件仍在上传中，请稍候…"), "err"));
         return;
     }
@@ -631,7 +631,7 @@ function renderFollow() {
     const btn = $("chat-follow");
     const show = followupsOpen() && (!!$("chat-input").value.trim() || chatImgs.map.size > 0);
     btn.classList.toggle("hidden", !show);
-    btn.disabled = chatImgs.uploading > 0;
+    btn.disabled = attachmentUploads.size > 0;
     if (!show)
         return;
     const mode = followMode(sessionAgent()), steer = mode === "steer", claude = sessionAgent() === "claude";
@@ -651,23 +651,20 @@ function sendInterrupt() {
     }
 }
 /* ---------------- 附件（粘贴图片 / 上传文件） ---------------- */
-const chatImgs = { seq: 0, map: new Map(), uploading: 0 };
+const chatImgs = { seq: 0, map: new Map() };
+const attachmentUploads = new Map();
 const composerDraft = () => ({ text: $("chat-input").value, attachments: [...chatImgs.map].map(([id, a]) => ({ id, ...a })), separateAttachments: true });
 const draftFingerprint = (d) => JSON.stringify({ text: cleanDraftText(d), attachments: d.attachments.map(({ valid, ...a }) => a) });
 function applyComposerDraft(value) { resetChatImgs(); $("chat-input").value = cleanDraftText(value); for (const { id, ...a } of value.attachments) {
     chatImgs.map.set(id, a);
     chatImgs.seq = Math.max(chatImgs.seq, id);
 } renderAttach(); autoGrow(); }
-let attachmentEpoch = 0;
-const attachmentUploads = new Set();
 export function resetChatImgs() {
-    ++attachmentEpoch;
-    for (const controller of attachmentUploads)
+    for (const controller of attachmentUploads.values())
         controller.abort();
     attachmentUploads.clear();
     chatImgs.seq = 0;
     chatImgs.map.clear();
-    chatImgs.uploading = 0;
     renderAttach();
 }
 function renderAttach() {
@@ -687,6 +684,8 @@ function renderAttach() {
         setAttrRender(remove, "aria-label", () => i18nText("移除附件 #{n}", { n }));
         setTip(remove, () => i18nText("移除附件 #{n}", { n }));
         remove.addEventListener("click", () => {
+            attachmentUploads.get(n)?.abort();
+            attachmentUploads.delete(n);
             chatImgs.map.delete(n);
             drafts?.save();
             renderAttach();
@@ -739,7 +738,7 @@ function renderAttach() {
     renderFollow();
     // 附件没传完不许发送（执行中按钮是「中断」，不能动）
     if (S.chatState !== "running")
-        $("chat-send").disabled = S.histLoading || !!S.histError || chatImgs.uploading > 0 || sender.busy || !!drafts?.blocked() || !!outbox?.blocked();
+        $("chat-send").disabled = S.histLoading || !!S.histError || attachmentUploads.size > 0 || sender.busy || !!drafts?.blocked() || !!outbox?.blocked();
 }
 async function attachFile(file) {
     if (!S.current || S.histLoading || S.histError)
@@ -748,35 +747,34 @@ async function attachFile(file) {
         toast(i18nText("每条草稿最多保留 64 个附件。"), true);
         return;
     }
-    const session = S.current.id, owner = S.token, epoch = attachmentEpoch, controller = new AbortController();
-    attachmentUploads.add(controller);
-    const isImg = (file.type || "").startsWith("image/");
+    const session = S.current.id, owner = S.token, controller = new AbortController();
+    const isImg = file.type.startsWith("image/");
     const n = ++chatImgs.seq;
+    const ownsUpload = () => S.current?.id === session && S.token === owner && attachmentUploads.get(n) === controller;
     chatImgs.map.set(n, { path: "", name: "", orig: file.name || "", kind: isImg ? "img" : "file" });
-    chatImgs.uploading++;
+    attachmentUploads.set(n, controller);
     drafts?.save();
     renderAttach();
     try {
         const res = await uploadAttachment(file, { session, signal: controller.signal });
-        if (epoch !== attachmentEpoch || S.current?.id !== session || S.token !== owner || controller.signal.aborted || !chatImgs.map.has(n))
+        if (!ownsUpload())
             return;
-        chatImgs.map.set(n, { ...res, orig: res.orig || file.name || "", kind: isImg ? "img" : "file", valid: true });
+        const kind = isImg || res.path.startsWith("/shared/.images/") ? "img" : "file";
+        chatImgs.map.set(n, { ...res, orig: res.orig || file.name || "", kind, valid: true });
     }
     catch (e) {
-        if (epoch !== attachmentEpoch || S.current?.id !== session || S.token !== owner || controller.signal.aborted)
+        if (!ownsUpload())
             return;
-        if (!chatImgs.map.delete(n))
-            return;
+        chatImgs.map.delete(n);
         appendChat(chip(i18nText("附件上传失败：") + e.message, "err"));
     }
     finally {
-        attachmentUploads.delete(controller);
-        if (epoch !== attachmentEpoch || S.current?.id !== session || S.token !== owner)
-            return;
-        chatImgs.uploading--;
-        drafts?.save();
-        renderAttach();
-        updateHero();
+        if (ownsUpload()) {
+            attachmentUploads.delete(n);
+            drafts?.save();
+            renderAttach();
+            updateHero();
+        }
     }
 }
 function pastedFiles(e) {
@@ -1208,7 +1206,7 @@ export function updateHero() {
     updateScrollBottomButton();
     $("chat-input").disabled = blocked;
     if (S.chatState !== "running") {
-        $("chat-send").disabled = blocked || chatImgs.uploading > 0 || sender.busy || !!drafts?.blocked() || !!outbox?.blocked();
+        $("chat-send").disabled = blocked || attachmentUploads.size > 0 || sender.busy || !!drafts?.blocked() || !!outbox?.blocked();
     }
     emit("chat-view-updated");
 }
@@ -1575,8 +1573,15 @@ export function initChat() {
     drafts = initComposerDrafts({
         read: composerDraft,
         apply: applyComposerDraft,
-        validated: (paths, valid) => { for (const info of chatImgs.map.values())
-            info.valid = !!info.path && valid[paths.indexOf(info.path)] === true; renderAttach(); },
+        validated: (paths, valid) => {
+            const results = new Map(paths.map((path, index) => [path, valid[index]]));
+            for (const info of chatImgs.map.values()) {
+                const checked = results.get(info.path);
+                if (checked !== undefined)
+                    info.valid = checked;
+            }
+            renderAttach();
+        },
         changed: updateHero,
     });
     outbox = initChatOutbox({

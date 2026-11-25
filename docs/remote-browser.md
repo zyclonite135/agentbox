@@ -13,9 +13,7 @@
 
 在「系统设置 → 容器」把镜像设为 `agentbox-agent:browser`。已有空间需要停止后重新启动，才会使用新镜像。推荐每个空间至少 2 GiB 内存、2 CPU、512 PID；浏览器与 CLI 共享空间资源和并发配额。原有轻量镜像不会安装浏览器，打开功能时会给出明确提示。
 
-Linux amd64 默认安装 Google Chrome for Testing **154.0.8037.57**，可通过 `AGENTBOX_CHROME_VERSION` 指定其他确切版本后重新构建。Chrome for Testing 是 Google 提供的 Chrome 二进制，本项目不自动更新它；管理员应定期重建以获得安全更新。`AGENTBOX_BROWSER_BASE_IMAGE` 可指定已有 Agent 镜像，`AGENTBOX_BROWSER_IMAGE` 可指定输出标签。不要把原有 CLI 镜像自动更新任务指向浏览器标签；升级基础镜像后再重建浏览器镜像。
-
-Google 没有提供 Linux arm64 的 Chrome for Testing 二进制。ARM 镜像明确改用构建时 Debian 安全仓库的 Chromium，界面显示真实名称，不伪称 Chrome。
+构建脚本每次通过 Google 官方渠道获取最新的 [Chrome for Testing Stable](https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE) 版本，为 Linux amd64 和 arm64 下载对应的 Chrome 二进制。查询失败时构建会停止。已构建的镜像不会自行更新，管理员应定期重新运行构建脚本。`AGENTBOX_BROWSER_BASE_IMAGE` 可指定已有 Agent 镜像，`AGENTBOX_BROWSER_IMAGE` 可指定输出标签。不要把原有 CLI 镜像自动更新任务指向浏览器标签；升级基础镜像后再重建浏览器镜像。
 
 ## 使用
 

@@ -657,7 +657,7 @@ def serve():
         control.bind(CONTROL)
         control.listen(8)
         control.settimeout(.5)
-        browser = 'Chromium' if os.uname().machine in ('aarch64', 'arm64') else 'Google Chrome'
+        browser = 'Chromium' if Path(command[0]).resolve().name == 'chromium' else 'Google Chrome'
         info = {'running': True, 'browser': browser, 'proxy': bool(upstream), 'navigation': True, 'clipboard_offer': True,
                 'clipboard_guard': clipboard_selection is not None,
                 'network_key': os.environ.get('AGENTBOX_BROWSER_NETWORK_KEY', '')}

@@ -75,7 +75,11 @@
 .git-steps li::before { content: "0" counter(git-step); font: 16px var(--mono); color: var(--muted); padding-top: 2px; }
 .git-steps p { color: var(--muted); margin: 6px 0 12px; max-width: 60em; }
 .git-guide-section { margin-top: 28px; }
-.git-methods { margin: 12px 0 0; }
+.git-methods {
+  margin: 12px 0 0;
+  border: 1px solid var(--line);
+  border-radius: calc(8px * var(--radius-scale));
+}
 .git-methods > div {
   display: grid;
   grid-template-columns: 184px minmax(0, 1fr);

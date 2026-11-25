@@ -260,6 +260,11 @@ dialog label.check input { margin: 0; flex: none; }
 .model-guide-model p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .model-guide-current { display: inline-flex; align-items: center; gap: 4px; color: var(--text); font-size: 12px; }
 .model-guide-current .ui-icon { color: var(--accent); }
+.model-guide-select { flex: none; }
+#new-model-guide { align-self: flex-start; max-width: 100%; white-space: normal; text-align: left; }
+@media (max-width: 760px) {
+  .model-guide-select, #new-model-guide { min-height: 44px; }
+}
 
 /* ---- 图片灯箱：固定窗口大小，图片等比缩放完整展示，不出现滚动条。
    通用 dialog 规则会把 width 锁成 420px，这里必须显式覆盖 ---- */

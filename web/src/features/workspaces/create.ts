@@ -10,6 +10,7 @@ import {CreationFlow,type ImportProgress} from "./creation-flow.js";
 import {ProgressBar,RateMeter} from "../../progress.js";
 import {progressView} from "../../git-operations.js";
 import {renderCreationSummary,resourceKey,validResources} from "./config-summary.js";
+import {closeModelGuide,openModelGuide} from "../chat/model-guide.js";
 import type {Account,GitConnection,Session,WorkspaceCreateSpec,OnboardingSnapshot} from "../../types.js";
 
 /** 导入进度：上传时按字节画进度条与速率，上传完等服务端校验解压时转为不确定进度；
@@ -48,16 +49,20 @@ export function initWorkspaceCreation(){
  const account=$<HTMLSelectElement>("new-account"),git=$<HTMLSelectElement>("new-git-connection"),importConnection=$<HTMLSelectElement>("new-import-connection");
  const source=$<HTMLSelectElement>("new-source-kind"),directory=$<HTMLInputElement>("new-project-dir"),uploadMode=$<HTMLSelectElement>("new-upload-mode"),files=$<HTMLInputElement>("new-project-file"),repository=$<HTMLInputElement>("new-git-url");
  const submit=$<HTMLButtonElement>("new-ok"),close=$<HTMLButtonElement>("new-cancel"),refresh=$<HTMLButtonElement>("new-refresh"),pending=$<HTMLSelectElement>("new-pending");
+ const modelGuide=$<HTMLButtonElement>("new-model-guide");
  const options={signal:lifetime.signal};
  let controller:AbortController|undefined,epoch=0,busy=false,loading=false,loadFailed=false,accounts:Account[]=[],connections:GitConnection[]=[];
  let setup:OnboardingSnapshot|undefined;
+ let selectedModel="";
  const current=()=>!lifetime.signal.aborted&&S.token===owner;
  const radios=[...form.querySelectorAll<HTMLInputElement>('input[name="agent"]')];
  const agent=()=>radios.find(r=>r.checked)!.value;
  // An account with its own model list starts workspaces on its own default.
  const newModel=(id:string,kind:string)=>setup?.accounts.find(a=>a.id===id)?.default_model||setup?.default_models[kind]||"";
+ const modelOptions=(id:string)=>setup?.accounts.find(a=>a.id===id)?.models||[];
  const ready=()=>accounts.some(a=>a.type===agent()&&a.id===account.value);
  const showError=(message:string)=>{$("new-error").textContent=message;$("new-error").classList.remove("hidden");};
+ const modelUnavailable=()=>t("所选模型在此账号不可用，已恢复账号默认模型。");
  const validAccounts=(rows:Account[])=>{if(!Array.isArray(rows))throw new Error(t("读取账号列表失败，请刷新重试。"));return rows.filter(a=>a&&typeof a.id==="string"&&["claude","codex"].includes(a.type));};
  const setSpec=(restoreSource=true)=>{
   if(!flow.spec)return;
@@ -95,9 +100,15 @@ export function initWorkspaceCreation(){
   $("new-review").classList.toggle("hidden",!uncertain);
   const view=flow.view;
   const resources=view?.container_resources||setup?.container_resources;
-  const model=view?.session.default_model||newModel(account.value,agent());
-  renderCreationSummary($("new-config-summary"),view?.session.account_label||accounts.find(a=>a.id===account.value)?.label||account.value,model,resources);
+  const choices=modelOptions(account.value);
+  const modelReset=!locked&&!loading&&!loadFailed&&!!selectedModel&&!choices.some(item=>item.id===selectedModel);
+  if(modelReset)selectedModel="";
+  const model=view?.session.default_model||flow.spec?.default_model||selectedModel||newModel(account.value,agent());
+  modelGuide.classList.toggle("hidden",locked||loading||loadFailed||choices.length===0);
+  modelGuide.disabled=busy||!ready();
+  renderCreationSummary($("new-config-summary"),view?.session.account_label||accounts.find(a=>a.id===account.value)?.label||account.value,choices.find(item=>item.id===model)?.label||model,resources);
   $("new-config-summary").classList.toggle("hidden",loading||missing||loadFailed);
+  if(modelReset)showError(modelUnavailable());
   setTextRender($("new-progress"),()=>{
    if(!locked)return "";
    if(view?.state==="abandoned")return t("该创建已放弃或空间已删除，请明确开始新的创建。");
@@ -155,7 +166,20 @@ export function initWorkspaceCreation(){
  $("new-configure").addEventListener("click",()=>{dialog.close();openSetupSettings("accounts");},options);
  close.addEventListener("click",()=>{if(!busy)dialog.close();},options);
  dialog.addEventListener("cancel",event=>{if(busy)event.preventDefault();},options);
- dialog.addEventListener("close",()=>{if(!dialog.open){++epoch;controller?.abort();}},options);
+ dialog.addEventListener("close",()=>{if(!dialog.open){++epoch;controller?.abort();selectedModel="";closeModelGuide(modelGuide);}},options);
+ modelGuide.addEventListener("click",()=>{
+  if(!current()||!dialog.open||loading||busy||loadFailed||flow.requestID||!ready())return;
+  const id=account.value,label=accounts.find(item=>item.id===id)?.label||id;
+  openModelGuide(modelGuide,{
+   caption:()=>label,models:modelOptions(id),current:selectedModel||newModel(id,agent()),
+   select:model=>{
+    if(!current()||!dialog.open||flow.requestID||account.value!==id||!modelOptions(id).some(item=>item.id===model))return false;
+    const error=$("new-error");
+    if(error.textContent===modelUnavailable())error.classList.add("hidden");
+    selectedModel=model;render();return true;
+   },
+  });
+ },options);
  for(const radio of radios)radio.addEventListener("change",render,options);
  account.addEventListener("change",render,options);
  source.addEventListener("change",render,options);
@@ -168,13 +192,21 @@ export function initWorkspaceCreation(){
  $("new-inspect").addEventListener("click",()=>{if(flow.view?.workspace_exists)void showWorkspace(flow.view.session,"files");},options);
  form.addEventListener("submit",event=>{
   event.preventDefault();if(busy||loading||loadFailed||!current()||!dialog.open||flow.view?.busy||["running","uncertain"].includes(flow.latest()?.state||"")||(!flow.requestID&&!ready()))return;
-  const spec:WorkspaceCreateSpec={name:$<HTMLInputElement>("new-name").value.trim(),agent:agent(),account_id:account.value,git_connection_id:git.value,source:source.value as WorkspaceCreateSpec["source"],directory:source.value==="empty"?"project":directory.value.trim()||"project"};
-  const expectedModel=flow.view?.session.default_model||newModel(spec.account_id,spec.agent);
+  const spec:WorkspaceCreateSpec={name:$<HTMLInputElement>("new-name").value.trim(),agent:agent(),account_id:account.value,git_connection_id:git.value,source:source.value as WorkspaceCreateSpec["source"],directory:source.value==="empty"?"project":directory.value.trim()||"project",...(selectedModel?{default_model:selectedModel}:{})};
+  const expectedModel=flow.view?.session.default_model||flow.spec?.default_model||spec.default_model||newModel(spec.account_id,spec.agent);
   const expectedResources=resourceKey(flow.view?.container_resources||setup?.container_resources);
   void perform(async signal=>{
    if(!flow.requestID){
-    accounts=validAccounts(await api<Account[]>("/accounts",{signal}));
+    const [rows,snapshot]=await Promise.all([api<Account[]>("/accounts",{signal}),spec.default_model?api<OnboardingSnapshot>("/onboarding",{signal}):undefined]);
+    accounts=validAccounts(rows);
     if(!ready()||!accounts.some(a=>a.id===spec.account_id&&a.type===spec.agent))throw new Error(t("账号列表已变化，请重新选择账号后创建。"));
+    if(snapshot){
+     setup=snapshot;
+     if(!modelOptions(spec.account_id).some(item=>item.id===spec.default_model)){
+      selectedModel="";
+      throw new Error(modelUnavailable());
+     }
+    }
    }
    // Validate the selected source before allocating a new workspace.
    if(spec.source==="upload"&&!files.files?.length&&!flow.view?.workspace_exists)throw new Error(t("请选择项目压缩包、文件或目录。"));
@@ -195,6 +227,7 @@ export function initWorkspaceCreation(){
   },spec.source==="git"?35*60000:180000); // 服务端单次 Git 传输上限 30 分钟
  },options);
  return ()=>{
+  closeModelGuide(modelGuide);
   lifetime.abort();++epoch;controller?.abort();accounts=[];setup=undefined;$("new-config-summary").replaceChildren();
   if(S.token!==owner)flow.clear();
   if(dialog.open)dialog.close();$<HTMLInputElement>("new-name").value="";files.value="";repository.value="";account.replaceChildren();git.replaceChildren();importConnection.replaceChildren();pending.replaceChildren();

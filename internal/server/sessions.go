@@ -118,6 +118,7 @@ type createSessionRequest struct {
 	RequestID       string  `json:"request_id,omitempty"`
 	Source          string  `json:"source,omitempty"`
 	Directory       string  `json:"directory,omitempty"`
+	DefaultModel    string  `json:"default_model,omitempty"`
 }
 
 func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
@@ -200,6 +201,14 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "account type does not match agent type")
 		return
 	}
+	defaultModel := s.cfg.NewWorkspaceModel(acct)
+	if req.DefaultModel != "" {
+		if !slices.ContainsFunc(s.workspaceCreationModels(acct, defaultModel), func(m onboardingModel) bool { return m.ID == req.DefaultModel }) {
+			writeErr(w, http.StatusBadRequest, "Selected model is no longer available for this account")
+			return
+		}
+		defaultModel = req.DefaultModel
+	}
 
 	gitConnection := ""
 	if req.GitConnectionID != nil {
@@ -229,7 +238,7 @@ func (s *Server) handleCreateSession(w http.ResponseWriter, r *http.Request) {
 		Name:         req.Name,
 		Agent:        req.Agent,
 		AccountID:    req.AccountID,
-		DefaultModel: s.cfg.NewWorkspaceModel(acct),
+		DefaultModel: defaultModel,
 		Status:       store.StatusStopped,
 		CreatedAt:    time.Now(),
 	}

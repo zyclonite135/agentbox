@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -78,8 +79,14 @@ func TestOnboardingIsActorScopedAndDoesNotClaimModelAvailability(t *testing.T) {
 		var accounts []map[string]any
 		_ = json.Unmarshal(keys["accounts"], &accounts)
 		for _, account := range accounts {
-			if len(account) != 5 || account["default_model"] != s.cfg.GetDefaultModel(account["type"].(string)) {
+			if len(account) != 6 || account["default_model"] != s.cfg.GetDefaultModel(account["type"].(string)) {
 				t.Fatal("account projection gained private fields or lost the new-workspace model", account)
+			}
+			for _, model := range account["models"].([]any) {
+				fields := model.(map[string]any)
+				if len(fields) != 2 || fields["id"] == nil || fields["label"] == nil {
+					t.Fatal("model options must only expose identity and label", fields)
+				}
 			}
 		}
 	}
@@ -99,7 +106,7 @@ func TestOnboardingIsActorScopedAndDoesNotClaimModelAvailability(t *testing.T) {
 	}
 	// An account with its own model list starts new workspaces on its default.
 	relayDefault := "relay-b"
-	if _, err := s.cfg.UpdateAccount("shared", config.AccountPatch{Models: &[]config.ModelOption{{ID: "relay-a"}, {ID: "relay-b"}}, DefaultModel: &relayDefault}); err != nil {
+	if _, err := s.cfg.UpdateAccount("shared", config.AccountPatch{Models: &[]config.ModelOption{{ID: "relay-a", Label: "Relay A"}, {ID: "relay-b", Label: "Relay B"}, {ID: "relay-hidden", Hidden: true}}, DefaultModel: &relayDefault}); err != nil {
 		t.Fatal(err)
 	}
 	listed := httptest.NewRecorder()
@@ -109,6 +116,18 @@ func TestOnboardingIsActorScopedAndDoesNotClaimModelAvailability(t *testing.T) {
 	var own onboardingView
 	if err := json.Unmarshal(listed.Body.Bytes(), &own); err != nil || len(own.Accounts) != 1 || own.Accounts[0].DefaultModel != "relay-b" {
 		t.Fatal("account model list not used for new workspaces", listed.Body.String())
+	}
+	if !slices.Equal(own.Accounts[0].Models, []onboardingModel{{ID: "relay-a", Label: "Relay A"}, {ID: "relay-b", Label: "Relay B"}}) {
+		t.Fatal("account-specific model choices incorrect", listed.Body.String())
+	}
+	for _, model := range []string{"relay-hidden", "claude-opus-5"} {
+		rec := httptest.NewRecorder()
+		req := accessRequest("alice", "PUT", "/create", `{"name":"first project","agent":"claude","account_id":"shared","default_model":"`+model+`"}`)
+		req.SetPathValue("request", strings.Repeat("f", 32))
+		s.handleCreateSession(rec, req)
+		if rec.Code != http.StatusBadRequest || len(s.store.All()) != 1 {
+			t.Fatal("unavailable model made it past creation validation", rec.Code, rec.Body.String())
+		}
 	}
 	if err := s.cfg.RemoveAccount("shared"); err != nil {
 		t.Fatal(err)

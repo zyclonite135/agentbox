@@ -75,6 +75,33 @@ func (s *Server) discoverReasoning(ctx context.Context, sess store.Session, acct
 	return models, "available"
 }
 
+func (s *Server) workspaceModelOptions(acct config.Account, defaultModel string) []config.ModelOption {
+	if acct.RestrictsModels() {
+		return config.CloneModelOptions(acct.Models)
+	}
+	models := s.cfg.GetModels()[acct.Type]
+	seen := map[string]bool{}
+	for _, m := range models {
+		seen[m.ID] = true
+	}
+	// Account-only overrides and the workspace default remain selectable.
+	accountModels := make([]string, 0, len(acct.ModelReasoning))
+	for model := range acct.ModelReasoning {
+		accountModels = append(accountModels, model)
+	}
+	sort.Strings(accountModels)
+	for _, model := range accountModels {
+		if !seen[model] {
+			models = append(models, config.ModelOption{ID: model, Label: model})
+			seen[model] = true
+		}
+	}
+	if !seen[defaultModel] && defaultModel != "" {
+		models = append(models, config.ModelOption{ID: defaultModel, Label: defaultModel})
+	}
+	return models
+}
+
 func (s *Server) handleSessionModels(w http.ResponseWriter, r *http.Request, sess store.Session) {
 	acct, err := s.sessionAccount(sess)
 	if err != nil {
@@ -83,31 +110,8 @@ func (s *Server) handleSessionModels(w http.ResponseWriter, r *http.Request, ses
 	}
 	discovered, state := s.discoverReasoning(r.Context(), sess, acct)
 	view := sessionModelsView{DefaultReasoning: agent.EffectiveReasoning(sess.Agent, nil), Discovery: state,
-		Restricted: acct.RestrictsModels(), DefaultModel: acct.ResolveModel(sess.DefaultModel), ClientEffort: accountClientEffort(acct)}
-	if view.Restricted {
-		view.Models = config.CloneModelOptions(acct.Models)
-	} else {
-		view.Models = s.cfg.GetModels()[sess.Agent]
-		seen := map[string]bool{}
-		for _, m := range view.Models {
-			seen[m.ID] = true
-		}
-		// Account-only overrides and the workspace default remain selectable.
-		accountModels := make([]string, 0, len(acct.ModelReasoning))
-		for model := range acct.ModelReasoning {
-			accountModels = append(accountModels, model)
-		}
-		sort.Strings(accountModels)
-		for _, model := range accountModels {
-			if !seen[model] {
-				view.Models = append(view.Models, config.ModelOption{ID: model, Label: model})
-				seen[model] = true
-			}
-		}
-		if !seen[sess.DefaultModel] && sess.DefaultModel != "" {
-			view.Models = append(view.Models, config.ModelOption{ID: sess.DefaultModel, Label: sess.DefaultModel})
-		}
-	}
+		Restricted: acct.RestrictsModels(), DefaultModel: acct.ResolveModel(sess.DefaultModel), ClientEffort: accountClientEffort(acct),
+		Models: s.workspaceModelOptions(acct, sess.DefaultModel)}
 	for i := range view.Models {
 		m := &view.Models[i]
 		capability := s.cfg.ConfiguredReasoning(acct, m.ID)

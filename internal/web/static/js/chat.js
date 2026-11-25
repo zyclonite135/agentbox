@@ -37,7 +37,7 @@ import { createTaskPanel, taskToolsEnabled, setTaskToolsEnabled } from "./featur
 import { createCommandMenu } from "./features/chat/commands.js";
 import { createMentionMenu } from "./features/chat/mentions.js";
 import { createInputMarks } from "./features/chat/input-marks.js";
-import { closeModelGuide, initModelGuide, renderModelGuide } from "./features/chat/model-guide.js";
+import { closeModelGuide, initModelGuide, updateModelGuide } from "./features/chat/model-guide.js";
 import { syntaxMarks } from "./features/chat/syntax.js";
 import { ChatConnection } from "./features/chat/connection.js";
 import { initDelegationComposer } from "./features/delegation/composer.js";
@@ -993,17 +993,33 @@ function renderPickPill() {
     if ($("dlg-model-guide").open) {
         const context = modelGuideContext();
         if (context)
-            renderModelGuide(context);
+            updateModelGuide($("btn-model-guide"), context);
     }
 }
 function modelGuideContext() {
-    if (!S.current || S.view !== "work" || isMobile())
+    if (S.view !== "work" || isMobile())
         return;
+    if (!S.current) {
+        const catalog = [...(S.models?.codex || FALLBACK_MODELS.codex), ...(S.models?.claude || FALLBACK_MODELS.claude)];
+        return {
+            caption: () => i18nText("可用模型取决于工作空间使用的账号。"),
+            models: [...new Map(catalog.filter(model => !model.hidden).map(model => [model.id, model])).values()],
+        };
+    }
+    const workspace = S.current;
     const custom = customModel();
     const models = modelOpts();
     if (custom)
         models.push({ id: custom, label: custom });
-    return { workspace: S.current.name, models, current: S.pick.model || workspaceModel() };
+    return {
+        caption: () => workspace.name, models, current: S.pick.model || workspaceModel(),
+        select: sessionModels ? (id) => {
+            if (S.current?.id !== workspace.id || !modelOpts().some(model => model.id === id))
+                return false;
+            choose("model", id);
+            return true;
+        } : undefined,
+    };
 }
 /* 面板样式按 Agent 区分：
  * codex —— 只有「模型 / 推理强度」两行入口，悬停某行在左侧浮出该属性列表，

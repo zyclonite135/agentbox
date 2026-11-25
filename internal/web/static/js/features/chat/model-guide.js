@@ -1,4 +1,4 @@
-import { setText, setTextRender } from "../../i18n.js";
+import { setAttrRender, setText, setTextRender, t } from "../../i18n.js";
 import { svgIcon } from "../../icons.js";
 import { $, keepScroll } from "../../util.js";
 // Use explicit model IDs. A proxy alias may point to a different model.
@@ -24,12 +24,31 @@ const guidance = new Map([
         "适合批量处理同类记录，例如按主题整理咨询、从邮件中提取关键信息，或填写表格中的相同字段。"]),
 ]);
 const dialog = () => $("dlg-model-guide");
-export function closeModelGuide() {
-    if (dialog().open)
-        dialog().close();
+let activeTrigger;
+export function closeModelGuide(trigger) {
+    const modal = dialog();
+    if (modal.open && (!trigger || activeTrigger === trigger)) {
+        activeTrigger = undefined;
+        modal.close();
+    }
 }
-export function renderModelGuide({ workspace, models, current }) {
-    setTextRender($("model-guide-space"), () => workspace);
+export function openModelGuide(trigger, context) {
+    const modal = dialog();
+    if (modal.open)
+        return;
+    activeTrigger = trigger;
+    renderModelGuide(context);
+    trigger.focus({ preventScroll: true });
+    modal.showModal();
+    modal.querySelector(".dlg-body")?.scrollTo(0, 0);
+}
+export function updateModelGuide(trigger, context) {
+    if (dialog().open && activeTrigger === trigger)
+        renderModelGuide(context);
+}
+function renderModelGuide({ caption, models, current, select }) {
+    setTextRender($("model-guide-space"), caption);
+    const focusedModel = document.activeElement?.dataset.guideModel;
     const rows = models.map(({ id, label }) => {
         const row = document.createElement("li");
         row.className = "model-guide-model";
@@ -46,6 +65,17 @@ export function renderModelGuide({ workspace, models, current }) {
             badge.append(svgIcon("check", 14), text);
             header.append(badge);
         }
+        else if (select) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn btn-sm model-guide-select";
+            button.dataset.guideModel = id;
+            setText(button, "选用模型");
+            setAttrRender(button, "aria-label", () => t("选用模型 {model}", { model: label || id }));
+            button.addEventListener("click", () => { if (select(id))
+                closeModelGuide(); });
+            header.append(button);
+        }
         const description = document.createElement("p");
         setText(description, guidance.get(id) || "此模型暂无经过核实的用途说明。");
         row.append(header, description);
@@ -54,6 +84,10 @@ export function renderModelGuide({ workspace, models, current }) {
     const list = $("model-guide-list");
     keepScroll(list, () => list.replaceChildren(...rows));
     $("model-guide-empty").hidden = rows.length > 0;
+    if (focusedModel) {
+        const button = [...list.querySelectorAll("button")].find(el => el.dataset.guideModel === focusedModel);
+        (button || $("btn-model-guide-close")).focus({ preventScroll: true });
+    }
 }
 let introduced = false;
 export function initModelGuide(read, signal) {
@@ -61,7 +95,7 @@ export function initModelGuide(read, signal) {
     const modal = dialog();
     matchMedia("(max-width: 760px)").addEventListener("change", event => {
         if (event.matches)
-            closeModelGuide();
+            closeModelGuide(trigger);
     }, { signal });
     if (!introduced) {
         const observer = new IntersectionObserver(entries => {
@@ -86,14 +120,12 @@ export function initModelGuide(read, signal) {
     trigger.addEventListener("animationcancel", clearIntro, { signal });
     trigger.addEventListener("click", () => {
         const context = read();
-        if (!context || modal.open)
-            return;
-        renderModelGuide(context);
-        trigger.focus({ preventScroll: true });
-        modal.showModal();
-        modal.querySelector(".dlg-body")?.scrollTo(0, 0);
+        if (context)
+            openModelGuide(trigger, context);
     }, { signal });
-    $("btn-model-guide-close").addEventListener("click", closeModelGuide, { signal });
+    $("btn-model-guide-close").addEventListener("click", () => closeModelGuide(), { signal });
+    modal.addEventListener("close", () => { if (!modal.open)
+        activeTrigger = undefined; }, { signal });
     const isBackdrop = (event) => {
         if (event.target !== modal)
             return false;

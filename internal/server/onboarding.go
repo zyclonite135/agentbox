@@ -8,6 +8,11 @@ import (
 	"agentbox/internal/store"
 )
 
+type onboardingModel struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
 type onboardingAccount struct {
 	ID                 string `json:"id"`
 	Type               string `json:"type"`
@@ -15,7 +20,18 @@ type onboardingAccount struct {
 	CredentialsPresent bool   `json:"credentials_present"`
 	// DefaultModel is what a new workspace on this account starts with; it
 	// differs from default_models when the account has its own model list.
-	DefaultModel string `json:"default_model"`
+	DefaultModel string            `json:"default_model"`
+	Models       []onboardingModel `json:"models"`
+}
+
+func (s *Server) workspaceCreationModels(acct config.Account, defaultModel string) []onboardingModel {
+	models := []onboardingModel{}
+	for _, m := range s.workspaceModelOptions(acct, defaultModel) {
+		if !m.Hidden && config.ValidModelID(m.ID) {
+			models = append(models, onboardingModel{ID: m.ID, Label: m.Label})
+		}
+	}
+	return models
 }
 
 type onboardingView struct {
@@ -52,7 +68,12 @@ func (s *Server) handleOnboarding(w http.ResponseWriter, r *http.Request) {
 		if !acct.CanUse(u.Name, admin) || acct.Type != config.AgentClaude && acct.Type != config.AgentCodex {
 			continue
 		}
-		view.Accounts = append(view.Accounts, onboardingAccount{acct.ID, acct.Type, acct.Label, credentials.ConfigurationPresent(acct), s.cfg.NewWorkspaceModel(acct)})
+		model := s.cfg.NewWorkspaceModel(acct)
+		view.Accounts = append(view.Accounts, onboardingAccount{
+			ID: acct.ID, Type: acct.Type, Label: acct.Label,
+			CredentialsPresent: credentials.ConfigurationPresent(acct),
+			DefaultModel:       model, Models: s.workspaceCreationModels(acct, model),
+		})
 		view.DefaultModels[acct.Type] = s.cfg.GetDefaultModel(acct.Type)
 	}
 	if admin {

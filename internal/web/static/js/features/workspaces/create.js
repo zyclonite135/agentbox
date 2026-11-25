@@ -10,6 +10,7 @@ import { CreationFlow } from "./creation-flow.js";
 import { ProgressBar, RateMeter } from "../../progress.js";
 import { progressView } from "../../git-operations.js";
 import { renderCreationSummary, resourceKey, validResources } from "./config-summary.js";
+import { closeModelGuide, openModelGuide } from "../chat/model-guide.js";
 /** 导入进度：上传时按字节画进度条与速率，上传完等服务端校验解压时转为不确定进度；
  * Git 导入复用 Git 操作的进度块（不带取消钮，导入结果仍以服务端收据为准）。 */
 function importMeter() {
@@ -59,16 +60,20 @@ export function initWorkspaceCreation() {
     const account = $("new-account"), git = $("new-git-connection"), importConnection = $("new-import-connection");
     const source = $("new-source-kind"), directory = $("new-project-dir"), uploadMode = $("new-upload-mode"), files = $("new-project-file"), repository = $("new-git-url");
     const submit = $("new-ok"), close = $("new-cancel"), refresh = $("new-refresh"), pending = $("new-pending");
+    const modelGuide = $("new-model-guide");
     const options = { signal: lifetime.signal };
     let controller, epoch = 0, busy = false, loading = false, loadFailed = false, accounts = [], connections = [];
     let setup;
+    let selectedModel = "";
     const current = () => !lifetime.signal.aborted && S.token === owner;
     const radios = [...form.querySelectorAll('input[name="agent"]')];
     const agent = () => radios.find(r => r.checked).value;
     // An account with its own model list starts workspaces on its own default.
     const newModel = (id, kind) => setup?.accounts.find(a => a.id === id)?.default_model || setup?.default_models[kind] || "";
+    const modelOptions = (id) => setup?.accounts.find(a => a.id === id)?.models || [];
     const ready = () => accounts.some(a => a.type === agent() && a.id === account.value);
     const showError = (message) => { $("new-error").textContent = message; $("new-error").classList.remove("hidden"); };
+    const modelUnavailable = () => t("所选模型在此账号不可用，已恢复账号默认模型。");
     const validAccounts = (rows) => { if (!Array.isArray(rows))
         throw new Error(t("读取账号列表失败，请刷新重试。")); return rows.filter(a => a && typeof a.id === "string" && ["claude", "codex"].includes(a.type)); };
     const setSpec = (restoreSource = true) => {
@@ -128,9 +133,17 @@ export function initWorkspaceCreation() {
         $("new-review").classList.toggle("hidden", !uncertain);
         const view = flow.view;
         const resources = view?.container_resources || setup?.container_resources;
-        const model = view?.session.default_model || newModel(account.value, agent());
-        renderCreationSummary($("new-config-summary"), view?.session.account_label || accounts.find(a => a.id === account.value)?.label || account.value, model, resources);
+        const choices = modelOptions(account.value);
+        const modelReset = !locked && !loading && !loadFailed && !!selectedModel && !choices.some(item => item.id === selectedModel);
+        if (modelReset)
+            selectedModel = "";
+        const model = view?.session.default_model || flow.spec?.default_model || selectedModel || newModel(account.value, agent());
+        modelGuide.classList.toggle("hidden", locked || loading || loadFailed || choices.length === 0);
+        modelGuide.disabled = busy || !ready();
+        renderCreationSummary($("new-config-summary"), view?.session.account_label || accounts.find(a => a.id === account.value)?.label || account.value, choices.find(item => item.id === model)?.label || model, resources);
         $("new-config-summary").classList.toggle("hidden", loading || missing || loadFailed);
+        if (modelReset)
+            showError(modelUnavailable());
         setTextRender($("new-progress"), () => {
             if (!locked)
                 return "";
@@ -263,7 +276,27 @@ export function initWorkspaceCreation() {
     dialog.addEventListener("close", () => { if (!dialog.open) {
         ++epoch;
         controller?.abort();
+        selectedModel = "";
+        closeModelGuide(modelGuide);
     } }, options);
+    modelGuide.addEventListener("click", () => {
+        if (!current() || !dialog.open || loading || busy || loadFailed || flow.requestID || !ready())
+            return;
+        const id = account.value, label = accounts.find(item => item.id === id)?.label || id;
+        openModelGuide(modelGuide, {
+            caption: () => label, models: modelOptions(id), current: selectedModel || newModel(id, agent()),
+            select: model => {
+                if (!current() || !dialog.open || flow.requestID || account.value !== id || !modelOptions(id).some(item => item.id === model))
+                    return false;
+                const error = $("new-error");
+                if (error.textContent === modelUnavailable())
+                    error.classList.add("hidden");
+                selectedModel = model;
+                render();
+                return true;
+            },
+        });
+    }, options);
     for (const radio of radios)
         radio.addEventListener("change", render, options);
     account.addEventListener("change", render, options);
@@ -280,14 +313,22 @@ export function initWorkspaceCreation() {
         event.preventDefault();
         if (busy || loading || loadFailed || !current() || !dialog.open || flow.view?.busy || ["running", "uncertain"].includes(flow.latest()?.state || "") || (!flow.requestID && !ready()))
             return;
-        const spec = { name: $("new-name").value.trim(), agent: agent(), account_id: account.value, git_connection_id: git.value, source: source.value, directory: source.value === "empty" ? "project" : directory.value.trim() || "project" };
-        const expectedModel = flow.view?.session.default_model || newModel(spec.account_id, spec.agent);
+        const spec = { name: $("new-name").value.trim(), agent: agent(), account_id: account.value, git_connection_id: git.value, source: source.value, directory: source.value === "empty" ? "project" : directory.value.trim() || "project", ...(selectedModel ? { default_model: selectedModel } : {}) };
+        const expectedModel = flow.view?.session.default_model || flow.spec?.default_model || spec.default_model || newModel(spec.account_id, spec.agent);
         const expectedResources = resourceKey(flow.view?.container_resources || setup?.container_resources);
         void perform(async (signal) => {
             if (!flow.requestID) {
-                accounts = validAccounts(await api("/accounts", { signal }));
+                const [rows, snapshot] = await Promise.all([api("/accounts", { signal }), spec.default_model ? api("/onboarding", { signal }) : undefined]);
+                accounts = validAccounts(rows);
                 if (!ready() || !accounts.some(a => a.id === spec.account_id && a.type === spec.agent))
                     throw new Error(t("账号列表已变化，请重新选择账号后创建。"));
+                if (snapshot) {
+                    setup = snapshot;
+                    if (!modelOptions(spec.account_id).some(item => item.id === spec.default_model)) {
+                        selectedModel = "";
+                        throw new Error(modelUnavailable());
+                    }
+                }
             }
             // Validate the selected source before allocating a new workspace.
             if (spec.source === "upload" && !files.files?.length && !flow.view?.workspace_exists)
@@ -323,6 +364,7 @@ export function initWorkspaceCreation() {
         }, spec.source === "git" ? 35 * 60000 : 180000); // 服务端单次 Git 传输上限 30 分钟
     }, options);
     return () => {
+        closeModelGuide(modelGuide);
         lifetime.abort();
         ++epoch;
         controller?.abort();

@@ -251,7 +251,7 @@
 .side-foot { position: relative; flex: none; padding: 8px 12px 12px; }
 .side-item.side-model-guide { display: none; }
 @media (min-width: 761px) {
-  #app:has(#view-work:not(.hidden) #workbench:not(.hidden)) .side-model-guide {
+  #app:has(#view-work:not(.hidden)) .side-model-guide {
     display: flex; position: relative; overflow: hidden; isolation: isolate;
     height: auto; min-height: 38px; margin-bottom: 10px; padding-block: 4px; gap: 8px;
     border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line));
@@ -260,7 +260,7 @@
   }
   .side-model-guide .glyph { color: var(--accent); }
   .side-model-guide .side-item-label { white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
-  #app:has(#view-work:not(.hidden) #workbench:not(.hidden)) .side-model-guide:is(:hover, :focus-visible) {
+  #app:has(#view-work:not(.hidden)) .side-model-guide:is(:hover, :focus-visible) {
     border-color: var(--accent);
     background: color-mix(in srgb, var(--accent) 22%, var(--panel));
   }
@@ -685,7 +685,7 @@
   .side-item { height: 32px; }
 }
 @media (min-width: 761px) and (max-height: 600px) {
-  #app:has(#view-work:not(.hidden) #workbench:not(.hidden)) .side-model-guide {
+  #app:has(#view-work:not(.hidden)) .side-model-guide {
     min-height: 32px; margin-bottom: 6px;
   }
   :root[data-sidebar-collapsed="true"] .sidebar { --rail-item: 32px; }

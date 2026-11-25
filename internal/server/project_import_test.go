@@ -228,7 +228,7 @@ func TestCreationHTTPConcurrentRetryKeepsOneWorkspace(t *testing.T) {
 	s, sess := accessTestServer(t)
 	u, _ := s.store.GetUser(sess.User)
 	id := strings.Repeat("d", 32)
-	body := `{"name":"首个项目","agent":"claude","account_id":"shared","git_connection_id":"","source":"empty"}`
+	body := `{"name":"首个项目","agent":"claude","account_id":"shared","git_connection_id":"","source":"empty","default_model":"claude-fable-5"}`
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Add(1)
@@ -249,8 +249,8 @@ func TestCreationHTTPConcurrentRetryKeepsOneWorkspace(t *testing.T) {
 		t.Fatal("request replay created multiple spaces")
 	}
 	c, err := s.store.WorkspaceCreation(u, id)
-	if err != nil || c.State != "ready" {
-		t.Fatal(err)
+	if err != nil || c.State != "ready" || c.Session.DefaultModel != "claude-fable-5" {
+		t.Fatal(c.State, c.Session.DefaultModel, err)
 	}
 	if err := s.workspaces().Delete(t.Context(), c.Session.ID, true); err != nil {
 		t.Fatal(err)

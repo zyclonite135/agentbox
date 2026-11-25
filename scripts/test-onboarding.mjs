@@ -58,7 +58,7 @@ try{
     else if(path==='/api/onboarding'){
       if(setupFailure){await route.fulfill({status:503,json:{error:'synthetic setup read failed'}});return;}
       body={version:1,can_configure:role==='admin',can_create:accounts.length>0,has_workspaces:spaces.length>0,
-        accounts:accounts.map(a=>({id:a.id,type:a.type,label:a.label,credentials_present:a.cred_status==='ok'})),
+        accounts:accounts.map(a=>({id:a.id,type:a.type,label:a.label,credentials_present:a.cred_status==='ok',default_model:a.default_model||settings.default_models[a.type],models:a.models||models[a.type]})),
         default_models:role==='admin'?settings.default_models:Object.fromEntries(Object.entries(settings.default_models).filter(([agent])=>accounts.some(a=>a.type===agent))),container_resources:{cpus:settings.container.cpus,memory_mb:settings.container.memory_mb,pids_limit:settings.container.pids_limit}};
     }else if(path==='/api/session-creations')body={version:1,actor_key:(role==='admin'?'a':'b').repeat(64),creations:[...creations.values()].filter(c=>c.state==='ready')};
     else if(path.startsWith('/api/session-creations/')){
@@ -67,7 +67,7 @@ try{
         const data=route.request().postDataJSON();
         if(!receipt){
           assert.ok(accounts.some(a=>a.id===data.account_id&&a.type===data.agent));created++;
-          const session={...data,id:'created-'+created,default_model:settings.default_models[data.agent],status:'stopped',account_label:'Fixture account',updated_at:new Date().toISOString()};spaces.push(session);
+          const session={...data,id:'created-'+created,default_model:data.default_model||settings.default_models[data.agent],status:'stopped',account_label:'Fixture account',updated_at:new Date().toISOString()};spaces.push(session);
           receipt={request_id:id,request:data,session,git_connection_id:data.git_connection_id,state:'ready',workspace_exists:true,busy:false,imports:[],created_at:new Date().toISOString(),container_resources:{cpus:settings.container.cpus,memory_mb:settings.container.memory_mb,pids_limit:settings.container.pids_limit}};creations.set(id,receipt);
         }
         if(loseCreateAck){loseCreateAck=false;await route.abort();return;}
@@ -146,6 +146,13 @@ try{
     if(insecure)assert.equal(await page.evaluate(()=>typeof crypto.randomUUID),'undefined');
     await page.locator('#login-user').fill('fixture');await page.locator('#login-pass').fill('synthetic-password');await page.locator('#login-btn').click();
     await page.locator('#app').waitFor({state:'visible'});await ready();
+    if(locale==='en'&&role==='user'){
+      await page.locator('#btn-model-guide').click();
+      await page.locator('#dlg-model-guide').waitFor();
+      assert.equal(await page.locator('#model-guide-list h3').count(),3);
+      assert.equal(await page.locator('#model-guide-list button').count(),0,'home catalog offered a global model switch');
+      await page.keyboard.press('Escape');
+    }
     assert.equal(await page.locator('#home-setup').getAttribute('open')!==null,true,'first user guide should open');
     assert.equal(await page.locator('#empty-new').isDisabled(),true);
     assert.equal(await page.locator('#setup-steps > li').count(),role==='admin'?4:3);
@@ -213,6 +220,8 @@ try{
       assert.ok(!(await page.locator('#setup-steps').innerText()).includes('claude-fixture'));
     }
     assert.equal(await page.locator('#empty-new').isDisabled(),false);
+    const checkGuide=locale==='en'&&role==='user';
+    if(checkGuide) accounts.push({id:'codex-other',type:'codex',label:'Other account',cred_status:'ok',sessions:0,models:[models.codex[0]]});
     // Account read failures cannot use S.accounts as an authorization fallback.
     accountFailure=true;await page.locator('#btn-new').click();await page.waitForFunction(()=>!document.querySelector('#new-refresh').disabled);
     assert.equal(await page.locator('#new-ok').isDisabled(),true);assert.equal(await page.locator('#new-fields').isVisible(),false);
@@ -223,10 +232,30 @@ try{
     const original=accounts;accounts=[];await page.locator('#new-ok').click();
     await page.locator('#new-error').waitFor({state:'visible'});assert.equal(created,0);assert.equal(await page.locator('#new-ok').isDisabled(),true);
     accounts=original;await page.locator('#new-refresh').click();await page.locator('#new-name').fill('First project');
+    if(checkGuide){
+      const guide=page.locator('#dlg-model-guide');
+      const open=()=>page.locator('#new-model-guide').click();
+      const selectSecond=()=>guide.locator('button[data-guide-model="codex-second"]').click();
+      const pickAccount=async label=>{
+        await page.locator('#new-account + .select-trigger').click();
+        await page.getByRole('option',{name:label,exact:true}).click();
+      };
+      await open();await selectSecond();
+      assert.equal(await guide.isVisible(),false);
+      assert.equal(await page.locator('#dlg-new').isVisible(),true);
+      assert.match(await page.locator('#new-config-summary').innerText(),/Second/);
+      await pickAccount('Other account');
+      await page.locator('#new-error').waitFor({state:'visible'});
+      await open();
+      assert.deepEqual(await guide.locator('h3').allTextContents(),['First']);
+      await page.keyboard.press('Escape');
+      await pickAccount('Fixture account');
+      await open();await selectSecond();
+    }
     await page.locator('#new-form').evaluate(form=>{form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
     await page.waitForFunction(()=>location.hash.includes('/sessions/created-1/chat'));
     assert.equal(created,1,'rapid submission created duplicates');assert.equal(modelTurns,0,'setup invoked a model');
-    assert.equal(spaces[0].default_model,role==='admin'?'codex-second':'codex-first');
+    assert.equal(spaces[0].default_model,role==='admin'||checkGuide?'codex-second':'codex-first');
     await page.waitForFunction(()=>document.querySelector('#workspace-guide').matches(':popover-open')&&!document.querySelector('#guide-example').disabled);
     assert.ok((await page.locator('#guide-config').innerText()).includes(spaces[0].default_model));
     await page.locator('#guide-next').click();assert.equal(await page.locator('#workspace-guide').getAttribute('data-step'),'1');
@@ -314,7 +343,7 @@ try{
     settings.default_models.codex=oldModel==='codex-first'?'codex-second':'codex-first';settings.container.memory_mb=1024;
     await page.locator('#new-ok').click();await page.locator('#new-error').waitFor({state:'visible'});
     assert.equal(created,5);assert.equal(uploadCalls,beforeReview,'config drift started an import before review');
-    assert.ok((await page.locator('#new-config-summary').innerText()).includes(settings.default_models.codex));
+    assert.ok((await page.locator('#new-config-summary').innerText()).includes(models.codex.find(model=>model.id===settings.default_models.codex).label));
     assert.ok((await page.locator('#new-config-summary').innerText()).includes('1024'));
     await page.locator('#new-ok').click();await page.waitForFunction(()=>location.hash.includes('/sessions/created-5/files'));
     assert.equal(created,5);assert.equal(uploadCalls,beforeReview+1);
@@ -358,12 +387,40 @@ try{
     if(locale==='en'){await mkdir('output/playwright',{recursive:true});await page.screenshot({path:`output/playwright/onboarding-${role}-mobile.png`,animations:'disabled'});}
     await page.locator('#setup-steps > li').last().getByRole('button').click();
     await page.locator('#new-name').fill('Mobile private draft');
+    if(checkGuide){
+      await page.locator('#new-model-guide').click();
+      const guide=page.locator('#dlg-model-guide');
+      await guide.waitFor();
+      assert.equal(await guide.evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
+      await page.keyboard.press('Escape');await guide.waitFor({state:'hidden'});
+      assert.equal(await page.locator('#dlg-new').isVisible(),true);
+    }
     await choose('new-source-kind','upload');
     await page.locator('#new-ok').scrollIntoViewIfNeeded();
     assert.equal(await page.locator('#new-ok').isVisible(),true,'creation action is unreachable on narrow screen');
     assert.equal(await page.locator('#dlg-new').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,'create form overflows on narrow screen');
     if(locale==='en')await page.screenshot({path:`output/playwright/creation-upload-${role}-mobile.png`,animations:'disabled'});
     await page.keyboard.press('Escape');await page.locator('#dlg-new').waitFor({state:'hidden'});
+    if(checkGuide){
+      await page.setViewportSize({width:1280,height:900});
+      const visit=async(id,caption)=>{
+        await page.evaluate(id=>{location.hash='#/sessions/'+id+'/chat';},id);
+        await page.waitForFunction(async id=>(await import('/_v/{{BUILD}}/js/state.js')).S.current?.id===id,id);
+        await page.locator('#btn-model-guide').click();
+        await page.locator('#model-guide-space').filter({hasText:caption}).waitFor();
+      };
+      const chooseModel=id=>page.locator('#model-guide-list button[data-guide-model="'+id+'"]').click();
+      await visit('created-1','First project');
+      await chooseModel('codex-first');
+      await visit('created-2','Uploaded project');
+      await chooseModel('codex-second');
+      await visit('created-1','First project');
+      assert.equal(await page.locator('#model-guide-list .is-current h3').innerText(),'First');
+      await page.keyboard.press('Escape');
+      await visit('created-2','Uploaded project');
+      assert.equal(await page.locator('#model-guide-list .is-current h3').innerText(),'Second');
+      await page.keyboard.press('Escape');
+    }
     await page.evaluate(async()=>{(await import('/_v/{{BUILD}}/js/state.js')).emit('unauthorized');});
     await page.locator('#login').waitFor({state:'visible'});
     assert.equal(await page.locator('#new-name').inputValue(),'','logout retained another user draft');

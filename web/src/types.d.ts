@@ -1769,7 +1769,7 @@ export interface OnboardingSnapshot {
   can_configure: boolean;
   can_create: boolean;
   has_workspaces: boolean;
-  accounts: {id:string; type:string; label:string; credentials_present:boolean; default_model?:string}[];
+  accounts: {id:string; type:string; label:string; credentials_present:boolean; default_model?:string; models?:ModelOption[]}[];
   default_models: Record<string,string>;
   container_resources: CreationResources;
 }
@@ -1780,6 +1780,7 @@ export interface CreationResources {cpus:number;memory_mb:number;pids_limit:numb
 export interface WorkspaceCreateSpec {
  name:string;agent:string;account_id:string;git_connection_id:string;
  source:"empty"|"upload"|"git";directory:string;
+ default_model?:string;
 }
 export interface WorkspaceImport {
  attempt_id:string;kind:"upload"|"git";directory:string;

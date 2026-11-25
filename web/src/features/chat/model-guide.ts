@@ -1,4 +1,4 @@
-import { setText, setTextRender } from "../../i18n.js";
+import { setAttrRender, setText, setTextRender, t } from "../../i18n.js";
 import { svgIcon } from "../../icons.js";
 import { $, keepScroll } from "../../util.js";
 import type { ModelOption } from "../../types.js";
@@ -27,19 +27,40 @@ const guidance = new Map<string, string>([
 ]);
 
 interface GuideContext {
-  workspace: string;
+  caption: () => string;
   models: ModelOption[];
-  current: string;
+  current?: string;
+  select?: (id: string) => boolean;
 }
 
 const dialog = () => $<HTMLDialogElement>("dlg-model-guide");
+let activeTrigger: HTMLElement | undefined;
 
-export function closeModelGuide() {
-  if (dialog().open) dialog().close();
+export function closeModelGuide(trigger?: HTMLElement) {
+  const modal = dialog();
+  if (modal.open && (!trigger || activeTrigger === trigger)) {
+    activeTrigger = undefined;
+    modal.close();
+  }
 }
 
-export function renderModelGuide({ workspace, models, current }: GuideContext) {
-  setTextRender($("model-guide-space"), () => workspace);
+export function openModelGuide(trigger: HTMLElement, context: GuideContext) {
+  const modal = dialog();
+  if (modal.open) return;
+  activeTrigger = trigger;
+  renderModelGuide(context);
+  trigger.focus({ preventScroll: true });
+  modal.showModal();
+  modal.querySelector(".dlg-body")?.scrollTo(0, 0);
+}
+
+export function updateModelGuide(trigger: HTMLElement, context: GuideContext) {
+  if (dialog().open && activeTrigger === trigger) renderModelGuide(context);
+}
+
+function renderModelGuide({ caption, models, current, select }: GuideContext) {
+  setTextRender($("model-guide-space"), caption);
+  const focusedModel = (document.activeElement as HTMLElement | null)?.dataset.guideModel;
   const rows = models.map(({ id, label }) => {
     const row = document.createElement("li");
     row.className = "model-guide-model";
@@ -55,6 +76,15 @@ export function renderModelGuide({ workspace, models, current }: GuideContext) {
       setText(text, "当前选择");
       badge.append(svgIcon("check", 14), text);
       header.append(badge);
+    } else if (select) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn btn-sm model-guide-select";
+      button.dataset.guideModel = id;
+      setText(button, "选用模型");
+      setAttrRender(button, "aria-label", () => t("选用模型 {model}", { model: label || id }));
+      button.addEventListener("click", () => { if (select(id)) closeModelGuide(); });
+      header.append(button);
     }
     const description = document.createElement("p");
     setText(description, guidance.get(id) || "此模型暂无经过核实的用途说明。");
@@ -64,6 +94,10 @@ export function renderModelGuide({ workspace, models, current }: GuideContext) {
   const list = $("model-guide-list");
   keepScroll(list, () => list.replaceChildren(...rows));
   $("model-guide-empty").hidden = rows.length > 0;
+  if (focusedModel) {
+    const button = [...list.querySelectorAll<HTMLButtonElement>("button")].find(el => el.dataset.guideModel === focusedModel);
+    (button || $("btn-model-guide-close")).focus({ preventScroll: true });
+  }
 }
 
 let introduced = false;
@@ -72,7 +106,7 @@ export function initModelGuide(read: () => GuideContext | undefined, signal: Abo
   const trigger = $("btn-model-guide");
   const modal = dialog();
   matchMedia("(max-width: 760px)").addEventListener("change", event => {
-    if (event.matches) closeModelGuide();
+    if (event.matches) closeModelGuide(trigger);
   }, { signal });
   if (!introduced) {
     const observer = new IntersectionObserver(entries => {
@@ -94,13 +128,10 @@ export function initModelGuide(read: () => GuideContext | undefined, signal: Abo
   trigger.addEventListener("animationcancel", clearIntro, { signal });
   trigger.addEventListener("click", () => {
     const context = read();
-    if (!context || modal.open) return;
-    renderModelGuide(context);
-    trigger.focus({ preventScroll: true });
-    modal.showModal();
-    modal.querySelector(".dlg-body")?.scrollTo(0, 0);
+    if (context) openModelGuide(trigger, context);
   }, { signal });
-  $("btn-model-guide-close").addEventListener("click", closeModelGuide, { signal });
+  $("btn-model-guide-close").addEventListener("click", () => closeModelGuide(), { signal });
+  modal.addEventListener("close", () => { if (!modal.open) activeTrigger = undefined; }, { signal });
   const isBackdrop = (event: MouseEvent) => {
     if (event.target !== modal) return false;
     const bounds = modal.getBoundingClientRect();

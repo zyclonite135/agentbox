@@ -156,6 +156,13 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
         assert not Path(path).exists(), path
     assert not (root / 'whisper-active').exists()
     assert set(Path('/tmp').glob('tmp.*')) == original_staging
+    bad_bootstrap = subprocess.run(command + ['--listen', 'invalid'], env=env,
+                                   capture_output=True, text=True)
+    assert bad_bootstrap.returncode != 0 and 'listen must use an IP address and port' in bad_bootstrap.stderr
+    assert not Path('/opt/agentbox-whisper').exists()
+    assert not Path('/etc/systemd/system/agentbox-whisper.service').exists()
+    assert not (root / 'whisper-active').exists()
+    assert set(Path('/tmp').glob('tmp.*')) == original_staging
     result = subprocess.run(command, env=env, capture_output=True, text=True)
     if result.returncode:
         print(result.stderr)

@@ -24,7 +24,7 @@ EXTRACTOR = INSTALLER.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
 
 
 class WhisperSetup(unittest.TestCase):
-    def test_failed_health_check_cleans_service_and_allows_retry(self):
+    def test_whisper_or_early_bootstrap_failure_cleans_service_and_allows_retry(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             build = root / 'stage/whisper-build/bin'
@@ -37,26 +37,40 @@ class WhisperSetup(unittest.TestCase):
             script = script.replace('/etc/systemd/system/', str(root / 'units') + '/')
             script += r'''
 command() { [[ "$*" != '-v restorecon' ]] && builtin command "$@"; }
-curl() { [[ "$health" == ok ]]; }
+curl() { [[ "$scenario" != whisper ]]; }
 language=en
-health=$2
+scenario=$2
 systemctl() { printf '%s\n' "$*" >> "$logs"; }
 logs="$1/calls"
-install_whisper "$1/stage"
-printf 'AgentBox bootstrap reached\n'
+existing_agentbox_path() { [[ -e "$layout" ]]; }
+layout="$1/agentbox"
+python3() {
+  printf 'AgentBox bootstrap reached\n'
+  [[ "$scenario" != bootstrap ]] || return 23
+  if [[ "$scenario" == partial ]]; then
+    mkdir "$layout"
+    return 24
+  fi
+}
+install_agentbox_with_whisper "$1/stage" "$1/package" '127.0.0.1:8180'
 '''
-            failed = subprocess.run(['bash', '-c', script, 'fixture', tmp, 'fail'],
-                                    capture_output=True, text=True)
-            self.assertNotEqual(failed.returncode, 0)
-            self.assertIn('Whisper did not become ready', failed.stderr)
-            self.assertNotIn('AgentBox bootstrap reached', failed.stdout)
-            self.assertIn('stop agentbox-whisper.service', (root / 'calls').read_text())
-            self.assertFalse((root / 'whisper').exists())
-            self.assertFalse(list((root / 'units').iterdir()))
-            ready = subprocess.run(['bash', '-c', script, 'fixture', tmp, 'ok'],
-                                   capture_output=True, text=True)
-            self.assertEqual(ready.returncode, 0, ready.stderr)
-            self.assertIn('AgentBox bootstrap reached', ready.stdout)
+            def run(scenario):
+                (root / 'calls').write_text('')
+                return subprocess.run(['bash', '-c', script, 'fixture', tmp, scenario],
+                                      capture_output=True, text=True)
+
+            for scenario, code in [('whisper', 1), ('bootstrap', 23)]:
+                with self.subTest(scenario=scenario):
+                    failed = run(scenario)
+                    self.assertEqual(failed.returncode, code, failed.stderr)
+                    self.assertEqual('AgentBox bootstrap reached' in failed.stdout, scenario == 'bootstrap')
+                    self.assertIn('stop agentbox-whisper.service', (root / 'calls').read_text())
+                    self.assertFalse((root / 'whisper').exists())
+                    self.assertFalse(list((root / 'units').iterdir()))
+            partial = run('partial')
+            self.assertEqual(partial.returncode, 24, partial.stderr)
+            self.assertNotIn('stop agentbox-whisper.service', (root / 'calls').read_text())
+            self.assertTrue((root / 'agentbox').is_dir())
             self.assertTrue((root / 'whisper/ggml-base.bin').is_file())
             self.assertTrue((root / 'units/agentbox.service.d/20-whisper.conf').is_file())
 

@@ -143,23 +143,38 @@ prepare_whisper() {
     fail 'Whisper base model checksum mismatch' 'Контрольная сумма модели Whisper base не совпадает'
 }
 
-install_whisper() (
-  local stage=$1
+existing_agentbox_path() {
+  local path
+  for path in /etc/agentbox /opt/agentbox /var/lib/agentbox /var/cache/agentbox /etc/systemd/system/agentbox.service; do
+    if [[ -e "$path" || -L "$path" ]]; then
+      printf '%s\n' "$path"
+      return 0
+    fi
+  done
+  return 1
+}
+
+install_agentbox_with_whisper() (
+  local stage=$1 package=$2 listen=$3
   local whisper_home=/opt/agentbox-whisper
   local unit=/etc/systemd/system/agentbox-whisper.service
   local dropin=/etc/systemd/system/agentbox.service.d/20-whisper.conf
-  local dropin_dir_created=0
+  local dropin_dir_created=0 bootstrap_started=0
   # Reserve the directory before arming cleanup so an existing installation
   # (including a concurrent installer) cannot be removed by this attempt.
   mkdir -m 0755 -- "$whisper_home"
   trap '
-    if [[ -f "$unit" ]]; then
-      systemctl stop agentbox-whisper.service || :
+    # Keep the voice configuration if the bootstrap wrote deployment data
+    # that release.py can use to resume the installation.
+    if ((! bootstrap_started)) || ! existing_agentbox_path >/dev/null; then
+      if [[ -f "$unit" ]]; then
+        systemctl stop agentbox-whisper.service || :
+      fi
+      rm -f -- "$dropin" "$unit" "$whisper_home/ggml-base.bin" "$whisper_home/whisper-server"
+      rmdir -- "$whisper_home/public" "$whisper_home" 2>/dev/null || :
+      if ((dropin_dir_created)); then rmdir -- "${dropin%/*}" 2>/dev/null || :; fi
+      systemctl daemon-reload || :
     fi
-    rm -f -- "$dropin" "$unit" "$whisper_home/ggml-base.bin" "$whisper_home/whisper-server"
-    rmdir -- "$whisper_home/public" "$whisper_home" 2>/dev/null || :
-    if ((dropin_dir_created)); then rmdir -- "${dropin%/*}" 2>/dev/null || :; fi
-    systemctl daemon-reload || :
   ' EXIT
   install -d -m 0755 "$whisper_home/public"
   install -m 0755 "$stage/whisper-build/bin/whisper-server" "$whisper_home/whisper-server"
@@ -202,8 +217,12 @@ UNIT
   chmod 0644 "$dropin"
   if command -v restorecon >/dev/null; then restorecon -R "${dropin%/*}"; fi
   systemctl daemon-reload
-  trap - EXIT
   message 'Local Whisper base is ready on 127.0.0.1:18088.' 'Локальный Whisper base готов на 127.0.0.1:18088.'
+  bootstrap_started=1
+  # Older packages ignore the language selector but still need UTF-8.
+  AGENTBOX_INSTALL_LANG="$language" PYTHONUTF8=1 PYTHONIOENCODING=utf-8 \
+    python3 "$package/deploy/bootstrap.py" --package "$package" --listen "$listen"
+  trap - EXIT
 )
 
 main() {
@@ -245,11 +264,10 @@ main() {
   [[ -d /run/systemd/system ]] && command -v systemctl >/dev/null || \
     fail 'A running systemd host is required' 'На сервере должен работать systemd'
   # Check before installing packages or starting Docker. Never adopt an existing deployment.
-  for path in /etc/agentbox /opt/agentbox /var/lib/agentbox /var/cache/agentbox /etc/systemd/system/agentbox.service; do
-    [[ ! -e "$path" && ! -L "$path" ]] || \
-      fail "Existing installation path: $path. Use deploy/release.py to upgrade or resume; no data was changed." \
-           "Обнаружена существующая установка в $path. Для обновления или возобновления используйте deploy/release.py. Данные сохранены."
-  done
+  if path=$(existing_agentbox_path); then
+    fail "Existing installation path: $path. Use deploy/release.py to upgrade or resume; no data was changed." \
+         "Обнаружена существующая установка в $path. Для обновления или возобновления используйте deploy/release.py. Данные сохранены."
+  fi
   [[ -z $(systemctl show agentbox.service --property=FragmentPath --value) ]] || \
     fail 'An agentbox service already exists; use the migration/upgrade instructions' \
          'Служба agentbox уже существует. Воспользуйтесь инструкцией по миграции или обновлению.'
@@ -367,10 +385,7 @@ with open(sys.argv[1], "rb") as binary, mmap.mmap(binary.fileno(), 0, access=mma
   prepare_whisper "$distro" "$task_tmp"
   # Pin every Docker operation to the same local daemon used by systemd.
   ensure_docker "$distro" "$task_tmp"
-  install_whisper "$task_tmp"
-  # Older packages ignore the language selector but still need UTF-8.
-  AGENTBOX_INSTALL_LANG="$language" PYTHONUTF8=1 PYTHONIOENCODING=utf-8 \
-    python3 "$package/deploy/bootstrap.py" --package "$package" --listen "$listen"
+  install_agentbox_with_whisper "$task_tmp" "$package" "$listen"
   # Run cleanup while task_tmp is still in scope, then disarm EXIT.
   rm -rf -- "$task_tmp"
   trap - EXIT

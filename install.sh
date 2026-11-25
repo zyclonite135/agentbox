@@ -186,7 +186,7 @@ Description=AgentBox local Whisper speech recognition
 Type=simple
 DynamicUser=yes
 WorkingDirectory=/opt/agentbox-whisper
-ExecStart=/opt/agentbox-whisper/whisper-server --host 127.0.0.1 --port 18088 --public /opt/agentbox-whisper/public -m /opt/agentbox-whisper/ggml-base.bin -l auto -ng -nc
+ExecStart=/opt/agentbox-whisper/whisper-server --host 127.0.0.1 --port 18088 --public /opt/agentbox-whisper/public -m /opt/agentbox-whisper/ggml-base.bin -l auto -ng
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=yes
@@ -197,12 +197,14 @@ UNIT
   chmod 0644 "$unit"
   if command -v restorecon >/dev/null; then restorecon -R "$whisper_home" "$unit"; fi
   systemctl daemon-reload
-  systemctl start agentbox-whisper.service
-  curl --noproxy '*' -fsS --retry 15 --retry-connrefused --retry-delay 1 --max-time 2 \
-    http://127.0.0.1:18088/health >/dev/null || \
+  if ! systemctl start agentbox-whisper.service ||
+     ! curl --noproxy '*' -fs --retry 15 --retry-connrefused --retry-delay 1 --max-time 2 \
+       http://127.0.0.1:18088/health >/dev/null ||
+     ! systemctl is-active --quiet agentbox-whisper.service; then
+    journalctl --unit=agentbox-whisper.service --lines=20 --no-pager >&2 || :
     fail 'Whisper did not become ready; see journalctl -u agentbox-whisper' \
          'Whisper не запустился. Проверьте журнал: journalctl -u agentbox-whisper'
-  systemctl is-active --quiet agentbox-whisper.service
+  fi
   if [[ ! -d "${dropin%/*}" ]]; then
     mkdir -m 0755 -- "${dropin%/*}"
     dropin_dir_created=1

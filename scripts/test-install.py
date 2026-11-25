@@ -40,8 +40,15 @@ command() { [[ "$*" != '-v restorecon' ]] && builtin command "$@"; }
 curl() { [[ "$scenario" != whisper ]]; }
 language=en
 scenario=$2
-systemctl() { printf '%s\n' "$*" >> "$logs"; }
+systemctl() {
+  printf '%s\n' "$*" >> "$logs"
+  if [[ "$*" == 'start agentbox-whisper.service' ]]; then
+    grep -q '^ExecStart=.* -l auto -ng$' "$unit_dir/agentbox-whisper.service"
+  fi
+}
+journalctl() { printf 'Whisper startup log: fixture\n'; }
 logs="$1/calls"
+unit_dir="$1/units"
 existing_agentbox_path() { [[ -e "$layout" ]]; }
 layout="$1/agentbox"
 python3() {
@@ -64,6 +71,8 @@ install_agentbox_with_whisper "$1/stage" "$1/package" '127.0.0.1:8180'
                     failed = run(scenario)
                     self.assertEqual(failed.returncode, code, failed.stderr)
                     self.assertEqual('AgentBox bootstrap reached' in failed.stdout, scenario == 'bootstrap')
+                    if scenario == 'whisper':
+                        self.assertIn('Whisper startup log: fixture', failed.stderr)
                     self.assertIn('stop agentbox-whisper.service', (root / 'calls').read_text())
                     self.assertFalse((root / 'whisper').exists())
                     self.assertFalse(list((root / 'units').iterdir()))

@@ -3,26 +3,128 @@ import { i18n, setAttrRender, t as i18nText } from "./i18n.js";
  * Firefox 不支持则隐藏入口）。点击开始录音，边说边把文字实时写进输入框，
  * 再点一次停止并直接发送；Agent 执行中则把文字留在输入框里。 */
 "use strict";
-import { S } from "./state.js";
+import { S, bus } from "./state.js";
 import { $, toast, isImeEnter, enterInsertsNewline } from "./util.js";
 import { sendChat, autoGrow } from "./chat.js";
 import { setTip } from "./tip.js";
+import { canRecordVoice, recordServerVoice, serverVoiceEnabled } from "./voice-server.js";
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const btn = $("btn-voice");
 const input = $("chat-input");
-const idleTitle = () => i18nText("语音输入：点击说话，再点一次停止并发送");
+const serverPreference = "agentbox-voice-server";
+const serverSupported = canRecordVoice();
+let useServer = false;
+try {
+    useServer = localStorage.getItem(serverPreference) === "true";
+}
+catch (_) { }
+let serverRec;
+function preferServer(enabled) {
+    useServer = enabled;
+    try {
+        localStorage.setItem(serverPreference, String(enabled));
+    }
+    catch (_) { }
+}
+function idleTitle() {
+    if (!SR || useServer) {
+        return SR
+            ? i18nText("服务器语音输入（Shift+点击切回浏览器识别）")
+            : i18nText("服务器语音输入");
+    }
+    return serverSupported
+        ? i18nText("语音输入：点击说话，再点一次停止并发送（Shift+点击使用服务器识别）")
+        : i18nText("语音输入：点击说话，再点一次停止并发送");
+}
 let rec = null; // 当前识别实例，非 null 即录音中
 let base = ""; // 录音开始时输入框已有的内容
 let finalText = ""; // 已定稿的识别结果（interim 部分每次整体重写）
 let sendOnEnd = false; // 用户主动点停：识别收尾后自动发送
-if (!SR)
+if (!SR && !serverSupported)
     btn.classList.add("hidden");
-btn.addEventListener("click", () => {
-    if (rec)
+setRecUI(false);
+btn.addEventListener("click", (event) => {
+    if (serverRec) {
+        serverRec.stop();
+        return;
+    }
+    if (rec) {
         stopAndSend();
-    else
+        return;
+    }
+    if (event.shiftKey && SR && serverSupported)
+        preferServer(!useServer);
+    if (serverSupported && (!SR || useServer))
+        startServer();
+    else if (SR)
         start();
 });
+function startServer() {
+    const original = input.value;
+    const prefix = original && !/\s$/.test(original) ? original + " " : original;
+    const thread = S.thread;
+    const session = S.current;
+    try {
+        serverRec = recordServerVoice({
+            onReady: () => toast(i18nText("正在聆听，再点一次 🎤 停止并发送")),
+            onText: (text) => {
+                if (S.thread?.id !== thread?.id || S.current?.id !== session?.id) {
+                    abortServerRecording();
+                    return;
+                }
+                input.value = text ? prefix + text : original;
+                autoGrow();
+            },
+            onEnd: (send, reachedLimit) => {
+                serverRec = undefined;
+                setRecUI(false);
+                if (reachedLimit)
+                    toast(i18nText("单次服务器语音输入限时 30 秒，文字已保留"));
+                if (send && S.thread?.id === thread?.id && S.current?.id === session?.id)
+                    sendVoiceText();
+            },
+            onError: (error) => {
+                serverRec = undefined;
+                if (error instanceof Error && error.message === "whisper_disabled") {
+                    if (SR)
+                        preferServer(false);
+                    toast(i18nText("服务器语音识别未启用"), true);
+                }
+                else if (error instanceof DOMException && error.name === "NotAllowedError") {
+                    toast(i18nText("麦克风权限被拒绝，请在浏览器允许（非 localhost 访问需 HTTPS）"), true);
+                }
+                else {
+                    toast(i18nText("服务器语音识别失败，请重试"), true);
+                }
+                setRecUI(false);
+            },
+        });
+        setRecUI(true);
+    }
+    catch (_) {
+        setRecUI(false);
+        toast(i18nText("服务器语音识别失败，请重试"), true);
+    }
+}
+function sendVoiceText() {
+    if (!input.value.trim())
+        return;
+    if (S.chatState === "running")
+        toast(i18nText("Agent 执行中，识别文字已放入输入框"));
+    else
+        void sendChat();
+}
+function offerServerVoice() {
+    if (!serverSupported)
+        return;
+    void serverVoiceEnabled().then((enabled) => {
+        if (!enabled || rec || serverRec)
+            return;
+        preferServer(true);
+        setRecUI(false);
+        toast(i18nText("浏览器语音识别不可用。再次点击麦克风即可使用服务器识别，请重新说一遍。"));
+    }).catch(() => { });
+}
 function start() {
     const r = new SR();
     // New recognition sessions use the selected interface language.
@@ -32,6 +134,7 @@ function start() {
     base = input.value && !/\s$/.test(input.value) ? input.value + " " : input.value;
     finalText = "";
     sendOnEnd = false;
+    let fallback = false;
     let failed = false; // 出错后 onend 不再自动续听
     r.onresult = (e) => {
         let interim = "";
@@ -49,6 +152,7 @@ function start() {
         if (e.error === "no-speech" || e.error === "aborted")
             return;
         failed = true;
+        fallback = e.error === "network" || e.error === "service-not-allowed" || e.error === "language-not-supported";
         const msg = {
             "not-allowed": i18nText("麦克风权限被拒绝，请在浏览器允许（非 localhost 访问需 HTTPS）"),
             "service-not-allowed": i18nText("浏览器禁用了语音识别服务（非 localhost 访问需 HTTPS）"),
@@ -70,19 +174,17 @@ function start() {
         }
         rec = null;
         setRecUI(false);
-        const text = input.value.trim();
-        if (!sendOnEnd || !text)
-            return;
-        if (S.chatState === "running")
-            toast(i18nText("Agent 执行中，识别文字已放入输入框"));
-        else
-            sendChat();
+        if (fallback)
+            offerServerVoice();
+        if (sendOnEnd && !fallback)
+            sendVoiceText();
     };
     try {
         r.start();
     }
     catch (e) {
         toast(i18nText("无法启动语音识别：") + e.message, true);
+        offerServerVoice();
         return;
     }
     rec = r;
@@ -103,7 +205,19 @@ function setRecUI(on) {
 }
 /* 录音途中手动发送（Enter / 发送键）：先掐掉识别，
  * 免得迟到的识别结果把已发送的旧文字又写回输入框 */
+function abortServerRecording() {
+    if (!serverRec)
+        return;
+    serverRec.cancel();
+    serverRec = undefined;
+    setRecUI(false);
+}
+for (const event of ["thread-changed", "open-session", "unauthorized"]) {
+    bus.addEventListener(event, abortServerRecording);
+}
+input.addEventListener("input", abortServerRecording);
 function abortIfRecording() {
+    abortServerRecording();
     if (!rec)
         return;
     const r = rec;
@@ -119,4 +233,4 @@ input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !isImeEnter(e) && !enterInsertsNewline())
         abortIfRecording();
 }, true);
-window.addEventListener("agentbox-language-change", () => setRecUI(!!rec));
+window.addEventListener("agentbox-language-change", () => setRecUI(!!rec || !!serverRec));

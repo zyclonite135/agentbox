@@ -1,5 +1,12 @@
 // App-authored interface messages. Keys and interpolation placeholders remain stable.
 export default {
+    "服务器语音输入（Shift+点击切回浏览器识别）": "Server dictation (Shift+click to switch back to browser recognition)",
+    "服务器语音输入": "Server dictation",
+    "语音输入：点击说话，再点一次停止并发送（Shift+点击使用服务器识别）": "Click to dictate, then click again to stop and send (Shift+click to use server recognition)",
+    "单次服务器语音输入限时 30 秒，文字已保留": "Server dictation reached the 30-second limit. The text stays in your draft.",
+    "服务器语音识别未启用": "Server speech recognition is disabled.",
+    "服务器语音识别失败，请重试": "Server speech recognition failed. Try again.",
+    "浏览器语音识别不可用。再次点击麦克风即可使用服务器识别，请重新说一遍。": "Browser speech recognition is unavailable. Click the microphone again and repeat your dictation to use server recognition.",
     "当前选择": "Selected",
     "此模型暂无经过核实的用途说明。": "There is no verified guidance for this model yet.",
     "适合复杂的多步骤任务，例如对照多份报告、找出数字差异，或分析程序故障的原因。": "For complex, multi-step tasks. Compare reports, find discrepancies in the numbers, or investigate why a program failed.",

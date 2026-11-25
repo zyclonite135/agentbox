@@ -379,6 +379,8 @@ func (s *Server) routes() *http.ServeMux {
 	mux.Handle("DELETE /api/sessions/{id}/client-terminals/{terminal}", s.auth(s.withSession(s.handleClientTerminalDelete)))
 	mux.Handle("GET /api/sessions/{id}/client-terminals/{terminal}/stream", s.auth(s.withSession(s.handleClientTerminalWS)))
 	mux.Handle("GET /api/me", s.auth(http.HandlerFunc(s.handleMe)))
+	mux.Handle("GET /api/voice", s.auth(http.HandlerFunc(s.handleVoiceCapability)))
+	mux.Handle("POST /api/voice", s.auth(http.HandlerFunc(s.handleVoiceTranscription)))
 	mux.Handle("GET /api/sessions/{id}/delegation/options", s.auth(s.withSession(s.handleDelegationOptions)))
 	mux.Handle("GET /api/sessions/{id}/delegations/{delegation}", s.auth(s.withSession(s.handleDelegationGet)))
 	mux.Handle("GET /api/sessions/{id}/delegations/{delegation}/log", s.auth(s.withSession(s.handleDelegationLog)))

@@ -241,6 +241,26 @@ dialog label.check input { margin: 0; flex: none; }
 .agent-opt:has(input:focus-visible) { outline: 2px solid var(--amber); outline-offset: 1px; }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 
+.dlg-model-guide { width: min(620px, 92vw); }
+.dlg-model-guide .dlg-title-row .ui-icon { flex: none; color: var(--accent); }
+.dlg-model-guide .dlg-desc { overflow-wrap: anywhere; }
+.model-guide-list { list-style: none; display: grid; gap: 8px; margin: 0; padding: 0; }
+.model-guide-list:empty { display: none; }
+.model-guide-model {
+  min-width: 0; padding: 11px 13px; border: 1px solid var(--line);
+  border-radius: calc(8px * var(--radius-scale)); background: var(--panel);
+  overflow-wrap: anywhere;
+}
+.model-guide-model.is-current {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--line));
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+.model-guide-model header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.model-guide-model h3 { min-width: 0; margin: 0; font-size: 14px; }
+.model-guide-model p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.model-guide-current { display: inline-flex; align-items: center; gap: 4px; color: var(--text); font-size: 12px; }
+.model-guide-current .ui-icon { color: var(--accent); }
+
 /* ---- 图片灯箱：固定窗口大小，图片等比缩放完整展示，不出现滚动条。
    通用 dialog 规则会把 width 锁成 420px，这里必须显式覆盖 ---- */
 .dlg-img {

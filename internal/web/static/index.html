@@ -261,6 +261,11 @@
       </section>
 
       <footer class="side-foot">
+        <button id="btn-model-guide" type="button" class="side-item side-model-guide" aria-haspopup="dialog" aria-controls="dlg-model-guide" aria-label="如何选择模型？" data-tip="如何选择模型？" data-i18n-attrs='{"aria-label":"如何选择模型？","data-tip":"如何选择模型？"}'>
+          <span class="glyph"><svg width="17" height="17" data-icon="sparkles" aria-hidden="true"></svg></span>
+          <span class="side-item-label" data-i18n="如何选择模型？">如何选择模型？</span>
+          <svg class="model-guide-arrow" width="14" height="14" data-icon="chevron-right" aria-hidden="true"></svg>
+        </button>
         <!-- 管理入口带文字两列排；收起侧栏时只剩图标。Git 管理与使用记录、设置并列，
              不再藏在用户弹层里。余额直接写在用户按钮上。 -->
         <nav class="side-nav" aria-label="管理与工具" data-i18n-attrs="{&quot;aria-label&quot;:&quot;管理与工具&quot;}">
@@ -2733,6 +2738,20 @@
   </div>
 
   <div id="cost-note" class="cost-note"></div>
+  </div>
+</dialog>
+
+<dialog id="dlg-model-guide" class="dlg-model-guide" aria-labelledby="model-guide-title" aria-describedby="model-guide-space">
+  <div class="dlg-head">
+    <div class="dlg-title-block">
+      <h2 id="model-guide-title" class="dlg-title-row"><svg width="18" height="18" data-icon="sparkles" aria-hidden="true"></svg><span data-i18n="如何选择模型？">如何选择模型？</span></h2>
+      <p id="model-guide-space" class="dlg-desc muted"></p>
+    </div>
+    <button id="btn-model-guide-close" type="button" class="dlg-x" autofocus aria-label="关闭" data-icon="close" data-i18n-attrs='{"aria-label":"关闭"}'></button>
+  </div>
+  <div class="dlg-body">
+    <ul id="model-guide-list" class="model-guide-list"></ul>
+    <p id="model-guide-empty" class="muted" hidden data-i18n="此工作空间没有可选模型。">此工作空间没有可选模型。</p>
   </div>
 </dialog>
 

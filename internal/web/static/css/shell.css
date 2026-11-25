@@ -249,6 +249,34 @@
 .side-label { font-size: 11px; letter-spacing: 0.06em; }
 .side-count { font-family: var(--mono); font-size: 10px; }
 .side-foot { position: relative; flex: none; padding: 8px 12px 12px; }
+.side-item.side-model-guide { display: none; }
+@media (min-width: 761px) {
+  #app:has(#view-work:not(.hidden) #workbench:not(.hidden)) .side-model-guide {
+    display: flex; position: relative; overflow: hidden; isolation: isolate;
+    height: 38px; margin-bottom: 10px; gap: 8px;
+    border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line));
+    background: color-mix(in srgb, var(--accent) 13%, var(--panel));
+    color: var(--text); font-weight: 600;
+  }
+  .side-model-guide .glyph { color: var(--accent); }
+  .side-model-guide .model-guide-arrow { flex: none; margin-left: auto; color: var(--muted); }
+  #app:has(#view-work:not(.hidden) #workbench:not(.hidden)) .side-model-guide:is(:hover, :focus-visible) {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 22%, var(--panel));
+  }
+  :root[data-sidebar-collapsed="true"] #app .side-model-guide {
+    width: var(--rail-item); height: var(--rail-item); margin-inline: auto;
+  }
+  :root[data-sidebar-collapsed="true"] .side-model-guide .model-guide-arrow { display: none; }
+}
+@media (min-width: 761px) and (prefers-reduced-motion: no-preference) {
+  .side-model-guide.guide-intro::after {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(110deg, transparent 25%, color-mix(in srgb, var(--accent) 34%, transparent) 50%, transparent 75%);
+    animation: model-guide-shine 850ms ease-out 300ms both;
+  }
+}
+@keyframes model-guide-shine { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 .side-nav {
   display: flex; flex-direction: column; gap: 2px;
   padding: 6px 0 0; border-top: 1px solid var(--line);

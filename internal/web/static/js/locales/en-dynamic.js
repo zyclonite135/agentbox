@@ -1,5 +1,17 @@
 // App-authored interface messages. Keys and interpolation placeholders remain stable.
 export default {
+    "当前选择": "Selected",
+    "此模型暂无经过核实的用途说明。": "There is no verified guidance for this model yet.",
+    "适合复杂的工程与分析任务，例如排查棘手的故障、评估架构方案。": "For complex engineering and analysis, such as diagnosing a difficult bug or evaluating an architecture.",
+    "适合日常工程工作，例如实现功能、综合多份研究资料。": "For everyday engineering, such as implementing a feature or synthesizing research.",
+    "适合视觉分析和写作，例如解读界面截图、润色报告。": "For visual analysis and writing, such as interpreting a screenshot or polishing a report.",
+    "适合常规任务，例如起草报告、修改一段代码。": "For routine tasks, such as drafting a report or making a small code change.",
+    "适合简短或重复的任务，例如提取字段、分类条目。": "For focused or repetitive tasks, such as extracting fields or classifying entries.",
+    "适合编程与分析，例如定位代码问题、为现有功能补充测试。": "For coding and analysis, such as finding a bug or adding tests to an existing feature.",
+    "适合开放式的工程与研究任务，例如梳理复杂代码库、比较设计方案。": "For open-ended engineering and research, such as exploring a large codebase or comparing designs.",
+    "适合需要审慎判断的长任务，例如跨模块重构、逐步审查代码。": "For long tasks that require careful judgment, such as refactoring across modules or reviewing code in stages.",
+    "适合目标明确的日常工作，例如修复已定位的问题、整理文档或表格。": "For well-scoped work, such as fixing a known issue or improving a document or spreadsheet.",
+    "适合批量处理简单任务，例如归类记录、提取关键信息。": "For simple tasks at scale, such as sorting records or extracting key facts.",
     "上传已中断": "Upload interrupted",
     "上传超时": "Upload timed out",
     "正在上传，完成后会刷新文件列表。": "Uploading. The file list will refresh when processing finishes.",

@@ -37,6 +37,7 @@ import { createTaskPanel, taskToolsEnabled, setTaskToolsEnabled } from "./featur
 import { createCommandMenu } from "./features/chat/commands.js";
 import { createMentionMenu } from "./features/chat/mentions.js";
 import { createInputMarks } from "./features/chat/input-marks.js";
+import { closeModelGuide, initModelGuide, renderModelGuide } from "./features/chat/model-guide.js";
 import { syntaxMarks } from "./features/chat/syntax.js";
 import { ChatConnection } from "./features/chat/connection.js";
 import { initDelegationComposer } from "./features/delegation/composer.js";
@@ -207,6 +208,7 @@ initQuestions({ changed: () => {
     } });
 let chatEpoch = 0;
 export function chatTeardown() {
+    closeModelGuide();
     suggestion.set("");
     resetQuestionCards();
     drafts?.leave();
@@ -988,6 +990,20 @@ function renderPickPill() {
         textContent: effortHidden() ? modelLabel(S.pick.model) : `${modelLabel(S.pick.model)} · ${effortLabel(S.pick.effort)}`,
     }));
     btn.appendChild(svgIcon("chevron", 12)); // 独立元素：既能垂直居中，也不被文字省略号裁掉
+    if ($("dlg-model-guide").open) {
+        const context = modelGuideContext();
+        if (context)
+            renderModelGuide(context);
+    }
+}
+function modelGuideContext() {
+    if (!S.current || S.view !== "work" || isMobile())
+        return;
+    const custom = customModel();
+    const models = modelOpts();
+    if (custom)
+        models.push({ id: custom, label: custom });
+    return { workspace: S.current.name, models, current: S.pick.model || workspaceModel() };
 }
 /* 面板样式按 Agent 区分：
  * codex —— 只有「模型 / 推理强度」两行入口，悬停某行在左侧浮出该属性列表，
@@ -1576,6 +1592,9 @@ export function initChat() {
     disposeChat?.();
     legacyDraftVersions.clear();
     const lifetime = new AbortController();
+    initModelGuide(modelGuideContext, lifetime.signal);
+    bus.addEventListener("view-changed", () => { if (S.view !== "work")
+        closeModelGuide(); }, { signal: lifetime.signal });
     delegationComposer = initDelegationComposer({ changed: updateHero, supported: () => !!outbox?.enabled });
     drafts = initComposerDrafts({
         read: composerDraft,

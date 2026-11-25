@@ -1,5 +1,7 @@
 // Authored interface text only; never translate user content.
 export default {
+    "如何选择模型？": "Which model should I choose?",
+    "此工作空间没有可选模型。": "No models are available in this workspace.",
     "此浏览器的个人偏好；管理员还可调整全站界面与提示。": "Personal preferences for this browser. Administrators can also adjust site-wide display settings and tips.",
     "仅影响当前账号在此浏览器的输入与待确认内容，修改后即时生效。": "Only affects the current account’s drafts and unconfirmed messages in this browser. Changes apply immediately.",
     "账号池、服务端配置与此浏览器的个人偏好。需要重启的项会单独标出。": "Account pool, server configuration and personal preferences for this browser. Settings that require a restart are marked.",

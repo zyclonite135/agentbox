@@ -91,6 +91,7 @@
   color: var(--muted);
   overflow-wrap: anywhere;
 }
+.git-methods dt { border-inline-end: 1px solid var(--line); }
 .git-methods dt > span + span { display: block; }
 .git-guide details { border-bottom: 1px solid var(--line); }
 .git-guide summary { cursor: pointer; padding: 14px 0; font-weight: 500; }
@@ -106,7 +107,7 @@
     min-height: 44px;
   }
   .git-methods > div { grid-template-columns: minmax(0, 1fr); }
-  .git-methods dt { padding-bottom: 0; }
+  .git-methods dt { padding-bottom: 0; border-inline-end: 0; }
   .git-methods dd { padding-top: 4px; }
   .git-steps li { gap: 12px; }
 }

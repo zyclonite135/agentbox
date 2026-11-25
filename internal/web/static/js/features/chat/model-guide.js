@@ -1,6 +1,6 @@
 import { setText, setTextRender } from "../../i18n.js";
 import { svgIcon } from "../../icons.js";
-import { $ } from "../../util.js";
+import { $, keepScroll } from "../../util.js";
 // Use explicit model IDs. A proxy alias may point to a different model.
 // References: OpenAI's model-selection guide and Anthropic's model announcements.
 const guidance = new Map([
@@ -20,7 +20,7 @@ const guidance = new Map([
         "适合需要审慎判断的长任务，例如跨模块重构、逐步审查代码。"]),
     ...["claude-sonnet-5-5", "claude-sonnet-5", "claude-sonnet-4-6", "claude-sonnet-4-5-20250929"].map(id => [id,
         "适合目标明确的日常工作，例如修复已定位的问题、整理文档或表格。"]),
-    ...["claude-haiku-5-5", "claude-haiku-4-5-20251001"].map(id => [id,
+    ...["claude-haiku-5-5", "claude-haiku-4-5", "claude-haiku-4-5-20251001"].map(id => [id,
         "适合批量处理简单任务，例如归类记录、提取关键信息。"]),
 ]);
 const dialog = () => $("dlg-model-guide");
@@ -51,19 +51,21 @@ export function renderModelGuide({ workspace, models, current }) {
         row.append(header, description);
         return row;
     });
-    $("model-guide-list").replaceChildren(...rows);
+    const list = $("model-guide-list");
+    keepScroll(list, () => list.replaceChildren(...rows));
     $("model-guide-empty").hidden = rows.length > 0;
 }
 let introduced = false;
 export function initModelGuide(read, signal) {
     const trigger = $("btn-model-guide");
+    const modal = dialog();
     matchMedia("(max-width: 760px)").addEventListener("change", event => {
         if (event.matches)
             closeModelGuide();
     }, { signal });
     if (!introduced) {
         const observer = new IntersectionObserver(entries => {
-            if (!entries.some(entry => entry.isIntersecting))
+            if (signal.aborted || !entries.some(entry => entry.isIntersecting))
                 return;
             observer.disconnect();
             introduced = true;
@@ -71,26 +73,41 @@ export function initModelGuide(read, signal) {
                 trigger.classList.add("guide-intro");
         });
         observer.observe(trigger);
-        signal.addEventListener("abort", () => observer.disconnect(), { once: true });
+        signal.addEventListener("abort", () => {
+            observer.disconnect();
+            trigger.classList.remove("guide-intro");
+        }, { once: true });
     }
-    trigger.addEventListener("animationend", event => {
+    const clearIntro = (event) => {
         if (event.animationName === "model-guide-shine")
             trigger.classList.remove("guide-intro");
-    }, { signal });
+    };
+    trigger.addEventListener("animationend", clearIntro, { signal });
+    trigger.addEventListener("animationcancel", clearIntro, { signal });
     trigger.addEventListener("click", () => {
         const context = read();
-        if (!context || dialog().open)
+        if (!context || modal.open)
             return;
         renderModelGuide(context);
         trigger.focus({ preventScroll: true });
-        dialog().showModal();
+        modal.showModal();
+        modal.querySelector(".dlg-body")?.scrollTo(0, 0);
     }, { signal });
     $("btn-model-guide-close").addEventListener("click", closeModelGuide, { signal });
-    dialog().addEventListener("click", event => {
-        if (event.target !== dialog())
-            return;
-        const bounds = dialog().getBoundingClientRect();
-        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)
+    const isBackdrop = (event) => {
+        if (event.target !== modal)
+            return false;
+        const bounds = modal.getBoundingClientRect();
+        return event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom;
+    };
+    let pressedBackdrop = false;
+    modal.addEventListener("pointerdown", event => {
+        pressedBackdrop = event.isPrimary && event.button === 0 && isBackdrop(event);
+    }, { signal });
+    modal.addEventListener("pointercancel", () => { pressedBackdrop = false; }, { signal });
+    modal.addEventListener("click", event => {
+        if (pressedBackdrop && isBackdrop(event))
             closeModelGuide();
+        pressedBackdrop = false;
     }, { signal });
 }

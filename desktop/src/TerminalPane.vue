@@ -335,7 +335,12 @@ onBeforeUnmount(() => {
 .terminal-host :deep(.composition-view){background:var(--term-bg,#0d1016);color:var(--term-fg,#d6dae3)}
 .terminal-menu{position:fixed;z-index:1000;display:grid;width:252px;max-width:calc(100vw - 8px);padding:5px;border:1px solid var(--line);border-radius:7px;background:var(--panel);box-shadow:0 10px 28px #0003;animation:terminal-reveal .12s ease-out}
 .terminal-menu button{display:grid;grid-template-columns:15px minmax(0,1fr) auto;align-items:center;gap:9px;min-height:34px;margin:0;padding:7px 9px;border:0;border-radius:4px;text-align:left;font-size:12px;color:var(--text);background:transparent;white-space:nowrap}
-.terminal-menu button>svg{color:var(--muted)}.terminal-menu button:hover:not(:disabled),.terminal-menu button:focus-visible{outline:0;background:var(--panel-2);color:var(--amber)}.terminal-menu button:focus-visible{box-shadow:inset 2px 0 var(--amber)}.terminal-menu button:disabled{opacity:.35;cursor:default}.terminal-menu button>.menu-checked{color:var(--amber)}
+.terminal-menu button>svg{color:var(--muted)}.terminal-menu button:hover:not(:disabled),.terminal-menu button:focus-visible{outline:0;background:var(--panel-2);color:var(--amber)}
+:where(:root:not([data-input="pointer"])) .terminal-menu button:focus-visible { box-shadow: inset 2px 0 var(--amber); }
+@media (forced-colors: active) {
+  .terminal-menu button:focus-visible { outline: 2px var(--focus-ring-style) Highlight; outline-offset: -2px; }
+}
+.terminal-menu button:disabled{opacity:.35;cursor:default}.terminal-menu button>.menu-checked{color:var(--amber)}
 .terminal-menu kbd{font:inherit;font-size:10px;color:var(--muted);white-space:nowrap}.terminal-menu-divider{height:1px;margin:4px 5px;background:var(--line)}
 .terminal-draft{display:grid;gap:7px;padding:8px 12px;border-top:1px solid var(--line);background:var(--panel);font-size:12px;animation:terminal-reveal .14s ease-out}
 .terminal-section-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px;font-size:12px;color:var(--text)}

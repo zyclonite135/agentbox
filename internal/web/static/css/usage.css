@@ -117,7 +117,7 @@
 }
 .us-pick::after { content: ""; position: absolute; inset: 0; }
 .us-pick:focus-visible { outline: none; }
-.us-metric:has(.us-pick:focus-visible) { outline: 2px solid var(--amber); outline-offset: -2px; }
+.us-metric:has(.us-pick:focus-visible) { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: -2px; }
 .us-metric.active .us-label { color: var(--text); }
 /* 选中格本身不画线：脚本没挂上下划线时（或减少动态效果时）也由宿主上的 ink 画 */
 .us-main > .ink { z-index: 2; border-bottom: 2px solid var(--text-hi); }
@@ -173,7 +173,7 @@
 .ut-y.only-zero { justify-content: flex-end; }
 .ut-y span { height: 0; line-height: 0; white-space: nowrap; }
 .ut-plot { position: relative; min-width: 0; touch-action: pan-y; border-radius: calc(2px * var(--radius-scale)); }
-.ut-plot:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.ut-plot:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 3px; }
 .ut-grid { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line-soft); }
 .ut-grid.base { border-top-color: var(--line); }
 .ut-slots { position: absolute; inset: 0; display: flex; }
@@ -212,7 +212,7 @@
   border: 1px solid var(--line); border-radius: calc(10px * var(--radius-scale)); background: var(--panel);
 }
 .usage-table-frame:has(.usage-table-wrap:focus-visible) {
-  outline: 2px solid var(--amber); outline-offset: 2px;
+  outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px;
 }
 .usage-table-wrap:focus-visible { outline: none; }
 .usage-table-wrap {

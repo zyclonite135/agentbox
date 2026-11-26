@@ -162,7 +162,7 @@
 }
 .interface-switch:checked { background:var(--accent); border-color:var(--accent); }
 .interface-switch:checked::after { transform:translateX(18px); background:var(--on-accent); }
-.interface-switch:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.interface-switch:focus-visible { outline:2px var(--focus-ring-style) var(--accent); outline-offset:2px; }
 .interface-warning { display:flex; align-items:flex-start; gap:7px; margin:0; color:var(--warn,var(--amber)); font-size:12px; line-height:1.5; }
 .interface-warning > svg { flex:none; margin-top:2px; }
 .interface-delete-row { padding:5px 0; }
@@ -362,7 +362,7 @@
   color: var(--text); font: inherit; text-align: left; cursor: pointer;
 }
 .mv-toggle:hover { background: var(--panel-2); }
-.mv-toggle:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+.mv-toggle:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: -2px; }
 .mv-chev {
   width: 6px; height: 6px; flex: none; margin: 0 2px 0 4px;
   border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted);
@@ -437,7 +437,7 @@
 .mv-switch:checked { background: var(--accent); border-color: var(--accent); }
 .mv-switch:checked::after { transform: translateX(14px); background: var(--on-accent); }
 .mv-switch:disabled { opacity: 0.55; cursor: default; }
-.mv-switch:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.mv-switch:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .mv-switch, .mv-switch::after { transition: none; } }
 
 /* 价目表：八列，窄屏允许横向滚动。
@@ -486,7 +486,7 @@
 }
 .price-fold[open] > summary::before { transform: rotate(45deg); }
 .price-fold > summary:hover { background: var(--panel-2); }
-.price-fold > summary:focus-visible { outline: 2px solid var(--amber); outline-offset: -3px; }
+.price-fold > summary:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: -3px; }
 .price-fold .price-catalog-head { display: flex; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; min-width: 0; }
 .price-fold-title { font-size: 13.5px; font-weight: 600; }
 .price-fold #price-catalog-status { font-size: 12.5px; color: var(--muted); line-height: 1.6; overflow-wrap: anywhere; }
@@ -704,7 +704,7 @@
 }
 .price-history[open] summary::before { transform: rotate(45deg); }
 .price-history summary:hover { background: var(--panel-2); }
-.price-history summary:focus-visible { outline: 2px solid var(--amber); outline-offset: -3px; }
+.price-history summary:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: -3px; }
 .price-history-body { display: grid; gap: 12px; padding: 0 18px 16px; }
 .price-history-body p { margin: 0; }
 .price-history-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line-soft); }

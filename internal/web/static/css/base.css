@@ -13,6 +13,8 @@
  * 像素圆角写成 calc(Npx * var(--radius-scale))，直角风格才收得成 0。 */
 
 :root {
+  -webkit-tap-highlight-color: transparent;
+  --focus-ring-style: solid;
   /* ---- 表面与文字 ---- */
   --bg: #12151c;
   --panel: #1a1f29;      /* 卡片 / 侧栏 / 弹窗等「一层」表面 */
@@ -210,13 +212,13 @@ input, textarea, select {
   border-radius: calc(6px * var(--radius-scale));
   padding: 8px 10px;
 }
-input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible {
-  outline: 2px solid var(--amber);
+/* WebKit can retain :focus-visible after a pointer opens a dialog and focus moves
+ * programmatically. Use the existing input modality for all focus outlines. */
+:root[data-input="pointer"] { --focus-ring-style: none; }
+:where(a[href], button, input, textarea, select, summary, [tabindex], [contenteditable]):focus-visible {
+  outline: 2px var(--focus-ring-style) var(--amber);
   outline-offset: 1px;
 }
-/* 手指点开弹窗 / 菜单后，iOS 也把程序挪过去的焦点算成 focus-visible（见 modality.ts），
- * 关闭按钮凭空套个框；按钮的焦点环只留给键盘。输入框照常显示，那是在告诉你往哪打字 */
-:root[data-input="pointer"] button:focus-visible { outline: none; }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); cursor: pointer; }
 input[type="checkbox"]:disabled, input[type="radio"]:disabled { cursor: default; }
 /* iOS 把日期/时间输入框画成原生控件：文字居中、行高更高，还自带最小宽度，width: 100% 也会撑出所在

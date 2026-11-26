@@ -1,7 +1,11 @@
 @import './tokens.css';
 
 * { box-sizing: border-box; }
-:root { font-family: var(--sans); font-size: 13px; color: var(--text); background: var(--bg); font-synthesis: none; -webkit-font-smoothing: antialiased; }
+:root {
+  -webkit-tap-highlight-color: transparent;
+  --focus-ring-style: solid;
+  font-family: var(--sans); font-size: 13px; color: var(--text); background: var(--bg); font-synthesis: none; -webkit-font-smoothing: antialiased;
+}
 html, body, #app { margin: 0; width: 100%; height: 100%; overflow: hidden; }
 button, input, select, textarea { font: inherit; }
 button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 32px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--text); cursor: pointer; white-space: nowrap; line-height: 1.4; transition: color 140ms, background 140ms, border-color 140ms; }
@@ -20,8 +24,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--amber); }
 input[type=checkbox], input[type=range] { accent-color: var(--accent); }
 input[type=checkbox] { width: 14px; height: 14px; margin: 0; flex: none; }
 input[type=range] { padding: 0; }
-button:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--amber-dim); outline-offset: 1px; }
+:root[data-input="pointer"] { --focus-ring-style: none; }
+:where(a[href], button, summary, [tabindex], [contenteditable]):focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px var(--focus-ring-style) var(--amber-dim); outline-offset: 1px; }
 button svg { flex-shrink: 0; }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: 20px; line-height: 1.4; font-weight: 600; letter-spacing: -.4px; }

@@ -56,7 +56,7 @@
 :root[data-skin="glass"] .composer {
   box-shadow: var(--shadow-md), inset 0 1px 0 var(--glass-glint);
 }
-:root[data-skin="glass"] .composer:focus-within {
+:root[data-skin="glass"] .composer:has(textarea:focus) {
   box-shadow: var(--shadow-md), inset 0 1px 0 var(--glass-glint),
     0 0 0 3px color-mix(in srgb, var(--amber) 14%, transparent);
 }
@@ -104,7 +104,7 @@
 :root[data-skin="cyberpunk"] dialog:not(.dlg-img) {
   border-top: 2px solid var(--amber);
 }
-:root[data-skin="cyberpunk"][data-theme="dark"] .composer:focus-within {
+:root[data-skin="cyberpunk"][data-theme="dark"] .composer:has(textarea:focus) {
   box-shadow: var(--shadow-md), 0 0 0 1px var(--amber-dim), 0 0 22px -8px var(--amber);
 }
 
@@ -119,10 +119,10 @@
   box-shadow: 2px 2px 0 color-mix(in srgb, var(--amber) 45%, transparent);
 }
 :root[data-skin="blueprint"] .composer,
-:root[data-skin="blueprint"] .composer:focus-within {
+:root[data-skin="blueprint"] .composer:has(textarea:focus) {
   box-shadow: 3px 3px 0 color-mix(in srgb, var(--amber) 22%, transparent);
 }
-:root[data-skin="blueprint"] .composer:focus-within {
+:root[data-skin="blueprint"] .composer:has(textarea:focus) {
   border-color: var(--amber);
 }
 :root[data-skin="blueprint"] dialog:not(.dlg-img) {

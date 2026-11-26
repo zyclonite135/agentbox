@@ -16,7 +16,7 @@
 .browser-navigation { display:flex; align-items:flex-start; gap:8px; min-width:0; height:var(--browser-control-height); }
 .browser-address { flex:1; min-width:0; display:flex; align-items:center; gap:8px; margin:0; padding:1px 3px 1px 12px; border:1px solid var(--line); border-radius:calc(10px * var(--radius-scale)); background:var(--panel); transition:border-color 140ms ease,box-shadow 140ms ease; }
 .browser-navigation:has(.browser-tab-strip:not([hidden])) .browser-address { flex:0 1 clamp(248px,37%,440px); }
-.browser-address:focus-within { border-color:var(--amber-dim); box-shadow:0 0 0 2px color-mix(in srgb,var(--amber) 10%,transparent); }
+.browser-address:has(#browser-url:focus) { border-color:var(--amber-dim); box-shadow:0 0 0 2px color-mix(in srgb,var(--amber) 10%,transparent); }
 .browser-address-icon { color:var(--muted); flex:none; }
 .browser-nav:not([hidden]) { display:flex; align-items:center; flex:none; gap:2px; }
 #browser-tabs[hidden] { display:none; }
@@ -24,6 +24,7 @@
 .browser-address:has(.browser-nav:not([hidden])) { padding-left:3px; }
 .browser-address:has(.browser-nav:not([hidden])) .browser-address-icon { display:none; }
 #browser-url { flex:1; width:0; min-width:0; height:32px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; outline:none; font-size:13px; }
+.browser-address:has(#browser-url:focus-visible) { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 1px; }
 #browser-url::placeholder { color:var(--muted); }
 :root #tab-browser #browser-open { --action-size:32px; }
 .browser-tab-strip:not([hidden]) { display:flex; align-items:flex-start; flex:1; min-width:0; gap:4px; }
@@ -39,7 +40,7 @@
 .browser-tab-close { flex:none; justify-content:center; width:24px; height:26px; padding:0; opacity:0; pointer-events:none; }
 .browser-tab-card:is(:hover,:has(:focus-visible)) .browser-tab-close:not(:disabled) { opacity:1; pointer-events:auto; }
 .browser-tab-close:hover { background:var(--line); color:var(--text-hi); }
-.browser-tab-card button:focus-visible { outline:2px solid var(--amber); outline-offset:-2px; }
+.browser-tab-card button:focus-visible { outline:2px var(--focus-ring-style) var(--amber); outline-offset:-2px; }
 :root #tab-browser #browser-new-tab { flex:none; }
 .browser-display { gap:6px; padding-left:10px; border-left:1px solid var(--line); }
 .browser-quality { display:flex; align-items:center; gap:1px; color:var(--muted); }

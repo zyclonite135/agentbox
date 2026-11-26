@@ -10,6 +10,7 @@
  * 汉字落系统黑体——这页的正经内容是地址、端口和延迟，等宽才对得齐。 */
 
 :root {
+  -webkit-tap-highlight-color: transparent;
   --bg: #12151c;
   --panel: #1a1f29;
   --line: #2e3646;
@@ -91,7 +92,7 @@ code {
 .hint { color: var(--muted); font-size: 12px; }
 .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
-:where(button, input, textarea, select):focus-visible {
+:where(a[href], button, input, textarea, select, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--amber);
   outline-offset: 2px;
 }

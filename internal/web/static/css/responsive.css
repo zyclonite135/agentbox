@@ -47,7 +47,7 @@
   background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-pill);
 }
 .section-menu-item:hover { background: var(--panel-2); }
-.section-menu-item:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+.section-menu-item:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: -2px; }
 .section-menu-item[aria-checked="true"] { color: var(--amber); background: color-mix(in srgb, var(--amber) 10%, transparent); }
 .section-menu-item[aria-checked="true"] :is(.ui-icon, .count) { color: var(--amber); }
 .section-menu-item[aria-checked="true"] .count { border-color: var(--amber-dim); }

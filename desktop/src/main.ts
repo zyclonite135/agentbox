@@ -1,6 +1,7 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import './style.css';
+import '../../web/src/modality.js';
 
 const app=createApp(App);
 if (import.meta.env.VITE_AGENTBOX_SMOKE === '1') {

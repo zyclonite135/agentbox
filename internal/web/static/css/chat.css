@@ -159,7 +159,7 @@
   cursor: pointer; transition: background 140ms, color 140ms;
 }
 .answer-copy:hover { background: var(--panel-2); color: var(--text); }
-.answer-copy:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.answer-copy:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
 .answer-copy.copied { color: var(--green); }
 /* 复制成功：对勾一笔画出来，按钮轻轻弹一下（回答底部与代码块共用；对勾路径长约 20） */
 :is(.answer-copy.copied, .cb-copy:disabled) .ui-icon[data-icon-name="check"] { animation: copied-pop var(--dur-slow) var(--ease-out); }
@@ -384,7 +384,7 @@
 }
 .chip-open > svg { width: 12px; height: 12px; }
 .chip-open:hover, .chip-open:focus-visible {
-  background: color-mix(in srgb, var(--amber) 12%, transparent); outline: none;
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
 }
 /* 用户停止的回合、后台任务结束：说明性的细行，不是错误 */
 .chip.stopped, .chip.bg-task {
@@ -426,13 +426,13 @@
   transition: background var(--dur-fast), border-color var(--dur-fast);
 }
 .agent-diagnostic-toggle:is(:hover, [aria-expanded="true"]) { background: var(--panel-2); border-color: var(--muted); }
-.agent-diagnostic-toggle:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.agent-diagnostic-toggle:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
 .agent-diagnostic-toggle > .ui-icon { transition: transform 300ms var(--ease-out); }
 .agent-diagnostic-toggle[aria-expanded="true"] > .ui-icon { transform: rotate(180deg); }
 .agent-diagnostic-clip { white-space: normal; }
 .agent-diagnostic-clip::before { content: ""; display: block; margin-top: 6px; border-top: 1px solid var(--line); }
 .agent-diagnostic-scroll { max-height: 16rem; max-height: min(16rem, 45dvh); overflow: auto; }
-.agent-diagnostic-scroll:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+.agent-diagnostic-scroll:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: -2px; }
 @media (pointer: coarse) { .agent-diagnostic-toggle { width: 32px; height: 32px; } }
 @media (prefers-reduced-motion: reduce) {
   .agent-diagnostic-toggle, .agent-diagnostic-toggle > .ui-icon { transition: none; }
@@ -587,7 +587,7 @@ details.think[open] > summary::after, .fold-open > .fold-head::after,
   font: inherit; cursor: pointer;
 }
 .chat-result-list-toggle:hover { color: var(--amber); }
-.chat-result-list-toggle:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.chat-result-list-toggle:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
 .chat-result-list-toggle svg { transition: transform var(--dur-fast) var(--ease-out); }
 .chat-result-list-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) {
@@ -612,7 +612,7 @@ details.think[open] > summary::after, .fold-open > .fold-head::after,
 .image-menu-overlay { min-height: 44px; }
 .image-menu-overlay .chat-image-details > summary { position: absolute; top: 8px; right: 8px; }
 .chat-image-details > summary::-webkit-details-marker { display: none; }
-.chat-image-details > summary:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.chat-image-details > summary:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
 .chat-image-panel {
   width: max(100%, 160px);
   margin-top: 6px; padding: 10px; overflow-wrap: anywhere;
@@ -672,7 +672,6 @@ details.think[open] > summary::after, .fold-open > .fold-head::after,
 .cc-toggle::after, .cc-gsum::after { opacity: 0; }
 .cc-toggle:hover::after, .cc-toggle:focus-visible::after, .cc-gsum:hover::after, .cc-gsum:focus-visible::after,
 .cc-toggle[aria-expanded="true"]::after, .cc-gsum[aria-expanded="true"]::after { opacity: 1; }
-.cc-toggle:focus-visible, .cc-gsum:focus-visible { outline: 1px solid var(--line); }
 .cc-gsum { color: var(--muted); }
 .cc-gsum:hover .cc-gtext { color: var(--text); }
 .cc-gtext { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -698,7 +697,7 @@ details.think[open] > summary::after, .fold-open > .fold-head::after,
   align-self: flex-start; padding: 0; border: 0; background: none;
   font: inherit; color: var(--muted); cursor: pointer;
 }
-.cc-more:hover, .cc-more:focus-visible { color: var(--text); outline: none; text-decoration: underline; }
+.cc-more:hover, .cc-more:focus-visible { color: var(--text); text-decoration: underline; }
 /* 详细视图：折叠组的每一条、子 Agent 的每次调用，往里缩一格 */
 .cc-gitems { display: none; }
 .cc-group.cc-open > .cc-gitems { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 6px 1.6em; }
@@ -748,7 +747,6 @@ details.think summary:hover { color: var(--text); }
 }
 .fold-head > .ui-icon { flex: none; }
 .fold-head:hover { color: var(--text); }
-.fold-head:focus-visible { outline: 1px solid var(--line); }
 .fold-text { flex: none; }
 .fold-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fold-items { display: none; }
@@ -967,7 +965,7 @@ details.think.streaming .think-body::after {
   color: var(--amber); font-size: 12px; white-space: nowrap; cursor: pointer;
 }
 .thread-running:hover { background: color-mix(in srgb, var(--amber) 20%, transparent); }
-.thread-running:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.thread-running:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
 .thread-running .ui-icon, .tp-spin { animation: rot 1.2s linear infinite; }
 @media (prefers-reduced-motion: reduce) {
   .thread-running .ui-icon, .tp-spin { animation: none; }
@@ -1182,7 +1180,7 @@ details.think.streaming .think-body::after {
   transform: translate(-50%, -100%) scale(0.92);
 }
 .chat-scroll-bottom:focus-visible {
-  outline: 2px solid var(--amber); outline-offset: 2px;
+  outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px;
 }
 .composer {
   position:relative;
@@ -1194,7 +1192,7 @@ details.think.streaming .think-body::after {
   box-shadow: var(--shadow-md);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.composer:focus-within {
+.composer:has(textarea:focus) {
   border-color: var(--amber-dim);
   box-shadow: var(--shadow-md),
     0 0 0 3px color-mix(in srgb, var(--amber) 12%, transparent);
@@ -1252,7 +1250,7 @@ details.think.streaming .think-body::after {
   color: var(--text);
 }
 .suggest-key:hover { color: var(--text); border-style: solid; border-color: var(--amber-dim); background: color-mix(in srgb, var(--amber) 6%, transparent); }
-.suggest-key:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.suggest-key:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
 /* 触屏没有 Tab 键，只留「填入」 */
 @media (hover: none), (pointer: coarse) {
   .suggest-key { height: 30px; padding: 0 12px; }
@@ -1500,7 +1498,7 @@ details.think.streaming .think-body::after {
 /* 显示时由它吃掉左侧的空白，模型胶囊紧挨在右边 */
 .ctx-meter:not(.hidden) ~ .picker { margin-left: 0; }
 .ctx-meter:hover { color: var(--text); background: var(--panel-2); }
-.ctx-meter:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.ctx-meter:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
 .ctx-meter svg { flex: none; display: block; transform: rotate(-90deg); }
 .ctx-meter circle { fill: none; stroke-width: 3; }
 .ctx-track { stroke: var(--line); }
@@ -1520,7 +1518,7 @@ details.think.streaming .think-body::after {
 .keepalive-chip:not(.hidden) ~ .picker { margin-left: 0; }
 .keepalive-chip.on, .keepalive-chip.on:hover { color: var(--amber); }
 .keepalive-chip.live, .keepalive-chip.live:hover { color: var(--accent); background: color-mix(in srgb, var(--panel-solid) 84%, var(--accent) 16%); }
-.keepalive-chip:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.keepalive-chip:focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 2px; }
 
 /* ---- 模型 / 思考强度选择胶囊 + 上弹菜单 ---- */
 .picker { margin-left: auto; position: relative; min-width: 0; }
@@ -1934,7 +1932,6 @@ details.think.streaming .think-body::after {
   position: absolute; left: 0; width: 100%;
   display: flex; align-items: center;
   padding: 0; border: 0; background: none; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 .outline-tick > i {
   display: block; width: var(--tick-max); height: 2px; border-radius: 1px;

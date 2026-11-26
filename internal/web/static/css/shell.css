@@ -237,7 +237,8 @@
   cursor: text; transition: border-color 140ms ease;
 }
 .session-search:hover { border-color: color-mix(in srgb, var(--muted) 60%, var(--line)); }
-.session-search:focus-within { border-color: var(--amber-dim); outline: 2px solid var(--amber); outline-offset: 1px; }
+.session-search:focus-within { border-color: var(--amber-dim); }
+.session-search:has(input:focus-visible) { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 1px; }
 .session-search .ui-icon { flex: none; }
 .session-search input { flex: 1; width: 100%; min-width: 0; padding: 0; border: 0; border-radius: 0; background: none; font-size: 12px; line-height: 30px; }
 .session-search input:focus-visible { outline: none; }
@@ -312,7 +313,7 @@
 }
 .side-collapse:hover { background: var(--side-hover); color: var(--text); }
 .side-collapse svg { display: block; transition: transform 0.2s ease; }
-.sidebar :is(button, [tabindex]):focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+.sidebar :is(button, [tabindex]):focus-visible { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: -2px; }
 .side-item .glyph {
   flex: none; width: 18px;
   display: inline-flex; align-items: center; justify-content: center;
@@ -648,7 +649,7 @@
     box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px color-mix(in srgb, var(--brand) 75%, var(--panel));
   }
   :root[data-sidebar-collapsed="true"] .session-card:focus-visible { outline: none; }
-  :root[data-sidebar-collapsed="true"] .session-card:focus-visible .agent-avatar { outline: 2px solid var(--amber); outline-offset: 5px; }
+  :root[data-sidebar-collapsed="true"] .session-card:focus-visible .agent-avatar { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 5px; }
   /* 角灯：运行中绿、休眠黄，已停止不亮灯、首字变淡。窄栏里不做呼吸光晕，
    * 那圈半透明的扩散在小尺寸上只会糊成一团灰边。外圈与侧栏同色，像从瓦片上挖出来。 */
   :root[data-sidebar-collapsed="true"] .session-card .agent-avatar .led {

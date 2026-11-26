@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="872" viewBox="0 0 1280 872" role="img" aria-labelledby="title desc" lang="en">
 <title id="title">Your agents. Your infrastructure. — agentbox</title>
-<desc id="desc">A browser or optional desktop client connects to the agentbox Go server over HTTPS and WebSocket. The Linux host runs a local Docker engine with one workspace container running Claude Code or Codex. The CLI calls model APIs, optionally through an account egress proxy. SQLite, chat history and workspace, home and shared directories persist on the host. Optional abox-link initiates an outbound tunnel from the user&#x27;s computer to the server. Workspace requests pass through the server and tunnel to services allowed by the local client.</desc>
+<desc id="desc">A browser or optional desktop client connects to the agentbox Go server over HTTPS and WebSocket. The Linux host runs a local Docker engine with one workspace container running Claude Code or Codex. The CLI calls model APIs, optionally through an account egress proxy. SQLite, chat history and workspace, home and shared directories persist on the host. Optional abox-link connects to the server from the user&#x27;s computer. In AgentBox, users can browse folders explicitly shared with abox-link and transfer selected files on demand.</desc>
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#e8a33d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
   <style>
@@ -13,7 +13,7 @@
     .muted { font-size: 16px; fill: #aba396; }
     .edge { font-size: 15px; fill: #d2b483; }
     .storage-title { font-size: 22px; font-weight: 600; }
-    .tunnel-heading { font-size: 20px; font-weight: 550; }
+    .sharing-heading { font-size: 20px; font-weight: 550; }
     .overline { font-size: 15px; font-weight: 600; letter-spacing: .7px; fill: #c8b491; }
     .pill { font-size: 12px; font-weight: 600; letter-spacing: .8px; fill: #e8bb74; }
     .card { fill: #23221f; stroke: #4a4439; stroke-width: 1.5; }
@@ -87,16 +87,16 @@
 <text x="372" y="574" class="body">SQLite · chat history · workspace / home / shared</text>
 <text x="350" y="654" class="muted">Stop a container. Keep your work.</text>
 <rect x="48" y="687" width="1184" height="155" rx="16" class="boundary"/>
-<text x="72" y="717" class="overline">OPTIONAL  /  REACH YOUR PRIVATE NETWORK</text>
+<text x="72" y="717" class="overline">OPTIONAL  /  SHARE FILES FROM YOUR COMPUTER</text>
 <text x="1208" y="717" class="muted" text-anchor="end">No inbound port on your computer</text>
-<text x="72" y="765" class="tunnel-heading">Workspace → server relay</text>
-<text x="584" y="765" class="tunnel-heading">abox-link on your computer</text>
-<text x="1040" y="765" class="tunnel-heading">Internal services</text>
+<text x="72" y="765" class="sharing-heading">Files in AgentBox</text>
+<text x="584" y="765" class="sharing-heading">abox-link on your computer</text>
+<text x="1040" y="765" class="sharing-heading">Shared folders</text>
 <path d="M340 759 H562" class="optional" marker-end="url(#arrow)"/>
 <text x="451" y="749" class="edge" text-anchor="middle">WSS / yamux</text>
 <path d="M874 759 H1020" class="optional" marker-end="url(#arrow)"/>
-<text x="947" y="749" class="edge" text-anchor="middle">Allowlist</text>
-<text x="1040" y="794" class="muted">Git · databases · APIs</text>
+<text x="947" y="749" class="edge" text-anchor="middle">Read-only access</text>
+<text x="1040" y="794" class="muted">Transfer on demand</text>
 <path d="M562 797 H340" class="optional" marker-end="url(#arrow)"/>
 <text x="451" y="826" class="muted" text-anchor="middle">Client initiates the connection</text>
 </svg>

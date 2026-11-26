@@ -15,7 +15,6 @@ desktop-smoke build against the actual frozen server before upgrading it.
 import argparse
 import base64
 import hashlib
-import http.server
 import io
 import json
 import os
@@ -28,7 +27,6 @@ import struct
 import subprocess
 import tarfile
 import tempfile
-import threading
 import time
 import urllib.error
 import urllib.parse
@@ -181,7 +179,6 @@ class Fixture:
             'listen': '0.0.0.0:8180', 'auth_token': self.password, 'data_dir': self.data,
             'timezone': 'UTC', 'agent_image': image,
             'container': {'network': 'none', 'memory_mb': 512, 'cpus': 1, 'pids_limit': 128},
-            'tunnel': {'enabled': True, 'transparent': False, 'proxy_bind': '127.0.0.1:1080'},
             'accounts': [{'id': 'synthetic', 'type': 'codex', 'label': 'Synthetic compatibility account'}],
         }))
         self.config.chmod(0o600)
@@ -430,8 +427,6 @@ def main():
                                 'full backup uses a metadata-preserving copy of the stopped fixture',
                                 'no Windows/Intel execution or installer acceptance']}
     fixture = None
-    link = None
-    target = None
     try:
         with tempfile.TemporaryDirectory(prefix='agentbox-compat-') as directory:
             temporary = Path(directory)
@@ -441,20 +436,15 @@ def main():
             subprocess.run(['git', 'archive', '--format=tar', '--output=' + str(archive_path), revision], cwd=ROOT, check=True)
             with tarfile.open(archive_path) as archive:
                 archive.extractall(frozen, filter='data')
-            print('Building frozen server/client and current Linux server…', flush=True)
+            print('Building frozen server and current Linux server…', flush=True)
             linux_env = dict(os.environ, GOOS='linux', GOARCH=arch, CGO_ENABLED='0')
             old_binary = temporary / 'old-agentbox'
-            old_link = temporary / 'old-abox-link'
             subprocess.run(['go', 'build', '-trimpath', '-o', str(old_binary), './cmd/agentbox'], cwd=frozen, env=linux_env, check=True)
-            native_env = dict(os.environ, CGO_ENABLED='0')
-            for key in ('GOOS', 'GOARCH'):
-                native_env.pop(key, None)
-            subprocess.run(['go', 'build', '-trimpath', '-o', str(old_link), './cmd/abox-link'], cwd=frozen, env=native_env, check=True)
             binary = args.new_server.resolve() if args.new_server else temporary / 'agentbox'
             if not args.new_server:
                 subprocess.run(['go', 'build', '-trimpath', '-o', str(binary), './cmd/agentbox'], cwd=ROOT, env=linux_env, check=True)
             evidence['binary_sha256'] = {name: hashlib.sha256(path.read_bytes()).hexdigest()
-                                         for name, path in (('frozen_server', old_binary), ('frozen_link', old_link), ('current_server', binary))}
+                                         for name, path in (('frozen_server', old_binary), ('current_server', binary))}
             fixture = Fixture(args.image, temporary)
             fixture.launch(old_binary)
             fixture.http.token = fixture.http.request('/api/login', {'username': 'boxadmin', 'password': fixture.password})['token']
@@ -506,38 +496,6 @@ def main():
             evidence['checks'].append('old_token_account_workspace_tmux_and_old_asset_urls_after_upgrade')
             evidence['old_asset_urls'] = len(old_assets)
 
-            marker = ('tunnel-' + uuid.uuid4().hex).encode()
-
-            class Target(http.server.BaseHTTPRequestHandler):
-                def do_GET(self):
-                    self.send_response(200)
-                    self.send_header('Content-Length', str(len(marker)))
-                    self.end_headers()
-                    self.wfile.write(marker)
-
-                def log_message(self, *_):
-                    pass
-
-            target = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Target)
-            threading.Thread(target=target.serve_forever, daemon=True).start()
-            target_address = '127.0.0.1:' + str(target.server_port)
-            with (temporary / 'link.log').open('w') as log:
-                link = subprocess.Popen([str(old_link), '--server', fixture.http.base, '--user', 'boxadmin',
-                                         '--transparent=false', '--map', '19090=' + target_address],
-                                        env=dict(os.environ, ABOX_PASSWORD=fixture.password), stdout=log, stderr=log)
-
-            def tunnel_roundtrip():
-                deadline = time.monotonic() + 25
-                while not fixture.http.request('/api/tunnel/status')['connected']:
-                    require(link.poll() is None, 'frozen abox-link exited')
-                    require(time.monotonic() < deadline, 'frozen abox-link connection timed out')
-                    time.sleep(0.2)
-                received = docker('exec', fixture.server, 'wget', '-qO-', '-T', '10', 'http://127.0.0.1:19090/')
-                require(received.encode() == marker, 'frozen abox-link tunnel bytes changed')
-
-            tunnel_roundtrip()
-            # A stop/start must preserve its published port for the old link's
-            # unchanged reconnect configuration. Docker start reuses that port.
             chat = WebSocket(fixture.http, '/api/sessions/' + session + '/chat')
             fixture.stop()
             try:
@@ -560,16 +518,11 @@ def main():
             evidence['new_schema'] = schema
             docker('start', fixture.server)
             fixture.http.ready()
-            tunnel_roundtrip()
             require(fixture.http.request('/api/clients/capabilities')['server_id'] == capabilities['server_id'], 'restart changed server identity')
             require(fixture.http.request('/api/sessions/' + session)['status'] == 'running', 'restart lost session state')
             docker('exec', '--user', '1000:1000', cid, 'tmux', 'has-session', '-t', 'compat-survivor')
             evidence['checks'].append(f'schema_9_to_{expected_schema}_and_graceful_restart_chat_closed_tmux_preserved')
-            evidence['checks'].append('frozen_abox_link_real_tcp_bytes_and_reconnect')
-            print(f'Upgrade/restart: schema {expected_schema}, old token/API, tmux and frozen abox-link passed.', flush=True)
-            link.terminate()
-            link.wait(timeout=15)
-            link = None
+            print(f'Upgrade/restart: schema {expected_schema}, old token/API and tmux passed.', flush=True)
             path = '/api/sessions/' + session
             project = fixture.http.request(path + '/client-projects', {'name': 'compat project', 'path': '.', 'arguments': []})['id']
             terminal = fixture.http.request(path + '/client-terminals', {'project_id': project, 'kind': 'shell'})['id']
@@ -596,16 +549,6 @@ def main():
             if args.report:
                 args.report.write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + '\n')
     finally:
-        if link is not None and link.poll() is None:
-            link.terminate()
-            try:
-                link.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                link.kill()
-                link.wait()
-        if target:
-            target.shutdown()
-            target.server_close()
         if fixture:
             fixture.cleanup()
 

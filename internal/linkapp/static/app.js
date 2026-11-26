@@ -8,10 +8,10 @@ import ru from "./locales/ru.js";
 
 const i18n = createI18n({ storageKey: "abox_link_language", catalogs: { en, "zh-TW": zhTW, ru } });
 const tr = (source, params) => i18n.t(source, params);
-// Only explicitly marked interface text is translated. User targets, logs,
+// Only explicitly marked interface text is translated. Local paths, connection logs,
 // pairing codes and server diagnostics never enter this catalog.
 const staticSources = new WeakMap();
-const translatedAttributes = ["aria-label", "title", "data-empty"];
+const translatedAttributes = ["aria-label", "title"];
 function translateMarkers(root = document) {
   for (const el of root.querySelectorAll("[data-i18n]")) {
     if (!staticSources.has(el)) staticSources.set(el, el.textContent.trim());
@@ -39,9 +39,6 @@ const actionIcons = {
   "plus": "M12 5v14M5 12h14",
   "play": "M6.5 3.5 20 12 6.5 20.5Z",
   "stop": "M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z",
-  "close": "m6 6 12 12M6 18 18 6",
-  "undo": "M9 4 4 9l5 5M4 9h10a6 6 0 0 1 0 12",
-  "save": "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2ZM7 3v6h10V3M7 21v-8h10v8",
   "trash": "M3 6h18M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6M5.5 6l1 14.5h11L18.5 6",
   "unlink": "m9 15-2 2a3.5 3.5 0 0 1-5-5l2-2m11-1 2-2a3.5 3.5 0 0 1 5 5l-2 2M3 3l18 18M9 3v3M3 9h3m12 0h3m-12 9v3",
 };
@@ -155,7 +152,6 @@ function removeBtn(onClick) {
   const b = document.createElement("button");
   b.type = "button";
   actionLabel(b, "", "trash");
-  localizedAttribute(b, "aria-label", "删除规则");
   localizedAttribute(b, "title", "删除");
   b.addEventListener("click", onClick);
   return b;
@@ -382,7 +378,7 @@ function renderLanguage() {
   languageSelect.value = i18n.preference;
   translateMarkers();
   // renderRules keeps its existing DOM when rule values have not changed.
-  // Switching language must never discard an unsaved target or cursor.
+  // Switching language must never discard an unsaved folder or cursor.
   render();
   if (pairErrorSource) $("pair-err").textContent = panelErrorMessage(pairErrorSource);
   if (toastSource) $("toast").textContent = tr(toastSource);

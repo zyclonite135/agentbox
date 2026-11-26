@@ -88,11 +88,6 @@ python3 scripts/verify.py run --step docker.mcp-server \
 python3 scripts/verify.py run release \
   --artifacts /候选发布目录 --binary /临时构建/agentbox-linux \
   --image agentbox-agent:latest
-
-python3 scripts/verify.py run --step docker.transparent \
-  --binary /临时构建/agentbox-linux --client /临时构建/abox-link-linux \
-  --fixture /临时构建/内网测试程序 --image agentbox-agent:latest \
-  --network-image agentbox-network:dev
 ```
 
 

@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -286,9 +287,26 @@ func (s *Server) tokenJanitor() {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if err := s.store.DeleteToken(bearerToken(r)); err != nil {
+	user, token := reqUser(r), bearerToken(r)
+	if s.devices != nil {
+		// Keep revocation and catalog cleanup ordered with device registration.
+		s.devices.connectMu.Lock()
+		defer s.devices.connectMu.Unlock()
+	}
+	if err := s.store.DeleteToken(token); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if hub := s.devices; hub != nil {
+		hub.mu.RLock()
+		session, info := hub.conns[user.Name], hub.info[user.Name]
+		hub.mu.RUnlock()
+		if session != nil && info.token == token {
+			_ = session.Close()
+		}
+		if err := s.removeLinkFoldersForToken(user, token); err != nil && !os.IsNotExist(err) {
+			log.Printf("remove device folders for %q: %v", user.Name, err)
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

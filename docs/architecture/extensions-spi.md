@@ -412,7 +412,7 @@ OAuth 订阅账号（Claude 订阅、ChatGPT 登录）不能绑定。账号从�
 
   文件内容没变就不写。credsync 的 45 秒同步只同步 `auth.json`，不碰 `config.toml`，所以不会把网关地址收回账号池。**账号池里的 `config.toml` 永远不能写入网关地址**：账号池被多个空间共用，而网关地址是按空间生成的；网关在每次请求时从账号池读真实上游。改写失败时空间启动报错，不让 CLI 绕过网关。切换账号时 `clearCodexConnection` 会删掉 `agentbox` provider，新账号重新播种。
 - **NO_PROXY**：两种 Agent 都在 `execEnv` 末尾把网关主机补进 `NO_PROXY` / `no_proxy`，Codex（reqwest）同样认这两个变量。
-- **终端**：`tmuxEnvSync` 会把 env 同步到 tmux 全局环境，但已经打开的 shell 仍保留旧值，Claude 要新开 tmux 窗口才生效（与隧道变量的限制一样）。Codex 每次启动都重新读 `config.toml`，在原窗口重新运行即可。
+- **终端**：`tmuxEnvSync` 会把 env 同步到 tmux 全局环境，但已经打开的 shell 仍保留旧值，Claude 要新开 tmux 窗口才生效。Codex 每次启动都重新读 `config.toml`，在原窗口重新运行即可。
 - **跑腿和起标题**：都经过 `execEnv` 或会话 home，规则自动覆盖。
 
 解绑或停用扩展后，新的 exec 用回原地址；还在运行的进程仍然带着网关地址，网关继续接受这些请求，只是不再调用钩子，直接转发。网关本身没有运行时，CLI 会连接失败并明确报错，不会悄悄直连。
@@ -537,7 +537,7 @@ P1 已按下表完成：
 - `pkg/extspi`：§6 的消息类型、`Handler` / `Host` 接口、NDJSON JSON-RPC 传输（应答由读协程分发、请求与通知由独立协程按序处理，扩展在通知处理里调用 `abort` 不会死锁；积压上限 1024 条、单条 1 MiB）、`Pipe`。
 - `internal/extension`：清单与配置 schema 校验、builtin 注册、实例生命周期（崩溃按 1～60 秒退避重启，10 分钟内 5 次即 `failed`）、请求钩子 200 ms 期限、按实例 4 MiB 的增量队列（轮到时合并积压）、两种失效策略、中断校验与记录（内存最近 200 条）、日志限速。
 - `internal/extension/builtin`：`agentbox.loop-guard`（清单内嵌）。
-- 服务端：`extensions` 配置段（随 mutate/persist/validate，删除账号同一次写入解绑）、网关监听（默认 `172.17.0.1:1083`，与 1080～1082 的隧道、代理桥、透明网络控制端口错开，配置校验拒绝冲突）、`/x/<空间>/<MAC>/…` 鉴权、每次请求重查账号授权、按账号出口代理转发（不可用即 502，不回落直连）、`execEnv` 改写 `ANTHROPIC_BASE_URL` 并补 `NO_PROXY`、tmux 环境同步在解绑后清除注入的地址、管理 API、`/me` 能力位、空间视图 `extensions` 字段。
+- 服务端：`extensions` 配置段（随 mutate/persist/validate，删除账号同一次写入解绑）、网关监听（默认 `172.17.0.1:1083`，配置校验拒绝与代理桥冲突）、`/x/<空间>/<MAC>/…` 鉴权、每次请求重查账号授权、按账号出口代理转发（不可用即 502，不回落直连）、`execEnv` 改写 `ANTHROPIC_BASE_URL` 并补 `NO_PROXY`、tmux 环境同步在解绑后清除注入的地址、管理 API、`/me` 能力位、空间视图 `extensions` 字段。
 - 网页：侧栏「扩展」（仅管理员）、`#/extensions` 与 `#/extensions/<id>`、权限逐项批准、账号绑定（订阅账号不可选）、按 schema 渲染参数、带修订号保存与冲突重载、事件与日志、空间头部的扩展标记；三语词典。
 
 **已验证**

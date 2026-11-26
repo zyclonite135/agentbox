@@ -74,11 +74,11 @@ func seed(dir, listen string) {
 	}
 	write(filepath.Join(dir, "config.json"), map[string]any{
 		"listen": listen, "data_dir": dir, "auth_token": "synthetic-unused-admin-password", "idle_timeout_min": 0, "timezone": "UTC",
-		"agent_image": fixtureImageRef,
-		"tunnel":      map[string]any{"enabled": false, "transparent": false}, "proxy_bridge": map[string]any{"bind": "127.0.0.1:0"},
-		"accounts": []any{map[string]any{"id": "fixture", "type": "codex", "label": "Synthetic only", "env": map[string]string{"OPENAI_BASE_URL": "http://127.0.0.1:1", "OPENAI_API_KEY": "synthetic-not-a-key"}}},
-		"models":   map[string]any{"codex": []any{map[string]string{"id": "gpt-5.5", "label": "Synthetic Codex"}}},
-		"pricing":  map[string]any{"codex": map[string]int{"input": 1}},
+		"agent_image":  fixtureImageRef,
+		"proxy_bridge": map[string]any{"bind": "127.0.0.1:0"},
+		"accounts":     []any{map[string]any{"id": "fixture", "type": "codex", "label": "Synthetic only", "env": map[string]string{"OPENAI_BASE_URL": "http://127.0.0.1:1", "OPENAI_API_KEY": "synthetic-not-a-key"}}},
+		"models":       map[string]any{"codex": []any{map[string]string{"id": "gpt-5.5", "label": "Synthetic Codex"}}},
+		"pricing":      map[string]any{"codex": map[string]int{"input": 1}},
 	})
 }
 func dbFor(dir string, writable bool) *sql.DB {

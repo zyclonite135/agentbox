@@ -9,7 +9,7 @@ abox-link。首次运行开发服务端迁移到 schema 10；回退见[数据库
 | 方法与路径 | 请求 / 行为 |
 | --- | --- |
 | `GET /api/clients/capabilities` | `protocol_version:1`、`server_id`（64 位小写 hex）、当前认证 `user`，features 中 pairing/project_terminals/sync_recovery_gc/sync_recovery_inspect=1、sync=0；另含资源上限。两个 recovery 能力只宣告显式恢复管理，不能开启同步；sync=0 期间可做本地预检及历史恢复管理，不执行同步批次 |
-| `POST /api/clients/pair` | 为当前用户签发 `{code,expires_in}`，不依赖隧道；10 分钟、一次性、重新生成替换旧码 |
+| `POST /api/clients/pair` | 为当前用户签发 `{code,expires_in}`；10 分钟、一次性、重新生成替换旧码 |
 | `POST /api/clients/pair/redeem` | `{code}` 换取 `{token,user,role}`；码是此接口的凭证，失败受登录速率限制 |
 | `GET /api/sessions/{id}/client-projects` | 项目数组；只读元数据，不启动容器 |
 | `POST /api/sessions/{id}/client-projects` | `{name,path,arguments:[]}`；建立已有目录的逻辑映射，不创建/移动目录 |
@@ -38,7 +38,7 @@ abox-link。首次运行开发服务端迁移到 schema 10；回退见[数据库
 
 服务端 `data/client-instance-id` 保存随机安装身份，正常重启不变；身份文件不进入系统或完整
 备份，恢复出的实例首次访问生成新身份，客户端必须重新确认绑定/基线。损坏、链接或硬链接
-身份文件不自动修复，能力/同步接口返回 503；原网页、会话和隧道接口不依赖这个身份文件。
+身份文件不自动修复，能力/同步接口返回 503；原网页、会话和设备连接接口不依赖这个身份文件。
 直接复制整个 data_dir 会复制身份，不等价于备份恢复；独立克隆实例须使用备份恢复流程。
 身份字段用于区分实例，连接认证仍依赖 Bearer 和 TLS。
 

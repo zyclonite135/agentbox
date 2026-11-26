@@ -5,9 +5,7 @@ import (
 	"net"
 )
 
-// defaultUsageTelemetryBind sits on the docker bridge gateway after the tunnel
-// SOCKS proxy (1080), the account proxy bridge (1081), the transparent network
-// control listener (1082) and the model gateway (1083).
+// defaultUsageTelemetryBind sits on the docker bridge gateway on port 1084.
 const defaultUsageTelemetryBind = "172.17.0.1:1084"
 
 // UsageTelemetryConfig is where the server receives the per-request timing

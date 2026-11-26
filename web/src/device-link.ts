@@ -14,14 +14,19 @@ import { setTip } from "./tip.js";
 
 let latestStatus: DeviceLinkStatus | null = null; // GET /api/device-link/status 缓存
 let lastFetch = 0;
+let statusRequest = 0;
+let pageVisit = 0;
 
 const onPage = () => S.view === "device-link";
 
 async function refreshStatus(force: boolean) {
-  if (!force && Date.now() - lastFetch < 15000) return;
+  if (!S.token || (!force && Date.now() - lastFetch < 15000)) return;
   lastFetch = Date.now();
   try {
-    latestStatus = await api<DeviceLinkStatus>("/device-link/status");
+    const request = ++statusRequest;
+    const status = await api<DeviceLinkStatus>("/device-link/status");
+    if (request !== statusRequest) return;
+    latestStatus = status;
   } catch (_) {
     return; // 网络抖动保持现状
   }
@@ -55,9 +60,9 @@ function renderPage() {
   const conn = !!st.connected;
   $("dev-st-dot").classList.toggle("on", conn);
   setTextRender($("dev-st-title"), () => !st.enabled ? i18nText("功能未启用") : (conn ? i18nText("设备已连接") : i18nText("等待接入")));
- const adm = $("dev-admin-online");
+  const adm = $("dev-admin-online");
   const online = st.online_users;
-  adm.classList.toggle("hidden", !(S.role === "admin" && online));
+  adm.classList.toggle("hidden", !(st.enabled && S.role === "admin" && online));
   if (online) setTextRender(adm, () => i18nText("已连接设备的用户：") + (online.length ? online.join("、") : i18nText("无")));
 
   $("dev-off-admin").classList.toggle("hidden", st.enabled);
@@ -77,8 +82,10 @@ async function loadClients() {
   const box = $("dev-dl");
   // 第一次读取时先放几颗按钮大小的骨架，下载区不从空白突然撑开
   if (!box.children.length) box.replaceChildren(...Array.from({ length: 5 }, (_, i) => skelBar(7 + (i % 3) + "em", "btn-like")));
+  const visit = pageVisit;
   let list: DeviceLinkClient[] = [];
   try { list = await api<DeviceLinkClient[]>("/device-link/clients"); } catch (_) {}
+  if (visit !== pageVisit || !onPage()) return;
   box.replaceChildren();
   $("dev-dl-empty").classList.toggle("hidden", !!list.length);
   for (const c of list) {
@@ -99,12 +106,14 @@ let pairTimer = 0; // 配对码有效期倒计时
  * 留在页面上只会让人以为还能用。 */
 function resetPair() {
   clearInterval(pairTimer);
+  $<HTMLButtonElement>("dev-pair").disabled = false;
   $("dev-pair-result").classList.add("hidden");
   $("dev-pair-code").textContent = "";
   setText($("dev-pair-hint"), "10 分钟内有效，只能用一次");
 }
 
 export function openDeviceLinkView() {
+  pageVisit++;
   showView("device-link");
   resetPair();
   renderPage();
@@ -122,25 +131,28 @@ $("dev-goto-settings").addEventListener("click", () => {
 $("dev-pair").addEventListener("click", async () => {
   const btn = $<HTMLButtonElement>("dev-pair");
   btn.disabled = true;
+  const visit = pageVisit;
   try {
     const res = await api<DeviceLinkPair>("/device-link/pair", {
       method: "POST",
       body: JSON.stringify({ origin: location.origin }),
     });
+    if (visit !== pageVisit || !onPage()) return;
     const box = $("dev-pair-code");
     box.textContent = res.code;
     $("dev-pair-result").classList.remove("hidden");
+    startPairCountdown(res.expires_in);
     try {
       await navigator.clipboard.writeText(res.code);
+      if (visit !== pageVisit || !onPage()) return;
       toast(i18nText("配对码已复制，粘贴到 abox-link 控制台"));
     } catch (_) {
-      toast(i18nText("配对码已生成，请手动选中复制"));
+      if (visit === pageVisit && onPage()) toast(i18nText("配对码已生成，请手动选中复制"));
     }
-    startPairCountdown(res.expires_in);
   } catch (e) {
-    toast((e as Error).message || i18nText("生成配对码失败"), true);
+    if (visit === pageVisit && onPage()) toast((e as Error).message || i18nText("生成配对码失败"), true);
   } finally {
-    btn.disabled = false;
+    if (visit === pageVisit) btn.disabled = false;
   }
 });
 
@@ -182,6 +194,21 @@ setInterval(() => {
 
 bus.addEventListener("data-updated", () => refreshStatus(false));
 bus.addEventListener("open-device-link", openDeviceLinkView);
-
+bus.addEventListener("view-changed", () => {
+  if (onPage()) return;
+  pageVisit++;
+  resetPair();
+});
+bus.addEventListener("signed-out", () => {
+  statusRequest++;
+  pageVisit++;
+  latestStatus = null;
+  lastFetch = 0;
+  resetPair();
+  $("dev-admin-online").classList.add("hidden");
+  setText($("dev-admin-online"), "");
+  $("dev-dl").replaceChildren();
+  renderSideItem();
+});
 
 window.addEventListener("agentbox-language-change", renderSideItem);

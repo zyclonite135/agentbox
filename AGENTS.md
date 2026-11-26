@@ -4,12 +4,12 @@
 
 ## 项目是什么
 
-`agentbox` 是一个 Go 单二进制服务端：在 Linux 服务器上通过 Docker 为每个浏览器会话拉起一个容器，容器里运行 Claude Code / Codex CLI。浏览器通过 HTTP/WebSocket 使用对话、终端、文件、共享目录、账号池和内网反向隧道。
+`agentbox` 是一个 Go 单二进制服务端：在 Linux 服务器上通过 Docker 为每个浏览器会话拉起一个容器，容器里运行 Claude Code / Codex CLI。浏览器通过 HTTP/WebSocket 使用对话、终端、文件、共享目录、账号池和设备文件共享。
 
 主要入口：
 
 - `cmd/agentbox`：服务端。加载 `config.json`，对 `data_dir` 加 flock，初始化 store/docker/server 后监听 HTTP。
-- `cmd/abox-link`：用户本机反向隧道客户端。无参数时开本机控制台 `127.0.0.1:7801`；带 `--server` 时走命令行无头模式。
+- `cmd/abox-link`：用户本机文件共享客户端。无参数时开本机控制台 `127.0.0.1:7801`；带 `--daemon` 时走命令行无头模式。
 - `cmd/abox-loop-guard`：独立模型 SSE 循环保护网关（开发预览），固定上游、无 Docker/数据库依赖；检测核心在 `pkg/loopguard`，文档见 `docs/loop-guard.md`。只中断当前流，不自动续跑或伪造成功；生产接入仍需明确授权。
 
 运行环境：服务端依赖 Docker daemon；生产部署目标是 Linux + systemd。macOS 上可以 `go build`/`go test`，但不能完整验证容器链路。
@@ -19,7 +19,7 @@
 | 路径 | 作用 |
 |---|---|
 | `cmd/agentbox/main.go` | 服务端入口与信号；`internal/app` 管理数据锁、启动与依赖清理。 |
-| `cmd/abox-link/main.go` | 隧道客户端入口；面板模式与 `--server` 无头模式分流。 |
+| `cmd/abox-link/main.go` | 设备连接客户端入口；面板模式与 `--daemon` 无头模式分流。 |
 | `pkg/loopguard` | 短句复读检测（`Detector`/`Monitor`/`Cooldown`）与独立网关 `Gateway`；回归入口 `race.loop-guard`，只有合成协议/离线文本验证，不代表真实 harness 验收。 |
 | `pkg/modelgw` | 模型 SSE 网关核心：转发、四协议增量解码、中断错误写法、请求指纹、独占连接传输；独立 abox-loop-guard 与服务端模型网关共用。 |
 | `pkg/extspi` | 扩展 SPI：消息类型、`Handler`/`Host` 接口、NDJSON JSON-RPC 传输与 `Pipe` 一致性测试；第三方 Go 扩展也用它。 |
@@ -28,7 +28,7 @@
 | `internal/workspace` | 会话创建/启停/删除、模板与凭证播种、活动引用与空闲回收。 |
 | `internal/credentials` | 账号凭证读取/保存、轮换同步、续期与账号级可取消锁。 |
 | `internal/config` | 配置 schema、校验、运行时修改与原子写回。所有设置变更必须经 `Config.mutate`/`ApplySettings`/账号方法。 |
-| `internal/server` | HTTP API、鉴权、用户/账号/设置、会话、文件、聊天 WS、终端 WS、隧道、账号出口代理（`proxy*.go`）、监控、空闲回收、凭证同步、Git 变更审查（`git.go`）、用量计量与额度（`usage.go`/`quota.go`/`usagelog.go`）。 |
+| `internal/server` | HTTP API、鉴权、用户/账号/设置、会话、文件、聊天 WS、终端 WS、设备连接、账号出口代理（`proxy*.go`）、监控、空闲回收、凭证同步、Git 变更审查（`git.go`）、用量计量与额度（`usage.go`/`quota.go`/`usagelog.go`）。 |
 | `internal/chat` | Service 编排聊天回合、历史/用量/回执收尾；Executor 管理 CLI 传输与中断，server 保留准入及 Runtime 适配。 |
 | `internal/protocol` | M1/M3 的版本化错误/聊天封装，与 contracts/ schema 和生成 TS 类型共同校验。 |
 | `internal/usage` | 回合用量归一化、定价快照、结算编排及 Claude/Codex 终端扫描。 |
@@ -207,7 +207,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' --connect-timeout 10 --max-time 20 "$P
 ### 会话生命周期
 
 - 创建：`POST /api/sessions` 在 `data/users/<user>/sessions/<id>/` 下创建 `workspace` 与 `home`，并 `chown` 到容器用户 `1000:1000`。
-- 启动：`startSession` 是幂等路径，REST 启动、聊天 WS、终端 WS 都会走它。流程：同步账号池 OAuth 轮换凭证 → `agent.SeedHomeTemplate` 铺 home 模板 → `agent.SeedCredentials` 播种 home → 可选播种内网提示 → 确保用户共享目录 → `dockerx.EnsureRunning` 复用/重建容器 → 更新 SQLite。
+- 启动：`startSession` 是幂等路径，REST 启动、聊天 WS、终端 WS 都会走它。流程：同步账号池 OAuth 轮换凭证 → `agent.SeedHomeTemplate` 铺 home 模板 → `agent.SeedCredentials` 播种 home → 确保用户共享目录 → `dockerx.EnsureRunning` 复用/重建容器 → 更新 SQLite。
 - home 模板：会话 home 每次都是全新空目录，skill / 用户级 MCP / rc 文件本来每开一个会话就得重装一遍，模板就是补这个。两层，后者盖前者：服务器级 `data/home-template/`（全体用户）、用户级 `data/users/<user>/home-template/`（该用户所有会话，「技能」页签写的就是它）。**两层先合并再落盘**，否则用户层里较旧的文件会输给服务器层。合并结果与会话副本之间逐文件按 mtime「谁新用谁」（同 credsync 的收敛规则）：容器里改过的留着，模板更新的推下去；符号链接原样重建、不跟随，可以把大块内容指向 `/shared`。必须排在 `SeedCredentials` 之前，模板里万一混进凭证文件也压不过账号池。模板失败只记日志，不挡会话启动。
 - 官方市场（`internal/server/market.go`）：`anthropics/claude-plugins-official` 浅克隆到 `data/marketplace/repo`（12h 过期，整仓重克隆而非增量；拉不动就沿用旧副本），它既是目录数据源也直接提供一方插件的内容。目录条目的 `source` 有四种写法（仓库内相对路径 / git-subdir / url / github），`parsePluginSource` 归一化，路径与协议都当不可信输入校验。**市场的单位是插件不是技能**：`discoverSkillDirs` 按「显式 skills 声明 → skills/<名字>/ → 插件根就是技能」三级找，一个都没有就回 422 并让用户改用终端装整包。git 抓取由 `marketMu` 串行化，`GIT_TERMINAL_PROMPT=0` 防私有仓库卡在密码提示上。
 - 技能页（`internal/server/skills.go` + `web/src/skills.ts`）：管理 `.claude/skills`，范围 `session`（会话 home）与 `template`（用户模板）。列表里的 `source` 靠探测两层模板里有没有同名目录得出，顺序与 SeedHomeTemplate 的分层一致。装／复制统一走 `replaceSkillDir`：整目录替换并把 mtime 戳成当下，保证刚进模板的技能一定比各会话里的旧副本新，下次启动推得下去。技能名同时是目录名，`skillNameRe` 卡死路径穿越。详情接口连整个技能目录的扁平清单（`entries`，含子目录，父在子前，上限 2000 条）一起返回，前端 `buildTree` 拼成左侧文件树；点开单个文件走 `GET …/skills/{name}/file?path=`，路径通过 `s.openDataDir` / `safefs.Root.OpenFile` 固定目录句柄并拒绝符号链接（技能目录在会话 home 里，容器内随手就能造一个指向宿主机文件的链接）。
@@ -804,7 +804,7 @@ data/
 - Token 由 `internal/gitaccess.Vault` 加密保存；主密钥在 `data/git-secrets/master.key`，不可放进会话挂载或模板。系统备份/恢复必须验证密文能由配套密钥解开，不可把缺密钥当成自动生成新密钥的机会。
 - Git 执行留在容器；HTTPS smart HTTP 通过 `gitaccess.Grant` 按次转发，长效 Token 不交付容器。只读仅 upload-pack；写 grant 校验 old/new/ref，禁止多 ref/删除，且每次请求重查连接修订和启用状态。
 - `push-preview` 与 `push` 分开；推送必须核对预览的分支/本地 SHA/远端 SHA，并检查快进关系。`pull` 只快进、要求工作区干净；不自动 stash/rebase。绑定 URL 改变需重新绑定，不能按域名轮试账号。
-- 当前网桥复用 proxy_bridge 主机配置并分配临时端口；network 指定直连/用户隧道和专用 CA，绝不回落其他路由。SSH 使用服务端 Go SSH + 固定主机公钥，长效私钥不交付容器；native Git grant 继续约束 push old/new/ref。完整进展见 `docs/architecture/git-management.md`；本机 Git smart HTTP fixture 不等于 Linux Docker 验收。
+- 当前网桥复用 proxy_bridge 主机配置并分配临时端口；Git 直连可配置专用 CA。SSH 使用服务端 Go SSH + 固定主机公钥，长效私钥不交付容器；native Git grant 继续约束 push old/new/ref。完整进展见 `docs/architecture/git-management.md`；本机 Git smart HTTP fixture 不等于 Linux Docker 验收。
 
 - Git OAuth 应用在 config.git_oauth_apps，经 mutate/persist 同步保存；secret 为 Vault 密文，不能通过 GET 下发。state/PKCE/verifier/Cookie/原登录 token 短时绑定，回调不能用查询参数指定用户。刷新按连接串行，重新授权需原应用/修订且保留连接 ID；撤销区分本地停用与上游成功。
 - Git 审计 schema 6 增加 finished_at，重启残留 running 标记 interrupted_unknown；历史未量过的结束时间留空。活动查询/取消按 actor 硬隔离。Docker Git 使用 python3 -I 监督进程组，取消先 EOF，再等待 TERM/KILL 收尾；不能以网络断开证明远端回滚。
@@ -814,7 +814,7 @@ data/
 - 分支动作必须核对 expected_head/expected_branch/target_head，创建/切换要求工作区干净；删除先检查目标是当前 HEAD 祖先，再用 branch -d，禁止 force 删除或自动 stash/rebase。分支列表取 for-each-ref，最多 500 条，纯本地不 fetch。
 
 - PR/MR 客户端只根据已绑定仓库构造 GitHub/GitLab API URL，不跟随 redirect；查询/预览不创建，确认再 POST，未知结果不得自动重试。GitLab API scope 由用户单独勾选，SSH 需同平台 HTTPS API 连接。当前只支持同仓库分支，服务端重新核对 HEAD/目标 SHA 和重复请求。
-- 网页 Git 网络操作走后台：POST 带 `X-Git-Async: 1` 时 `gitOperation` 在 `spawn` 里跑原处理器（`WithoutCancel` + `workContext`，可经 cancel 接口取消），回 202，结果由 `GET /api/git/operations/{id}` 取（查询恒为 200）；Git 导入同理并持有 `creationWork`。原因：经隧道的内网大仓库要几分钟，而 Cloudflare 单次响应约 100 秒且会替换源站 502/504 正文。所以上游失败用 `gitUpstreamStatus`（424），别改回 502；终端网桥与旧客户端仍同步。单条网络命令上限 `gitx.NetworkTimeout`（30 分钟），容器 `timeout`、HTTP/SSH 网桥与处理器期限要一起改。GitLab 连接的仓库地址由 `gitRepositoryURL` 补 `.git`（项目页地址会被重定向，网桥不跟随）。
+- 网页 Git 网络操作走后台：POST 带 `X-Git-Async: 1` 时 `gitOperation` 在 `spawn` 里跑原处理器（`WithoutCancel` + `workContext`，可经 cancel 接口取消），回 202，结果由 `GET /api/git/operations/{id}` 取（查询恒为 200）；Git 导入同理并持有 `creationWork`。原因：大型仓库要几分钟，而 Cloudflare 单次响应约 100 秒且会替换源站 502/504 正文。所以上游失败用 `gitUpstreamStatus`（424），别改回 502；终端网桥与旧客户端仍同步。单条网络命令上限 `gitx.NetworkTimeout`（30 分钟），容器 `timeout`、HTTP/SSH 网桥与处理器期限要一起改。GitLab 连接的仓库地址由 `gitRepositoryURL` 补 `.git`（项目页地址会被重定向，网桥不跟随）。
 - Git 共享 ACL（schema 8）仅管理员自己的 PAT/SSH，可按用户只读/写；OAuth 私有。使用入口走 GitConnectionFor，管理仍走所有者 GitConnection；不得因为 admin 角色绕过私有账号。共享执行 actor 和凭证 owner 分开，路由/审计按 actor，AEAD 身份按 owner。撤权增修订、清默认但保留失效绑定；删除用户清名单，重建同名不继承。
 
 ### 附件与清理
@@ -845,8 +845,7 @@ data/
 - **注入的是全局 `HTTP(S)_PROXY`，且大小写各一份。** curl 只认小写 `http_proxy`，
   Node/Go 读大写；只给一半的后果是部分请求悄悄走了服务器自己的 IP，而不是报错。
   变量名列在 `proxyEnvNames`，`tmuxEnvSync` 靠它在解绑后清除终端里的残留值——
-  加变量必须同步这个列表。这与隧道**刻意不设全局代理**的取向相反：隧道是「按需访问
-  内网」，这里是「这个账号的一切请求都必须从这个 IP 出去」。
+  加变量必须同步这个列表。
 - **全链路 fail-closed。** 代理停用 / 悬空 / 桥接没起来时，`proxyEnvList` 照样注入、
   `bridgeAuth` 返回 502、`acctClient` 直接报错。**不要改成回落直连**：直连等于把
   服务器真实 IP 交给 provider，正是绑代理要防的事，而且是静默发生的。
@@ -861,11 +860,10 @@ data/
 
 ### 受限出网
 
-- `container.egress`：空/`open` 是历史行为；`restricted` 由 `internal/server/egress.go` 在网络钩子（`workspaceNetwork`，先锁出网再起透明辅助进程）里调用 `dockerx.LockEgress`：一次性 NET_ADMIN 容器共享工作空间网络命名空间，用网络辅助镜像里的 `sh` + `iptables-restore` 执行 `netaccess.EgressScript`，规则文本由 `netaccess.EgressPolicy.Rules` 生成。复用镜像而不加子命令，是为了不重建镜像就能上线。
-- 透明模式的 nat OUTPUT 把 agent 的 TCP/DNS REDIRECT 到 127.0.0.1，但 filter OUTPUT 里这些包的出接口仍是原来的（不是 lo），所以 `ABX_EGRESS` 必须有 `-d 127.0.0.0/8 -j RETURN`（IPv6 `::1`），只写 `-o lo` 会把透明空间的全部连接和 DNS 拒掉（2026-10-23 生产事故，约 1.5 分钟）。命名空间测试要带上这条 REDIRECT。
-- 规则对命名空间内**所有 UID** 生效（含透明辅助进程）：它的隧道流量去控制端口（已放行），直连回落按设计失败。不要改成只匹配 UID 1000。
+- `container.egress`：空/`open` 是历史行为；`restricted` 由 `internal/server/egress.go` 在网络钩子（`workspaceNetwork`）里调用 `dockerx.LockEgress`：一次性 NET_ADMIN 容器共享工作空间网络命名空间，用网络辅助镜像里的 `sh` + `iptables-restore` 执行 `netaccess.EgressScript`，规则文本由 `netaccess.EgressPolicy.Rules` 生成。
+- 规则对命名空间内**所有 UID** 生效，直连回落按设计失败。不要改成只匹配 UID 1000。
 - 已锁状态按「容器 ID → StartedAt|规则哈希」缓存在内存；Docker 每次启动容器都新建命名空间，StartedAt 变了就重装。`networkLoop` 在 restricted 时也运行，负责给切换前已运行的空间补锁并清理缓存。
-- 放行端点来自 `egressPolicy`：代理桥、隧道（启用时）、网络控制（透明时）、模型网关、用量回传（未停用时）的广播地址和端口，外加 `proxy_bridge.dynamic_ports`。**新增给容器的宿主机监听必须加进这里**，按请求开的临时监听用 `s.listenDynamic`，不要再 `net.Listen(host:0)`。
+- 放行端点来自 `egressPolicy`：代理桥、模型网关、用量回传（未停用时）的广播地址和端口，外加 `proxy_bridge.dynamic_ports`。**新增给容器的宿主机监听必须加进这里**，按请求开的临时监听用 `s.listenDynamic`，不要再 `net.Listen(host:0)`。
 - 未绑代理的账号在 restricted 下也注入代理变量，`bridgeAuth` 返回 `directProxy`，`dialThrough` 走 `dialPublic`：服务端解析后只拨公网地址（`publicTarget` 排除私网/保留/嵌 IPv4 的 IPv6 前缀和本机网卡地址），且拨检查过的 IP，防 DNS 重绑定。`container.unbound_egress=none` 时改为 502 拒绝（`UnboundServerDirect` 为假），用于连服务器出口 IP 都不暴露的场景。开放模式下未绑代理仍是 502，不变。
 - `container.egress_exempt_users`：名单内用户的空间 `ensureEgress` 直接返回、`proxyEnvList` 按开放模式处理。`ApplySettings` 整块替换 `container`，所以补丁里该字段为 nil 时保留旧名单、非 nil（含空列表）才替换——给 `ContainerLimits` 加字段时同样要考虑旧前端保存会不会把它冲掉。该结构体含切片，不能再做 map 键或用 `==` 比较。
 - 本地无 Docker 时，可用 `unshare -rn` 建两个网络命名空间（一侧当宿主机、一侧当工作空间），在 Alpine 的 iptables 根文件系统里跑 `EgressScript` 做真实验证；生产镜像是 alpine + iptables（nft 后端）。
@@ -1137,7 +1135,7 @@ data/
   不运行安装器，不触碰 keyring。更新下载 URL 必须属于清单版本的精确 desktop-v 标签；失败复查清空旧候选，
   下载限制还要在返回字节时复核，避免短响应在 select 观察超限信号前完成。
 - 冻结兼容回归为 `desktop/scripts/test-server-compat.py`；默认固定 eb845db 全提交，临时 archive/
-  Docker 卷构建旧 server/link，验证升级、旧接口/隧道/重启/离线完整备份/purge。`--browser-smoke`
+  Docker 卷验证旧服务端升级、旧接口、重启、离线完整备份与 purge。`--browser-smoke`
   只冻结静态资源，实际 HTTP/WS 连新服务端；`--desktop-smoke` 只在测试构建接受 loopback fixture。
   正常产品不得接受 `AGENTBOX_SMOKE_COMPAT`。同一 Smoke.app 原生场景必须串行。
 - 安装探针可传 `--previous`，使用旧包真实 sidecar 生成隔离状态并由新包读回；未提供旧包必须报告

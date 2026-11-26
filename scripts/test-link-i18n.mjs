@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Standalone abox-link UI fixture. No real pairing, credentials, or tunnel.
+// Standalone abox-link UI fixture. Uses synthetic device and folder data.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
@@ -68,7 +68,6 @@ export async function linkI18nSmoke(page) {
     await page.locator("#panel-body").waitFor({state:"visible"});
     await page.locator("#btn-toggle").click();
     await page.locator("#st-title").filter({hasText:"Устройство подключено"}).waitFor();
-    assert.equal(await page.locator("#allow-list,#map-list,#opt-transparent").count(),0);
     await page.locator("#opt-auto").check();
     await page.waitForFunction(()=>!document.querySelector("#opt-auto").disabled);
     const requested=new Promise(resolve=>{folderRequested=resolve;});

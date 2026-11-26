@@ -89,10 +89,8 @@ func termCommand(env []string) string {
 const tmuxClipboard = " ';' set -s set-clipboard external"
 
 // tmuxEnvSync renders the `tmux set-environment` calls mirroring env into the
-// tmux global environment. Variables that come and go — the tunnel's, and the
-// account's outbound proxy — are unset when absent rather than left alone, so a
-// dropped link stops advertising a dead proxy URL to newly opened shells, and
-// an unbound account stops routing through a proxy it no longer has.
+// tmux global environment. Unset managed variables when absent so new shells
+// pick up changes to the account proxy and other service endpoints.
 func tmuxEnvSync(env []string) string {
 	var b strings.Builder
 	have := make(map[string]bool, len(env))

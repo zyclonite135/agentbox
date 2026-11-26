@@ -1,4 +1,4 @@
-// Authored abox-link interface messages. Never translate network targets or logs.
+// Authored abox-link interface messages. Preserve local paths and logs as provided.
 export default {
   "abox-link 文件共享": "abox-link 檔案分享",
   "文件共享": "檔案分享",
@@ -8,6 +8,7 @@ export default {
   "启动时自动连接 AgentBox": "啟動時自動連線至 AgentBox",
   "清除登录凭证与共享设置": "清除登入憑證與分享設定",
   "设备已连接": "裝置已連線",
+  "设备连接已停用": "裝置連線已停用",
   "连接": "連線",
   "断开": "中斷",
   "打开浏览器里的 agentbox → 侧栏「连接设备」 → 点「生成配对码」，把那串字符粘到下面。不需要在这里输密码。": "在 AgentBox 開啟「連接裝置」並產生配對碼。將配對碼貼在下方。",
@@ -37,8 +38,6 @@ export default {
   "开机自启": "開機自動啟動",
   "跳过 TLS 证书校验（服务器用自签名证书时才勾）": "略過 TLS 憑證驗證（僅在伺服器使用自簽憑證時勾選）",
   "解除绑定": "解除配對",
-  "保留放行规则，只清除服务器与登录凭证": "保留允許規則，只清除伺服器與登入憑證",
-  "删除规则": "刪除規則",
   "删除": "刪除",
   "请先粘贴配对码": "請先貼上配對碼",
   "已设置开机自启": "已啟用開機自動啟動",

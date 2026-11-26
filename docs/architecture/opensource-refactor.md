@@ -31,7 +31,7 @@
 
 - 宿主机只做目录发现和文件读取，禁止以宿主机 Git 作为降级路径。
 - Git 请求按需启动会话；启动前检查额度，执行期间持有活动引用，避免空闲回收。
-- Git 进程使用清理后的环境，不注入账号、代理或隧道凭证。仓库过滤器仍可能读取容器内已有文件，这是容器内权限，不是凭证保密保证。
+- Git 进程使用清理后的环境，不注入账号或代理凭证。仓库过滤器仍可能读取容器内已有文件，这是容器内权限，不是凭证保密保证。
 - 网页提交禁用 hook 和签名；需要这些功能的用户在终端执行提交。
 - 请求参数通过 argv 传递，不拼 shell；Git 命令在容器内受时间限制，输出在宿主机受大小限制。
 - 无 HEAD 的新仓库有明确 diff 回退；其他错误正常报告。
@@ -51,7 +51,7 @@ store / dockerx / agent -> 实现存储、容器运行和 CLI 协议适配
 
 | 模块 | 职责 | 迁移时必须验证 |
 | --- | --- | --- |
-| `app` | 依赖组装、启动、后台任务和关闭 | 部分初始化失败清理；停止新请求后关闭 WS/隧道并收尾任务 |
+| `app` | 依赖组装、启动、后台任务和关闭 | 部分初始化失败清理；停止新请求后关闭 WebSocket并收尾任务 |
 | `workspace` | 创建、启停、删除、模板和凭证播种编排 | 并发启动幂等；停止/删除竞态；挂载与属主 |
 | `credentials` | 账号凭证、刷新、同步和账号级锁 | 轮换顺序；刷新响应合并；代理失败不得直连 |
 | `usage` | 事件归一化、计价、终端扫描、结算编排 | 去重；缓存 token 语义；入账与扣减原子性 |
@@ -66,7 +66,7 @@ store / dockerx / agent -> 实现存储、容器运行和 CLI 协议适配
 ```text
 cmd/{agentbox,abox-link}/
 internal/{app,server,workspace,credentials,usage,gitx}/
-internal/{agent,store,dockerx,archivex,tunnel,linkapp,web}/
+internal/{agent,store,dockerx,archivex,devicelink,linkapp,web}/
 internal/store/migrations/
 web/src/{app,shared,features}/
 images/agent/
@@ -117,7 +117,7 @@ third_party/
 
 ### C：后端模块化
 
-- [x] C1：新增 app 管理数据锁/启动清理；后台任务、WS、代理/隧道和在途回合统一关闭，等待已观察到的用量落库。
+- [x] C1：新增 app 管理数据锁/启动清理；后台任务、WebSocket、代理和在途回合统一关闭，等待已观察到的用量落库。
 - [x] C2：提取 workspace，集中创建/启停/删除/播种/回收、可取消会话锁和活动引用；运行时失败不写假成功状态。
 - [x] C3：提取 credentials，统一凭证读写/续期/同步及账号锁；修复刷新后播发受 mtime 容差抑制的问题。
 - [x] C4：提取 usage 的事件/定价/结算/终端扫描；用量、价格快照和扣款同事务，新历史明细使用入账单价。

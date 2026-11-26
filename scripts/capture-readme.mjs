@@ -20,7 +20,7 @@ const SKINS = ['amber', 'glass', 'cyberpunk', 'graphite', 'verdant', 'blueprint'
 /* ---------------- Synthetic data ----------------
  * Everything the page shows comes from here: one Claude workspace that runs a
  * full task, two others for the sidebar, and the records behind usage, skills,
- * MCP, accounts, the tunnel and extensions. Text is per language so each README
+ * MCP, accounts, device file sharing and extensions. Text is per language so each README
  * shows its own interface. */
 export function fixture(lang) {
   const zh = lang === 'zh-CN';
@@ -570,9 +570,8 @@ async function screens(page, fx, base, api, shot) {
   await page.locator('#sec-accounts').getByText(fx.accounts[0].label, {exact:true}).waitFor();
   await shot('accounts');
   await page.evaluate(() => { location.hash = '#/device-link'; });
-  await page.getByText('gitlab.corp.example:443', {exact:false}).first().waitFor();
   await page.locator('#dev-dl a').first().waitFor();
-  await shot('tunnel');
+  await shot('device-link');
   await page.evaluate(() => { location.hash = '#/extensions'; });
   await page.locator('#ext-list .ext-card').nth(1).waitFor();
   await shot('extensions');

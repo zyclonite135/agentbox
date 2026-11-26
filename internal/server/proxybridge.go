@@ -42,11 +42,8 @@ var proxyEnvNames = []string{
 	"http_proxy", "https_proxy", "all_proxy", "no_proxy",
 }
 
-// proxyEnvList returns the proxy env for a session whose account is bound to an
-// IP proxy. Unlike the intranet tunnel — which deliberately avoids a global
-// proxy — this one IS global: the requirement is that everything the account
-// does leaves through its own exit IP, and a per-tool opt-in would be one
-// forgotten call away from leaking.
+// proxyEnvList returns the global proxy environment for a workspace whose
+// account uses the account proxy bridge.
 //
 // A bound-but-unusable proxy still gets the env. Injecting nothing would route
 // the account's official requests out of the server's real IP, which is the
@@ -64,8 +61,7 @@ func (s *Server) proxyEnvList(sess store.Session) []string {
 	}
 	url := fmt.Sprintf("http://%s:%s@%s", sess.AccountID, s.proxySecret(sess.AccountID),
 		net.JoinHostPort(host, portOf(pb.Bind)))
-	// 本机与网桥网关本身不走代理：隧道的 SOCKS 端口和端口映射都挂在网关上，
-	// 绕一圈回代理只会自环。
+	// 本机与网桥网关本身不走代理，避免代理自环。
 	noProxy := "localhost,127.0.0.1,::1," + host
 	return []string{
 		"HTTP_PROXY=" + url, "HTTPS_PROXY=" + url, "ALL_PROXY=" + url, "NO_PROXY=" + noProxy,
@@ -286,4 +282,12 @@ func parseProxyAuth(header string) (user, pass string, ok bool) {
 	}
 	r := &http.Request{Header: http.Header{"Authorization": []string{header}}}
 	return r.BasicAuth()
+}
+
+func portOf(hostPort string) string {
+	_, port, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		return ""
+	}
+	return port
 }

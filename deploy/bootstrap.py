@@ -97,7 +97,7 @@ def install(package, listen, layout):
     config = release.read(package / 'config.example.json')
     config.update(listen=listen, auth_token=password, data_dir=str(layout.data), cache_dir=str(layout.cache),
                   agent_image=image, accounts=[], proxies=[],
-                  tunnel={'enabled': False, 'proxy_bind': gateway + ':1080'},
+                  device_link={'enabled': False},
                   proxy_bridge={'bind': gateway + ':1081'})
     config['container']['network'] = 'bridge'
     with tempfile.TemporaryDirectory(prefix='agentbox-config-') as tmp:

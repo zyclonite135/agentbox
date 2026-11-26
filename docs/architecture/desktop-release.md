@@ -184,7 +184,7 @@ Windows 重命名语义假设失败，尚未进入 Rust/NSIS/原生 UI；不能�
 `desktop/scripts/test-server-compat.py` 默认从固定提交
 `eb845db59e45ed042b1af9df44dae96f104bf43b`（v0.1.8 源码、schema 9）生成临时 git archive，
 构建旧服务端、旧 abox-link 和当前服务端。隔离 Linux Docker 卷内验证升级到 schema 10、旧登录
-令牌/账号/HTTP 文件与终端协议、隧道实际字节转发、服务重启、完整备份恢复及 purge。
+令牌/账号/HTTP 文件与终端协议、服务重启、完整备份恢复及 purge。
 完整备份在停止 fixture 后保留元数据复制到独立维护容器，不豁免正常备份的挂载安全检查。
 
 ```sh

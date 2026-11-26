@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="872" viewBox="0 0 1280 872" role="img" aria-labelledby="title desc" lang="zh-CN">
 <title id="title">你的智能体，你的基础设施。 — agentbox</title>
-<desc id="desc">浏览器或可选的桌面客户端通过 HTTPS 和 WebSocket 连接 agentbox Go 服务端。Linux 服务器通过本机 Docker Engine 为每个工作空间创建运行 Claude Code 或 Codex 的容器。CLI 调用模型 API，可按账号配置出口代理。SQLite、聊天记录以及 workspace、home、shared 目录持久保存在宿主机。可选的 abox-link 从用户本机主动连接服务端，工作空间请求经服务端与隧道访问本机白名单允许的内网服务。</desc>
+<desc id="desc">浏览器或可选的桌面客户端通过 HTTPS 和 WebSocket 连接 agentbox Go 服务端。Linux 服务器通过本机 Docker Engine 为每个工作空间创建运行 Claude Code 或 Codex 的容器。CLI 调用模型 API，可按账号配置出口代理。SQLite、聊天记录以及 workspace、home、shared 目录持久保存在宿主机。可选的 abox-link 从用户电脑主动连接服务端。用户可在 AgentBox 浏览自己共享的文件夹并按需上传文件。</desc>
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#e8a33d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
   <style>
@@ -13,7 +13,7 @@
     .muted { font-size: 16px; fill: #aba396; }
     .edge { font-size: 15px; fill: #d2b483; }
     .storage-title { font-size: 22px; font-weight: 600; }
-    .tunnel-heading { font-size: 20px; font-weight: 550; }
+    .sharing-heading { font-size: 20px; font-weight: 550; }
     .overline { font-size: 15px; font-weight: 600; letter-spacing: .7px; fill: #c8b491; }
     .pill { font-size: 12px; font-weight: 600; letter-spacing: .8px; fill: #e8bb74; }
     .card { fill: #23221f; stroke: #4a4439; stroke-width: 1.5; }
@@ -87,16 +87,16 @@
 <text x="372" y="574" class="body">SQLite · 聊天记录 · workspace / home / shared</text>
 <text x="350" y="654" class="muted">容器可以停止，工作成果继续保留。</text>
 <rect x="48" y="687" width="1184" height="155" rx="16" class="boundary"/>
-<text x="72" y="717" class="overline">可选能力  /  访问你的内网</text>
+<text x="72" y="717" class="overline">可选能力  /  共享电脑上的文件</text>
 <text x="1208" y="717" class="muted" text-anchor="end">你的电脑无需开放入站端口</text>
-<text x="72" y="765" class="tunnel-heading">工作空间 → 服务端转发</text>
-<text x="584" y="765" class="tunnel-heading">本机运行 abox-link</text>
-<text x="1040" y="765" class="tunnel-heading">内网服务</text>
+<text x="72" y="765" class="sharing-heading">AgentBox 文件管理器</text>
+<text x="584" y="765" class="sharing-heading">本机运行 abox-link</text>
+<text x="1040" y="765" class="sharing-heading">共享文件夹</text>
 <path d="M340 759 H562" class="optional" marker-end="url(#arrow)"/>
 <text x="451" y="749" class="edge" text-anchor="middle">WSS / yamux</text>
 <path d="M874 759 H1020" class="optional" marker-end="url(#arrow)"/>
-<text x="947" y="749" class="edge" text-anchor="middle">白名单校验</text>
-<text x="1040" y="794" class="muted">Git · 数据库 · API</text>
+<text x="947" y="749" class="edge" text-anchor="middle">只读访问</text>
+<text x="1040" y="794" class="muted">按需上传文件</text>
 <path d="M562 797 H340" class="optional" marker-end="url(#arrow)"/>
 <text x="451" y="826" class="muted" text-anchor="middle">由本机客户端主动连接服务端</text>
 </svg>

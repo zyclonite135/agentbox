@@ -162,7 +162,7 @@ S1 已完成首期本地治理并部署授权实例；后续核对发现存储 s
 3. 依赖升级例行：Go 模块、npm、Rust 依赖与 Go 工具链补丁号；govulncheck 无未豁免项；`collect-go-licenses.py` 与第三方清单更新。
 4. 契约生成扩展到高频变动接口（sessions、onboarding、updates/components、diagnostics），对应 `types.d.ts` 部分改为生成；不做全量 OpenAPI。
 5. 收敛 `AGENTS.md`：当前约 110 KB，大量细节与 `docs/architecture/` 下 14 份专题文档重复，对新贡献者和代码助手都是过重的上下文。改为“仓库地图 + 不变量 + 各专题文档索引”，细节下沉到对应专题文档，不丢失任何既有约定；收敛前后用一次检索对照确认没有约定被删掉。
-6. 技术债按修改热点数据化：用 `git log` 统计第一、二轮期间各文件的改动次数与涉及缺陷数，形成热点表（当前行数参考：`chat.ts` 1003、`settings/controller.ts` 1007、`types.d.ts` 1075、`server.go` 773、`tunnel.go` 748），作为第三轮拆分依据；本轮只出数据不拆分。
+6. 技术债按修改热点数据化：用 `git log` 统计第一、二轮期间各文件的改动次数与涉及缺陷数，形成热点表（当前行数参考：`chat.ts` 1003、`settings/controller.ts` 1007、`types.d.ts` 1075、`server.go` 773），作为第三轮拆分依据；本轮只出数据不拆分。
 7. Agent Provider 注册表收口：`agent.Adapter` 接口已存在，但 `Lookup` 只认两个常量，`internal/agent` 之外还有 12 个 Go 文件（mcp、imageupdate、config、agentprobe、update_components、store、models、chat_runtime、pricecatalog）和前端 chat/settings/sessions/reasoning 按 `"claude"` / `"codex"` 字面量分支。改为 `agent` 包内一张能力描述表（类型、传输方式、凭证格式、是否支持 app-server/ACP、OAuth 续期、MCP 管理、终端用量、默认模型写入位置），其他包只查表不比字符串；前端从 `/api/onboarding` 拿已安装 Agent 列表与能力位。不新增 Agent，行为不变，这是 M11 的前提，也是独立的维护成本项。
 
 **验收**

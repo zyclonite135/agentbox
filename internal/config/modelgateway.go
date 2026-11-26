@@ -5,9 +5,7 @@ import (
 	"net"
 )
 
-// defaultModelGatewayBind sits on the docker bridge gateway next to the tunnel
-// SOCKS proxy (1080), the account proxy bridge (1081) and the transparent
-// network control listener (1082).
+// defaultModelGatewayBind sits on the docker bridge gateway on port 1083.
 const defaultModelGatewayBind = "172.17.0.1:1083"
 
 // ModelGatewayConfig is where the model gateway listens (reachable from

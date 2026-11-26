@@ -14,7 +14,7 @@ const ffmpeg = process.env.FFMPEG || 'ffmpeg';
 const input = resolve('output/playwright/readme');
 const LANGS = ['en', 'zh-CN'];
 const SHOTS = ['chat-dark', 'chat-light', 'chat-live', 'chat-context', 'chat-mobile', 'terminal', 'changes', 'files', 'preview',
-  'usage', 'skills', 'mcp', 'accounts', 'tunnel', 'extensions', 'styles'];
+  'usage', 'skills', 'mcp', 'accounts', 'device-link', 'extensions', 'styles'];
 const W = 1920, UI_H = 1280, BAR = 144, FPS = 30;
 const GIF_W = 1200, GIF_FPS = 10, GIF_CHAPTERS = 4;
 const arg = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : ''; };

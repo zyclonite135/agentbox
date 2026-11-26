@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"agentbox/internal/store"
 )
 
 func TestPairCodeIsSingleUse(t *testing.T) {
@@ -122,4 +124,14 @@ func TestPairOrigin(t *testing.T) {
 			}
 		})
 	}
+}
+
+// These helpers exercise the in-memory code store without account credentials.
+func (p *pairStore) issue(user string) (string, bool) {
+	return p.issueUser(store.User{Name: user})
+}
+
+func (p *pairStore) redeem(code string) (string, bool) {
+	entry, ok := p.redeemEntry(code)
+	return entry.principal.Name, ok
 }

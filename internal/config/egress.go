@@ -13,9 +13,8 @@ import (
 // env that any tool may ignore).
 //
 // EgressRestricted locks each workspace network namespace down to agentbox's
-// own container-facing listeners on the host (account proxy bridge, tunnel,
-// network control, model gateway, usage telemetry and the dynamic bridge
-// ports). Direct internet access, other host services (sshd, databases…) and
+// own container-facing listeners on the host (account proxy bridge, model gateway,
+// usage telemetry and dynamic bridge ports). Direct internet access, other host services (sshd, databases…) and
 // other workspaces become unreachable, so the only way out is the account's
 // bridge. Accounts without a bound proxy follow container.unbound_egress.
 const (

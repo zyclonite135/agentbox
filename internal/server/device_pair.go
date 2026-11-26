@@ -29,7 +29,6 @@ const (
 )
 
 type pairEntry struct {
-	user    string
 	expires time.Time
 	// This private memory-only proof is never returned or persisted. A password
 	// reset or same-name replacement account invalidates outstanding codes.
@@ -45,12 +44,7 @@ type pairStore struct {
 
 func newPairStore() *pairStore { return &pairStore{codes: map[string]pairEntry{}} }
 
-// issue mints a code for user, replacing any the user already had — clicking
-// "generate" twice should not leave the first code live.
-func (p *pairStore) issue(user string) (string, bool) {
-	return p.issueUser(store.User{Name: user})
-}
-
+// issueUser replaces any unredeemed code already issued to this user.
 func (p *pairStore) issueUser(user store.User) (string, bool) {
 	code := randomPairCode()
 
@@ -58,24 +52,18 @@ func (p *pairStore) issueUser(user store.User) (string, bool) {
 	defer p.mu.Unlock()
 	p.sweepLocked()
 	for c, e := range p.codes {
-		if e.user == user.Name {
+		if e.principal.Name == user.Name {
 			delete(p.codes, c)
 		}
 	}
 	if len(p.codes) >= pairMaxOutstand {
 		return "", false
 	}
-	p.codes[code] = pairEntry{user: user.Name, principal: user, expires: time.Now().Add(pairCodeTTL)}
+	p.codes[code] = pairEntry{principal: user, expires: time.Now().Add(pairCodeTTL)}
 	return code, true
 }
 
-// redeem consumes a code, returning the user it was issued to. A code works
-// exactly once.
-func (p *pairStore) redeem(code string) (string, bool) {
-	entry, ok := p.redeemEntry(code)
-	return entry.user, ok
-}
-
+// redeemEntry consumes a single-use code.
 func (p *pairStore) redeemEntry(code string) (pairEntry, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -110,7 +98,7 @@ func (s *Server) redeemPairing(pairs *pairStore, code string) (store.User, strin
 	if !valid {
 		return store.User{}, "", false, nil
 	}
-	current, exists := s.store.GetUser(entry.user)
+	current, exists := s.store.GetUser(entry.principal.Name)
 	if !exists {
 		return store.User{}, "", false, nil
 	}
@@ -142,7 +130,7 @@ func randomPairCode() string {
 // handleDeviceLinkPair issues a pairing code for the calling user.
 func (s *Server) handleDeviceLinkPair(w http.ResponseWriter, r *http.Request) {
 	if !s.cfg.GetDeviceLink().Enabled {
-		writeErr(w, http.StatusForbidden, "内网隧道功能未启用")
+		writeErr(w, http.StatusForbidden, "设备连接已停用")
 		return
 	}
 	var req struct {
@@ -200,7 +188,7 @@ func pairOrigin(claimed string, r *http.Request) string {
 // is single-use and expires.
 func (s *Server) handleDeviceLinkPairRedeem(w http.ResponseWriter, r *http.Request) {
 	if !s.cfg.GetDeviceLink().Enabled {
-		writeErr(w, http.StatusForbidden, "内网隧道功能未启用")
+		writeErr(w, http.StatusForbidden, "设备连接已停用")
 		return
 	}
 	var req struct {

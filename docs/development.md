@@ -15,7 +15,7 @@
 agentbox/
 ├── cmd/
 │   ├── agentbox/            服务端入口；internal/app 管理启动与数据锁
-│   └── abox-link/           本机面板 / 无头隧道入口
+│   └── abox-link/           本机面板 / 无头设备连接入口
 ├── internal/
 │   ├── agent/              CLI 命令、凭证、home 模板、Codex app-server
 │   ├── app/                启动、独占锁与依赖清理
@@ -29,9 +29,9 @@ agentbox/
 │   ├── config/             配置加载、校验和原子写回
 │   ├── dockerx/            容器、exec、PTY、镜像和资源数据
 │   ├── linkapp/            abox-link 面板、重连与开机自启
-│   ├── server/             HTTP/WS、鉴权、响应转换、代理与隧道
+│   ├── server/             HTTP/WS、鉴权、响应转换、代理与设备连接
 │   ├── store/              SQLite、迁移、用量与额度账本
-│   ├── tunnel/             yamux、白名单与 TCP 映射
+│   ├── devicelink/         yamux 与文件夹协议
 │   └── web/static/         主控制台 HTML / CSS / JS 与资源
 ├── web/src/                主控制台 TypeScript 源码
 ├── images/agent/           工作空间镜像、tmux 与 Claude HUD
@@ -144,7 +144,7 @@ go build -o abox-link ./cmd/abox-link
 
 ### 服务生命周期与模块边界
 
-服务收到 SIGINT/SIGTERM 后停止接收新任务，给在途聊天回合最多 2 秒请求中断并收尾，然后取消后台任务、断开 WebSocket/代理/隧道连接，等待已接收用量落库后释放数据库和数据目录锁。重启不会停止会话容器或终端 tmux；不能将服务退出等同于容器内进程全部终止。
+服务收到 SIGINT/SIGTERM 后停止接收新任务，给在途聊天回合最多 2 秒请求中断并收尾，然后取消后台任务、断开 WebSocket/代理/设备连接，等待已接收用量落库后释放数据库和数据目录锁。重启不会停止会话容器或终端 tmux；不能将服务退出等同于容器内进程全部终止。
 
 工作空间的创建、启停、删除与空闲回收由统一工作区服务协调；容器停止或删除失败会返回错误并保留记录，避免界面显示成功但容器仍在运行。
 

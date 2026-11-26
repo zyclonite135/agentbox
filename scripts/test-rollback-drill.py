@@ -253,7 +253,7 @@ class Drill:
         cfg = {'listen': f'127.0.0.1:{self.port}', 'auth_token': ADMIN_PASSWORD,
                'data_dir': str(self.base / 'state'), 'cache_dir': str(self.base / 'cache'),
                'agent_image': 'agentbox-agent:rollback-drill-not-pulled', 'timezone': 'UTC',
-               'tunnel': {'enabled': False}, 'proxy_bridge': {'bind': f'127.0.0.1:{free_port()}'},
+               'proxy_bridge': {'bind': f'127.0.0.1:{free_port()}'},
                'accounts': [{'id': 'fixture', 'type': 'codex', 'label': 'Synthetic', 'credentials_dir': str(creds)}]}
         self.config.write_text(json.dumps(cfg, indent=2))
         self.config.chmod(0o600)

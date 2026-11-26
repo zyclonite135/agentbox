@@ -407,7 +407,7 @@ func (s *Server) handleProjectGit(w http.ResponseWriter, r *http.Request) {
 		s.finishProjectImport(w, r, c, attempt, state, result)
 		return
 	}
-	// Large repositories over a user's intranet tunnel can take minutes. Reply
+	// Large repositories can take minutes to clone. Reply
 	// with the running receipt; the creation view reports it as running while
 	// creationWork is held and the page polls it until the final state.
 	ctx, cancel := context.WithCancel(context.WithoutCancel(r.Context()))

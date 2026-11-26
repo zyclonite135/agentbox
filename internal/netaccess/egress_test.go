@@ -15,7 +15,6 @@ func TestEgressRules(t *testing.T) {
 	}
 	for _, want := range []string{
 		":ABX_EGRESS - [0:0]", "-F ABX_EGRESS",
-		"-A ABX_EGRESS -d 127.0.0.0/8 -j RETURN",
 		"-A ABX_EGRESS -o lo -j RETURN",
 		"-A ABX_EGRESS -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN",
 		"-A ABX_EGRESS -d 172.17.0.1/32 -p tcp -m multiport --dports 1081,1083,30000:30999 -j RETURN",
@@ -32,7 +31,8 @@ func TestEgressRules(t *testing.T) {
 	if strings.Index(v4, "-d 172.17.0.1") > strings.Index(v4, "REJECT") {
 		t.Error("allow rule must precede the reject")
 	}
-	if strings.Contains(v6, "multiport") || !strings.Contains(v6, "-A ABX_EGRESS -j REJECT") {
+	if strings.Contains(v6, "multiport") || !strings.Contains(v6, "-A ABX_EGRESS -o lo -j RETURN") ||
+		!strings.Contains(v6, "-A ABX_EGRESS -j REJECT") {
 		t.Errorf("v6 must be loopback-only:\n%s", v6)
 	}
 }

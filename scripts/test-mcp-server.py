@@ -14,7 +14,7 @@ try:
  data=docker('volume','inspect','--format','{{.Mountpoint}}',volume)
  with tempfile.TemporaryDirectory(prefix='agentbox-mcp-test-') as directory:
   tmp=Path(directory)
-  cfg=tmp/'config.json';cfg.write_text(json.dumps({'listen':'0.0.0.0:8180','auth_token':password,'data_dir':data,'agent_image':a.image,'timezone':'UTC','tunnel':{'enabled':False},'container':{'network':'none','memory_mb':1024,'cpus':2,'pids_limit':128},'accounts':[{'id':'fixture','type':'claude','label':'Synthetic'}]}))
+  cfg=tmp/'config.json';cfg.write_text(json.dumps({'listen':'0.0.0.0:8180','auth_token':password,'data_dir':data,'agent_image':a.image,'timezone':'UTC','container':{'network':'none','memory_mb':1024,'cpus':2,'pids_limit':128},'accounts':[{'id':'fixture','type':'claude','label':'Synthetic'}]}))
   server=docker('create','--mount','type=volume,src='+volume+',dst='+data,'--mount','type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock','-p','127.0.0.1::8180','--entrypoint','/opt/agentbox','alpine:3','--config','/tmp/config.json')
   docker('cp',str(a.binary.resolve()),server+':/opt/agentbox');docker('cp',str(cfg),server+':/tmp/config.json');docker('start',server)
   port=json.loads(docker('inspect',server))[0]['NetworkSettings']['Ports']['8180/tcp'][0]['HostPort'];base='http://127.0.0.1:'+port

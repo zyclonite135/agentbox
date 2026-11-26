@@ -42,7 +42,7 @@ docs/
   configuration.md               配置字段、默认值与数据目录
   skills-and-mcp.md               技能、市场、home 模板与 MCP
   usage-and-quotas.md              使用记录、价格、额度与结算
-  networking.md                  出口代理、abox-link 与内网访问
+  networking.md                  出口代理、abox-link 与设备文件共享
   themes.md                      自定义界面主题：文件格式、令牌与取值规则
   api.md                         HTTP / WebSocket 接口
   development.md                 开发、测试、构建与贡献

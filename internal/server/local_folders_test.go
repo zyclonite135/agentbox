@@ -38,7 +38,7 @@ func TestLocalFolderBrowserAndImport(t *testing.T) {
 	for i := 1; i < devicelink.MaxFolders; i++ {
 		shares = append(shares, devicelink.Folder{ID: fmt.Sprintf("test-folder-extra-%02d", i), Name: strings.Repeat("&", 128)})
 	}
-	if err := s.saveLinkFolders(user, shares); err != nil {
+	if err := s.saveLinkFolders(user, token, shares); err != nil {
 		t.Fatal(err)
 	}
 	s.devices = newDeviceHub()
@@ -107,10 +107,32 @@ func TestLocalFolderBrowserAndImport(t *testing.T) {
 	if w := importFile("report.txt", true); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "/shared/.file/") {
 		t.Fatalf("attachment: %d %s", w.Code, w.Body.String())
 	}
+	const browserToken = "web-test-token"
+	if err := s.store.CreateToken(browserToken, user.Name); err != nil {
+		t.Fatal(err)
+	}
+	browserLogout := request(http.MethodPost, "/api/logout", "", user)
+	browserLogout.Header.Set("Authorization", "Bearer "+browserToken)
+	w = httptest.NewRecorder()
+	s.handleLogout(w, browserLogout)
+	if w.Code != http.StatusOK {
+		t.Fatalf("browser logout: %d %s", w.Code, w.Body.String())
+	}
+	if session, _ := s.liveLinkFolders(user); session == nil {
+		t.Fatal("browser logout disconnected the device")
+	}
 	server.Close()
 	w = httptest.NewRecorder()
 	s.handleLocalFolders(w, request(http.MethodGet, "/api/local-folders", "", user))
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"online":false`) || !strings.Contains(w.Body.String(), "Exchange") {
 		t.Fatalf("offline catalog: %d %s", w.Code, w.Body.String())
+	}
+	w = httptest.NewRecorder()
+	s.handleLogout(w, request(http.MethodPost, "/api/logout", "", user))
+	if w.Code != http.StatusOK {
+		t.Fatalf("device unpair: %d %s", w.Code, w.Body.String())
+	}
+	if folders := s.savedLinkFolders(user); len(folders) != 0 {
+		t.Fatal("unpaired folders remain visible")
 	}
 }

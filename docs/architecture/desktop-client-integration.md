@@ -158,7 +158,7 @@ JSON schema；404/明确不支持进入基础模式，401要求重新登录，�
 
 候选路由：
 
-- `POST /api/clients/pair`、`POST /api/clients/pair/redeem`：复用配对原语，与隧道开关解耦。
+- `POST /api/clients/pair`、`POST /api/clients/pair/redeem`：复用配对原语，与设备文件共享独立。
 - `/api/sessions/{id}/client-projects`：项目 ID、相对目录、展示名和启动设置。
 - `/api/sessions/{id}/client-terminals`：创建/列举终端资源。
 - `/api/sessions/{id}/client-terminals/{terminal}/stream`：终端 WS，保持二进制输入输出、JSON resize 约定。

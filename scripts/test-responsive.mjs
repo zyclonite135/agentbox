@@ -101,7 +101,7 @@ export async function responsiveSmoke(page, base) {
       }
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth), 'model descriptions overflow');
       await page.screenshot({animations:'disabled',path:`output/playwright/context-models-${width}-${theme}.png`});
-      for (const view of ['usage','tunnel','git/guide']) {
+      for (const view of ['usage','device-link','git/guide']) {
         await page.goto(base + '/#/'+view);
         await page.locator('#view-'+view.split('/')[0]).waitFor({state:'visible'});
         assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth), view+' page overflow');

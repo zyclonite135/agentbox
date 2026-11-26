@@ -252,7 +252,7 @@ jobs:
           docker pull alpine:3
           npm install --prefix "$RUNNER_TEMP/compat-browser" --no-package-lock playwright@1.63.0
           "$RUNNER_TEMP/compat-browser/node_modules/.bin/playwright" install --with-deps chromium
-      - name: Frozen server migration, old browser and abox-link against current server
+      - name: Frozen server migration and old browser against current server
         env:
           AGENTBOX_PLAYWRIGHT_MODULE: ${{ runner.temp }}/compat-browser/node_modules/playwright/index.mjs
         run: python desktop/scripts/test-server-compat.py --image agentbox-client-test:compat --browser-smoke --report "$RUNNER_TEMP/server-compat.json"

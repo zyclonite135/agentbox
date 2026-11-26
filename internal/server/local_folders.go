@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -23,8 +25,11 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
+const linkFolderCatalogName = "local-folders.json"
+
 type linkFolderCatalog struct {
 	Owner   time.Time           `json:"owner"`
+	Pairing string              `json:"pairing"`
 	Folders []devicelink.Folder `json:"folders"`
 }
 
@@ -51,22 +56,21 @@ func (s *Server) userFolderRoot(user string) (*safefs.Root, error) {
 	return s.openDataDir(filepath.Join(s.cfg.DataDir, "users", user))
 }
 
-func (s *Server) saveLinkFolders(user store.User, folders []devicelink.Folder) error {
+func (s *Server) saveLinkFolders(user store.User, token string, folders []devicelink.Folder) error {
 	root, err := s.userFolderRoot(user.Name)
 	if err != nil {
 		return err
 	}
 	defer root.Close()
-	const name = "local-folders.json"
 	if len(folders) == 0 {
-		err := root.Remove(name)
+		err := root.Remove(linkFolderCatalogName)
 		if os.IsNotExist(err) {
 			return nil
 		}
 		return err
 	}
-	body, _ := json.Marshal(linkFolderCatalog{Owner: user.CreatedAt, Folders: folders})
-	_, err = root.WriteFile(name, body, safefs.WriteOptions{Mode: 0600})
+	body, _ := json.Marshal(linkFolderCatalog{Owner: user.CreatedAt, Pairing: folderPairingID(token), Folders: folders})
+	_, err = root.WriteFile(linkFolderCatalogName, body, safefs.WriteOptions{Mode: 0600})
 	return err
 }
 
@@ -76,14 +80,46 @@ func (s *Server) savedLinkFolders(user store.User) []devicelink.Folder {
 		return nil
 	}
 	defer root.Close()
-	// JSON encoding on disk can escape characters that were sent literally in
-	// the handshake, so leave room for a full catalog of 16 display names.
-	raw, err := root.ReadFile("local-folders.json", 16<<10)
-	var catalog linkFolderCatalog
-	if err != nil || json.Unmarshal(raw, &catalog) != nil || !catalog.Owner.Equal(user.CreatedAt) {
+	catalog, err := readLinkFolderCatalog(root)
+	if err != nil || !catalog.Owner.Equal(user.CreatedAt) {
 		return nil
 	}
 	return catalog.Folders
+}
+
+func folderPairingID(token string) string {
+	digest := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(digest[:])
+}
+
+func readLinkFolderCatalog(root *safefs.Root) (linkFolderCatalog, error) {
+	var catalog linkFolderCatalog
+	// Leave room for JSON escaping of a full catalog of display names.
+	raw, err := root.ReadFile(linkFolderCatalogName, 16<<10)
+	if err != nil {
+		return catalog, err
+	}
+	err = json.Unmarshal(raw, &catalog)
+	return catalog, err
+}
+
+func (s *Server) removeLinkFoldersForToken(user store.User, token string) error {
+	root, err := s.userFolderRoot(user.Name)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	catalog, err := readLinkFolderCatalog(root)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !catalog.Owner.Equal(user.CreatedAt) || catalog.Pairing != folderPairingID(token) {
+		return nil
+	}
+	return root.Remove(linkFolderCatalogName)
 }
 
 func (s *Server) liveLinkFolders(user store.User) (*yamux.Session, []devicelink.Folder) {
@@ -105,7 +141,7 @@ func (s *Server) liveLinkFolders(user store.User) (*yamux.Session, []devicelink.
 }
 
 // Local-folder endpoints only accept the authenticated user's explicit console
-// requests. No workspace credential, network rule or port mapping routes here.
+// requests with the dedicated local-file header.
 func localFolderRequest(w http.ResponseWriter, r *http.Request) bool {
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Header.Get("X-AgentBox-Local-Files") != "1" || !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {

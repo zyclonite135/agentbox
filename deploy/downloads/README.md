@@ -1,6 +1,6 @@
 # Agentbox 下载与安装
 
-Agentbox 提供浏览器中的 AI 编码工作空间，支持 Claude Code / Codex CLI、对话、终端、文件、Git、账号池及内网反向隧道。
+Agentbox 提供浏览器中的 AI 编码工作空间，支持 Claude Code / Codex CLI、对话、终端、文件、Git、账号池及通过 abox-link 共享文件夹。
 
 本页提供预编译包的安装与维护说明，完整源码与贡献入口见 [agentbox](https://github.com/devilcoolyue/agentbox)。本分支下载页面：<https://github.com/zyclonite135/agentbox/releases>。
 
@@ -85,9 +85,9 @@ sudo python3 /绝对路径/新版本包/deploy/release.py activate --version vX.
 
 ### 升级至 v0.1.20
 
-本版让工作空间经内网隧道把编译、渲染等重活交给自己的电脑（`self.abox-link` 与自带的 `abox-remote`），系统设置新增仅管理员可见的「登录与活跃」，使用记录新增趋势图与缓存命中率，同时运行的对话线程数可在「系统设置 → 容器与资源」调整（默认 3）；数据盘空间不足时不再把用户锁在外面；Go 升级到 1.26.11 修复 GO-2026-6859；完整分类说明见 [v0.1.20 Release](https://github.com/devilcoolyue/agentbox/releases/tag/v0.1.20)。
+本版系统设置新增仅管理员可见的「登录与活跃」，使用记录新增趋势图与缓存命中率，同时运行的对话线程数可在「系统设置 → 容器与资源」调整（默认 3）；数据盘空间不足时不再把用户锁在外面；Go 升级到 1.26.11 修复 GO-2026-6859；完整分类说明见 [v0.1.20 Release](https://github.com/devilcoolyue/agentbox/releases/tag/v0.1.20)。
 
-从 v0.1.19 升级会执行 schema 24 → 25 → 26 迁移（更早版本连续执行到 26），只新增登录记录与最后活跃两张表并改一个列名，不改已有数据。升级前先保存并验证备份；**v0.1.19 及更早的二进制不能直接打开 schema 26 数据库**，回退须恢复升级前兼容备份到新目录，升级后的登录记录与最后活跃不会保留。新增配置项 `max_parallel_chats`，旧版忽略并在再次保存时丢掉。无需更新空间镜像；`self.abox-link` 与升级提示需要本版的 abox-link 客户端。
+从 v0.1.19 升级会执行 schema 24 → 25 → 26 迁移（更早版本连续执行到 26），只新增登录记录与最后活跃两张表并改一个列名，不改已有数据。升级前先保存并验证备份；**v0.1.19 及更早的二进制不能直接打开 schema 26 数据库**，回退须恢复升级前兼容备份到新目录，升级后的登录记录与最后活跃不会保留。新增配置项 `max_parallel_chats`，旧版忽略并在再次保存时丢掉。无需更新空间镜像。
 
 请先结束当前网页任务，升级会备份并重启服务，完成后刷新页面。从 v0.1.18 或更新版本升级时可用 `--announce-minutes` 先向在线用户预告。标准 Linux/systemd 版本目录安装可使用「关于与更新 → 升级并重启」，或在 Bash 中执行下文 v0.1.15 的命令并把 `version` 改为 `v0.1.20`。
 
@@ -117,7 +117,7 @@ sudo python3 /绝对路径/新版本包/deploy/release.py activate --version vX.
 
 ### 升级至 v0.1.16
 
-本版新增管理员「扩展」菜单（循环保护、Webhook 通知）、对话回合计时与顶部加载条，网页 Git 网络操作改为后台执行，支持经内网隧道访问 HTTP 内网 Git；完整分类说明见 [v0.1.16 Release](https://github.com/devilcoolyue/agentbox/releases/tag/v0.1.16)。数据库仍为 schema 19，无需更新空间镜像；未启用扩展时行为不变，模型网关不监听。请先结束当前网页任务，升级会备份并重启服务，完成后刷新页面。
+本版新增管理员「扩展」菜单（循环保护、Webhook 通知）、对话回合计时与顶部加载条，网页 Git 网络操作改为后台执行；完整分类说明见 [v0.1.16 Release](https://github.com/devilcoolyue/agentbox/releases/tag/v0.1.16)。数据库仍为 schema 19，无需更新空间镜像；未启用扩展时行为不变，模型网关不监听。请先结束当前网页任务，升级会备份并重启服务，完成后刷新页面。
 
 标准 Linux/systemd 版本目录安装可使用「关于与更新 → 升级并重启」，或在 Bash 中执行下节 v0.1.15 的命令并把 `version` 改为 `v0.1.16`。回退到 v0.1.15 不涉及数据库，但旧版会忽略新增的 `extensions` / `model_gateway` 配置，再次保存配置时会丢掉它们；绑定过 Codex 账号的空间回退前先在扩展页解绑或停用，让空间配置恢复原上游地址。
 

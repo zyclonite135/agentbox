@@ -35,7 +35,7 @@ Set up your coding environment once on your server, then pick up your project fr
 | **Finish the task in one place** | Upload or clone → chat → run and preview → review diffs → commit, push, or download |
 | **Reuse your setup** | User-level shared files, layered home templates, Claude skills, and MCP configuration with workspace overrides |
 | **Give a trusted team access** | Central account pools, per-user account scopes, per-request usage records, price snapshots, and optional credits |
-| **Connect to your own services** | Optional abox-link tunnel to allowlisted repositories, databases, and other private-network services |
+| **Files from your computer** | Optional abox-link lets you browse selected folders and transfer individual files on demand |
 
 You bring the server and your own Claude / Codex subscription, API key, or compatible relay account. Agentbox provides the workspace and management layer; model usage follows your provider's terms and pricing.
 
@@ -61,7 +61,7 @@ You bring the server and your own Claude / Codex subscription, API key, or compa
 - **Accounts:** subscription, API key and relay accounts in one pool, scoped per user, with the models and reasoning effort each account offers. A workspace can switch to another account of the same agent.
 - **Usage and cost:** one record per model request with tokens, cache, latency, reasoning effort and the price snapshot it was billed at; terminal usage is recorded too. Claude Code and Codex report each request's first-token time and duration over telemetry, which gives a measured latency and output speed (tok/s) per request; requests without that report fall back to estimates from the CLI logs. A workspace can turn on cache keepalive: while you are away, the server keeps the prompt cache of a large Claude conversation (in chat, and optionally in the terminal) from expiring for up to three hours by default, so coming back does not pay to write it all into the cache again. Optional credit balances and CSV export.
 - **Reuse:** Claude skills (including the official marketplace), layered home templates, and MCP servers as user defaults with per-workspace overrides.
-- **Private networks:** pair abox-link to reach allowlisted services on your own network; route each account through its own egress proxy.
+- **Egress proxy:** use a separate proxy for each account.
 - **Announcements:** administrators show every page a banner, such as a release countdown that turns into "upgraded" once the new version starts, and can see who a restart would affect first. [Announcements →](docs/announcements.md)
 
 ### Extend, delegate, make it yours
@@ -101,7 +101,6 @@ All screenshots are 2× PNGs; click one to open it at full resolution.
 </tr>
 <tr>
 <td valign="top"><a href="docs/images/en/extensions.png"><img src="docs/images/en/extensions.png" alt="Extensions page with Loop guard and Webhook notifications running" /></a><br /><strong>Extensions</strong><br /><sub>Approve permissions and choose the accounts or users each one applies to.</sub></td>
-<td valign="top"><a href="docs/images/en/tunnel.png"><img src="docs/images/en/tunnel.png" alt="Private-network tunnel status with allowlisted targets" /></a><br /><strong>Private-network tunnel</strong><br /><sub>abox-link status, allowlist and client downloads.</sub></td>
 </tr>
 </table>
 
@@ -187,7 +186,7 @@ The server needs Docker access and permission to set mounted directory ownership
 
 **One Go server, SQLite, and Docker.** The frontend is embedded in the server binary. Each workspace gets its own container; files and history persist on the host.
 
-[![Agentbox architecture: browser and optional desktop connect to the Go server; Docker workspaces run Claude and Codex, with persistent storage and an optional private-network tunnel](docs/images/architecture.svg)](docs/images/architecture.svg)
+[![Agentbox architecture: browser and optional desktop connect to the Go server; Docker workspaces run Claude and Codex, with persistent storage and optional file sharing through abox-link](docs/images/architecture.svg)](docs/images/architecture.svg)
 
 | Layer | Responsibility |
 | --- | --- |
@@ -195,7 +194,7 @@ The server needs Docker access and permission to set mounted directory ownership
 | **Agentbox server** | Authentication, account access, workspace lifecycle, HTTP / WebSocket, Git operations, usage and credits, extensions |
 | **Workspace containers** | Run Claude Code / Codex CLI and project tools; communicate with your configured model provider |
 | **Persistent storage** | SQLite state and ledger, project files, home directories, shared files, and JSONL chat history |
-| **Optional abox-link** | Connect private services reachable from your computer through an explicit allowlist |
+| **Optional abox-link** | Browse selected folders and transfer individual files |
 
 Chat and terminal share files, **not an automatic conversation context**. Each workspace supports multiple chat threads, and by default up to three of them (configurable by the admin) can run Web chat turns at the same time (messages sent to a running thread, or past that limit, queue); long threads open at the newest messages and load earlier ones as you scroll up. Each user's `/shared` directory is available across their workspaces. Stopping a container retains files and history but ends its processes.
 
@@ -205,7 +204,7 @@ Chat and terminal share files, **not an automatic conversation context**. Each w
 | --- | --- | --- |
 | **Web console** | Chat, original CLI terminal, files, Git, skills, MCP, and administration | Included in the server; no local agent installation |
 | **Desktop app** | Native Windows/macOS access, project terminals, file transfer, and optional sync | [Download 0.1.2](https://github.com/devilcoolyue/agentbox/releases/tag/desktop-v0.1.2) · unsigned public test release |
-| **abox-link** | Allowlisted private-network access from cloud workspaces | Optional; local panel or headless command line on Windows, macOS, and Linux |
+| **abox-link** | Browse folders shared from your computer | Optional; local panel or headless command line on Windows, macOS, and Linux |
 | **HTTP / WebSocket API** | Script workspace operations and usage queries | [API reference](docs/api.md) |
 
 The desktop app connects to your server; it does not replace or upgrade it. **Sync is disabled by default and requires an administrator to enable it.** Desktop 0.1.2 is a manual download (macOS not notarized, Windows unsigned, no automatic updates) and predates the multilingual UI that the desktop source now has. See the [desktop guide](desktop/README.md).
@@ -233,7 +232,7 @@ English and Chinese READMEs cover the same overview and setup. Detailed guides a
 | Understand or manage costs | [Usage and credits](docs/usage-and-quotas.md) · [Pricing catalogs](docs/pricing-catalog.md) |
 | Turn on extensions or stop repetitive model output | [Extensions and SPI](docs/architecture/extensions-spi.md) · [Standalone loop guard (preview)](docs/loop-guard.md) |
 | Let a strong model hand work to cheaper ones | [Supervisor delegation](docs/architecture/delegation-supervisor.md) |
-| Connect private services | [Proxies and abox-link](docs/networking.md) |
+| Access files on your computer | [Device file sharing](docs/networking.md) |
 | Install, upgrade, back up, or recover | [Deployment](deploy/README.md) · [Releases](docs/releases.md) · [CLI compatibility](docs/compatibility.md) |
 | Configure or integrate the server | [Configuration](docs/configuration.md) · [API reference](docs/api.md) |
 | Choose a language or make a theme | [Languages](docs/i18n.md) · [Interface themes](docs/themes.md) |
@@ -243,7 +242,7 @@ English and Chinese READMEs cover the same overview and setup. Detailed guides a
 
 ## Development roadmap
 
-The current server release is **v0.1.20** (2026-11-12). Recent releases added supervisor delegation, the theme editor and local storage capacity management (v0.1.13); questions, follow-ups, `/` commands, `@` mentions, the context meter, the task list and per-request billing (v0.1.14); extensions, webhook notifications, the turn timer and background Git network operations (v0.1.16); prompt cache keepalive, measured per-request latency, live per-request billing, CLI-style tool rows and icon management (v0.1.17); the conversation rail, system announcements with a release countdown, restricted workspace egress, terminal usage billing and per-user storage limits (v0.1.18); up to three conversation threads running at once in a workspace, terminal tabs and the folding workbench top bar (v0.1.19); and `abox-remote` for offloading work to your own machine over the tunnel, an admin panel for logins and last activity, a usage trend chart and a configurable number of concurrent conversations (v0.1.20). See the [changelog](CHANGELOG.md).
+The current server release is **v0.1.20** (2026-11-12). Recent releases added supervisor delegation, the theme editor and local storage capacity management (v0.1.13); questions, follow-ups, `/` commands, `@` mentions, the context meter, the task list and per-request billing (v0.1.14); extensions, webhook notifications, the turn timer and background Git network operations (v0.1.16); prompt cache keepalive, measured per-request latency, live per-request billing, CLI-style tool rows and icon management (v0.1.17); the conversation rail, system announcements with a release countdown, restricted workspace egress, terminal usage billing and per-user storage limits (v0.1.18); up to three conversation threads running at once in a workspace, terminal tabs and the folding workbench top bar (v0.1.19); and an admin panel for logins and last activity, a usage trend chart and a configurable number of concurrent conversations (v0.1.20). See the [changelog](CHANGELOG.md).
 
 The first round (M1–M5: diagnostics, onboarding, reliable chat, maintenance quality, desktop consistency) shipped in v0.1.11; its external acceptance — real-user observations, performance thresholds, recovery targets and desktop signing — is still pending ([record](docs/milestones/backlog.md)). The second round continues it:
 

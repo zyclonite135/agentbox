@@ -23,10 +23,10 @@ LABELS = {
         "provider_note": ["The CLI calls the provider.", "Optional account", "egress proxy."],
         "state": "state + history", "mounts": "directory mounts", "storage": "Persistent on your server",
         "storage_line": "SQLite · chat history · workspace / home / shared", "persistence": "Stop a container. Keep your work.",
-        "tunnel": "OPTIONAL  /  REACH YOUR PRIVATE NETWORK", "no_port": "No inbound port on your computer",
-        "relay": "Workspace → server relay", "link": "abox-link on your computer", "internal": "Internal services",
-        "outbound": "Client initiates the connection", "allowlist": "Allowlist", "services": "Git · databases · APIs",
-        "desc": "A browser or optional desktop client connects to the agentbox Go server over HTTPS and WebSocket. The Linux host runs a local Docker engine with one workspace container running Claude Code or Codex. The CLI calls model APIs, optionally through an account egress proxy. SQLite, chat history and workspace, home and shared directories persist on the host. Optional abox-link initiates an outbound tunnel from the user's computer to the server. Workspace requests pass through the server and tunnel to services allowed by the local client.",
+        "sharing": "OPTIONAL  /  SHARE FILES FROM YOUR COMPUTER", "no_port": "No inbound port on your computer",
+        "relay": "Files in AgentBox", "link": "abox-link on your computer", "local": "Shared folders",
+        "outbound": "Client initiates the connection", "selection": "Read-only access", "files": "Transfer on demand",
+        "desc": "A browser or optional desktop client connects to the agentbox Go server over HTTPS and WebSocket. The Linux host runs a local Docker engine with one workspace container running Claude Code or Codex. The CLI calls model APIs, optionally through an account egress proxy. SQLite, chat history and workspace, home and shared directories persist on the host. Optional abox-link connects to the server from the user's computer. In AgentBox, users can browse folders explicitly shared with abox-link and transfer selected files on demand.",
     },
     "cn": {
         "title": "你的智能体，你的基础设施。",
@@ -41,10 +41,10 @@ LABELS = {
         "provider_note": ["由 CLI 调用模型服务", "可选：按账号指定", "出口代理"],
         "state": "状态与聊天记录", "mounts": "挂载持久化目录", "storage": "数据持久保存在你的服务器",
         "storage_line": "SQLite · 聊天记录 · workspace / home / shared", "persistence": "容器可以停止，工作成果继续保留。",
-        "tunnel": "可选能力  /  访问你的内网", "no_port": "你的电脑无需开放入站端口",
-        "relay": "工作空间 → 服务端转发", "link": "本机运行 abox-link", "internal": "内网服务",
-        "outbound": "由本机客户端主动连接服务端", "allowlist": "白名单校验", "services": "Git · 数据库 · API",
-        "desc": "浏览器或可选的桌面客户端通过 HTTPS 和 WebSocket 连接 agentbox Go 服务端。Linux 服务器通过本机 Docker Engine 为每个工作空间创建运行 Claude Code 或 Codex 的容器。CLI 调用模型 API，可按账号配置出口代理。SQLite、聊天记录以及 workspace、home、shared 目录持久保存在宿主机。可选的 abox-link 从用户本机主动连接服务端，工作空间请求经服务端与隧道访问本机白名单允许的内网服务。",
+        "sharing": "可选能力  /  共享电脑上的文件", "no_port": "你的电脑无需开放入站端口",
+        "relay": "AgentBox 文件管理器", "link": "本机运行 abox-link", "local": "共享文件夹",
+        "outbound": "由本机客户端主动连接服务端", "selection": "只读访问", "files": "按需上传文件",
+        "desc": "浏览器或可选的桌面客户端通过 HTTPS 和 WebSocket 连接 agentbox Go 服务端。Linux 服务器通过本机 Docker Engine 为每个工作空间创建运行 Claude Code 或 Codex 的容器。CLI 调用模型 API，可按账号配置出口代理。SQLite、聊天记录以及 workspace、home、shared 目录持久保存在宿主机。可选的 abox-link 从用户电脑主动连接服务端。用户可在 AgentBox 浏览自己共享的文件夹并按需上传文件。",
     },
 }
 
@@ -79,7 +79,7 @@ def render(lang):
     .muted {{ font-size: 16px; fill: #aba396; }}
     .edge {{ font-size: 15px; fill: #d2b483; }}
     .storage-title {{ font-size: 22px; font-weight: 600; }}
-    .tunnel-heading {{ font-size: 20px; font-weight: 550; }}
+    .sharing-heading {{ font-size: 20px; font-weight: 550; }}
     .overline {{ font-size: 15px; font-weight: 600; letter-spacing: .7px; fill: #c8b491; }}
     .pill {{ font-size: 12px; font-weight: 600; letter-spacing: .8px; fill: #e8bb74; }}
     .card {{ fill: #23221f; stroke: #4a4439; stroke-width: 1.5; }}
@@ -148,18 +148,18 @@ def render(lang):
     text(372, 544, t['storage'], 'storage-title')
     text(372, 574, t['storage_line'], 'body')
     text(350, 654, t['persistence'], 'muted')
-    # Separate optional lane shows request direction and who establishes the tunnel.
+    # Separate optional lane shows the file request and connection directions.
     box(48, 687, 1184, 155, 'boundary', 16)
-    text(72, 717, t['tunnel'], 'overline')
+    text(72, 717, t['sharing'], 'overline')
     text(1208, 717, t['no_port'], 'muted', 'end')
-    text(72, 765, t['relay'], 'tunnel-heading')
-    text(584, 765, t['link'], 'tunnel-heading')
-    text(1040, 765, t['internal'], 'tunnel-heading')
+    text(72, 765, t['relay'], 'sharing-heading')
+    text(584, 765, t['link'], 'sharing-heading')
+    text(1040, 765, t['local'], 'sharing-heading')
     path('M340 759 H562', 'optional')
     text(451, 749, 'WSS / yamux', 'edge', 'middle')
     path('M874 759 H1020', 'optional')
-    text(947, 749, t['allowlist'], 'edge', 'middle')
-    text(1040, 794, t['services'], 'muted')
+    text(947, 749, t['selection'], 'edge', 'middle')
+    text(1040, 794, t['files'], 'muted')
     path('M562 797 H340', 'optional')
     text(451, 826, t['outbound'], 'muted', 'middle')
     add('</svg>')

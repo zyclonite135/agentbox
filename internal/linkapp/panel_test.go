@@ -90,7 +90,7 @@ func TestStartRefusesUnpairedConfig(t *testing.T) {
 	}
 }
 
-func TestRePairStopsTunnelWithPreviousFolders(t *testing.T) {
+func TestRePairStopsDeviceLinkWithPreviousFolders(t *testing.T) {
 	t.Setenv("ABOX_LINK_HOME", t.TempDir())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/device-link/pair/redeem" {

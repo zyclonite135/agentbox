@@ -61,7 +61,7 @@ func TestModelGatewayValidation(t *testing.T) {
 	}
 	if _, err := Load(writeRaw(t, map[string]any{"auth_token": "test-token-long-enough", "device_link": map[string]any{"enabled": true},
 		"model_gateway": map[string]any{"bind": "172.17.0.1:1081"}})); err == nil {
-		t.Error("gateway bind colliding with the transparent network listener accepted")
+		t.Error("gateway bind colliding with the account proxy bridge accepted")
 	}
 	if _, err := Load(writeRaw(t, map[string]any{"auth_token": "test-token-long-enough", "device_link": map[string]any{"enabled": true}})); err != nil {
 		t.Errorf("default gateway bind with device sharing: %v", err)

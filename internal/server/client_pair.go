@@ -13,7 +13,7 @@ func (s *Server) clientPairStore() *pairStore {
 }
 
 // Codes have a distinct store and endpoint from abox-link. Neither enabling nor
-// disabling the tunnel changes desktop pairing, and codes cannot cross channels.
+// disabling file sharing changes desktop pairing, and codes cannot cross channels.
 func (s *Server) handleClientPair(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.authenticatedPairUser(r)
 	if !ok {

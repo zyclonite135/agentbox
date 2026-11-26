@@ -1,13 +1,4 @@
-/* abox-link 控制台 —— 「接线台」。
- *
- * 页面不是卡片堆，是一台机器：顶部一条三节点电路（agentbox — 本机 — 内网）
- * 就是状态本身，中间那个节点是放行规则生效的地方；下面宽屏分两栏，左边操作
- * （规则 / 映射），右边读数（日志 / 选项）——保存后隧道按新规则重连，日志得
- * 在改规则时就看得见。
- *
- * 配色沿用 agentbox 令牌（深底 + 琥珀），浅色主题镜像主控制台的牛皮纸配方，
- * 让两端看起来是一套产品。字体走 --ui：字形逐个回退，拉丁与数字落等宽、
- * 汉字落系统黑体——这页的正经内容是地址、端口和延迟，等宽才对得齐。 */
+/* abox-link pairing, shared folders and connection status. */
 
 :root {
   -webkit-tap-highlight-color: transparent;
@@ -75,18 +66,9 @@ body {
   background: var(--bg);
   color: var(--text);
   font: 13px/1.65 var(--sans);
-  padding-bottom: 96px; /* 给保存条留位置 */
   -webkit-font-smoothing: antialiased;
 }
 
-/* 地址不能拦腰断开——192.168.1.0/24 断成两行就读不出是个网段了，
- * 整块换行即可，这些示例都短 */
-code {
-  font-family: var(--ui);
-  font-size: .93em;
-  color: var(--amber);
-  white-space: nowrap;
-}
 .hidden { display: none !important; }
 .err { color: var(--red); font-size: 12.5px; }
 .hint { color: var(--muted); font-size: 12px; }
@@ -177,7 +159,7 @@ main { max-width: 1060px; margin: 0 auto; padding: 22px; }
   background: var(--wire-off);
   transition: background .3s, box-shadow .3s;
 }
-/* 中点是你的机器：菱形、常亮描边——隧道断了它也还在。
+/* 中点是你的机器：菱形、常亮描边，断开时保留描边。
  * 尺寸跟灯一致：rotate 不改布局盒，边长一大三个标签就不在同一条基线上了 */
 .node-mark {
   width: 11px; height: 11px;
@@ -220,7 +202,7 @@ main { max-width: 1060px; margin: 0 auto; padding: 22px; }
   85%  { opacity: .9; }
   100% { left: calc(100% - 46px); opacity: 0; }
 }
-/* 只点亮朝 agentbox 那头：内网侧要等电路真接通了才亮 */
+/* Connecting: highlight the server side. */
 .wire.busy .term-a .lamp { background: var(--amber); box-shadow: 0 0 0 4px var(--ring); }
 .wire.busy .node-mark { border-color: var(--amber); }
 
@@ -235,7 +217,7 @@ main { max-width: 1060px; margin: 0 auto; padding: 22px; }
   box-shadow: 0 0 0 4px var(--ring);
 }
 
-/* 凭证失效：断在朝 agentbox 的那一侧，内网侧本来就没问题 */
+/* Expired credentials: mark the server connection as unavailable. */
 .wire.bad .leg-a {
   background: repeating-linear-gradient(90deg,
     var(--red) 0 6px, transparent 6px 12px);
@@ -292,13 +274,6 @@ main { max-width: 1060px; margin: 0 auto; padding: 22px; }
   font-size: 13px; font-weight: 600; letter-spacing: .08em;
 }
 .head-line { flex: 1; height: 1px; background: var(--line); }
-.head-tag {
-  flex: none;
-  font-family: var(--ui); font-size: 10.5px; letter-spacing: .08em;
-  color: var(--muted);
-  padding: 2px 7px; border: 1px solid var(--line); border-radius: 4px;
-}
-
 .card p {
   margin: 0 0 14px;
   color: var(--muted); font-size: 12.5px;
@@ -338,12 +313,6 @@ button.loading::before {
 }
 @keyframes button-spin { to { transform: rotate(360deg); } }
 
-/* 加一行：虚线框，看起来就是个空槽位 */
-button.add {
-  border-style: dashed;
-  padding: 8px 14px;
-}
-
 input[type=text], textarea {
   font: inherit; font-family: var(--ui);
   width: 100%;
@@ -373,15 +342,6 @@ input[type=text]:focus, textarea:focus {
 #local-folder-form input { width: 100%; min-width: 0; }
 .local-folder-row span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 
-/* 空态是个邀请，也是一句实话 */
-.rules:empty::before {
-  content: attr(data-empty);
-  display: block;
-  padding: 13px 14px;
-  border: 1px dashed var(--line); border-radius: 8px;
-  color: var(--muted); font-size: 12.5px;
-}
-
 /* 左边一道竖条：正在编辑的那行会点亮，和电路同一套语言 */
 .rule {
   display: flex; gap: 8px; align-items: center;
@@ -390,7 +350,6 @@ input[type=text]:focus, textarea:focus {
   transition: border-color .15s;
 }
 .rule:focus-within { border-left-color: var(--amber); }
-.rule .sep { color: var(--amber); flex: none; font-family: var(--ui); }
 .rule button {
   flex: none; padding: 7px 10px; color: var(--muted);
   line-height: 1; border-color: transparent;

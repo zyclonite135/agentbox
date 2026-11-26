@@ -58,7 +58,7 @@ STEPS = [
     step('desktop.unit', 'offline', ['npm','--prefix','desktop','test'], 'Desktop Vitest, no native app launch.', requires=['desktop/node_modules/.bin/vitest']),
     *[step('desktop.'+name, 'offline', ['{python}','desktop/scripts/test-'+name+'.py'], 'Desktop synthetic harness/policy checks, not device acceptance.') for name in ['candidate-config','release-manifest','smoke-harness','webview2-harness','license-encoding','cross-os-harness']],
     step('desktop.rust', 'native', ['cargo','test','--locked','--manifest-path','desktop/src-tauri/Cargo.toml'], 'Native unit tests; OS SDK required, real credential-store opt-in disabled.'),
-    step('desktop.compat', 'docker', ['{python}','desktop/scripts/test-server-compat.py','--image','{image}','--browser-smoke'], 'Frozen server/web/link compatibility using isolated Docker volumes; may fetch baseline source.'),
+    step('desktop.compat', 'docker', ['{python}','desktop/scripts/test-server-compat.py','--image','{image}','--browser-smoke'], 'Frozen server and web compatibility using isolated Docker volumes; may fetch baseline source.'),
 ]
 
 PROFILES = {

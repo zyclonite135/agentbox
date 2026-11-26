@@ -35,7 +35,7 @@
 | **在一个地方完成交付** | 上传或克隆 → 对话 → 运行与预览 → 审查 diff → 提交、推送或下载 |
 | **复用自己的环境** | 用户级共享目录、分层 home 模板、Claude 技能与支持空间覆盖的 MCP 配置 |
 | **让可信团队统一使用** | 集中账号池、按用户授权、逐次请求的用量明细、价格快照与可选额度 |
-| **连接自己的服务** | 可选 abox-link 隧道，访问白名单内的代码仓库、数据库与其他内网服务 |
+| **访问电脑上的文件** | 可选 abox-link，可浏览所选文件夹并按需上传文件 |
 
 你准备服务器，以及自己的 Claude / Codex 订阅、API Key 或兼容中转账号。Agentbox 提供工作空间和管理能力，模型调用遵循对应服务商的条款与计费。
 
@@ -61,7 +61,7 @@
 - **账号：** 订阅、API Key 与中转账号集中在账号池，按用户授权，逐账号配置可用模型与推理强度；空间可切换到同类型的其他账号。
 - **用量与费用：** 每次模型请求一条记录，含 token、缓存、延迟、推理强度及入账时的价格快照；终端用量同样记录。Claude Code 与 Codex 经遥测上报每次请求的首字与耗时，据此给出实测的延迟与输出速度（tok/s）；没有上报的请求按 CLI 日志估算。空间可开启缓存保活：用户离开期间，服务端默认在 3 小时内为较大的 Claude 对话（网页对话，可选连同终端会话）续住提示缓存，回来时不必把整段对话重新写进缓存。可选额度余额与 CSV 导出。
 - **复用：** Claude 技能（含官方市场）、分层 home 模板，以及用户默认 + 空间覆盖的 MCP 配置。
-- **内网：** 配对 abox-link 访问白名单内的内网服务；每个账号可走自己的出口代理。
+- **出口代理：** 可为每个账号指定独立的出口代理。
 - **系统通告：** 管理员给所有页面发一条横幅，例如带倒计时的发版预告，新版本启动后自动提示已升级；发版前可查看现在重启会影响谁。[系统通告 →](docs/announcements.md)
 
 ### 扩展、委派与个性化
@@ -101,7 +101,6 @@
 </tr>
 <tr>
 <td valign="top"><a href="docs/images/zh-CN/extensions.png"><img src="docs/images/zh-CN/extensions.png" alt="扩展页：循环保护与 Webhook 通知正在运行" /></a><br /><strong>扩展</strong><br /><sub>逐项批准权限，选择作用于哪些账号或用户。</sub></td>
-<td valign="top"><a href="docs/images/zh-CN/tunnel.png"><img src="docs/images/zh-CN/tunnel.png" alt="内网隧道：连接状态与白名单目标" /></a><br /><strong>内网隧道</strong><br /><sub>abox-link 状态、白名单与客户端下载。</sub></td>
 </tr>
 </table>
 
@@ -179,7 +178,7 @@ sudo ./agentbox -config config.json
 
 **一个 Go 服务端，加上 SQLite 和 Docker。** 网页资源嵌入服务端二进制；每个工作空间有自己的容器，文件与历史保存在宿主机。
 
-[![Agentbox 整体架构：浏览器和可选桌面端连接 Go 服务端，Docker 空间运行 Claude 与 Codex，宿主机持久存储，可选隧道访问内网](docs/images/architecture-cn.svg)](docs/images/architecture-cn.svg)
+[![Agentbox 整体架构：浏览器和可选桌面端连接 Go 服务端，Docker 空间运行 Claude 与 Codex，宿主机持久存储，可通过 abox-link 浏览所选文件夹](docs/images/architecture-cn.svg)](docs/images/architecture-cn.svg)
 
 | 层次 | 负责什么 |
 | --- | --- |
@@ -187,7 +186,7 @@ sudo ./agentbox -config config.json
 | **Agentbox 服务端** | 登录鉴权、账号授权、空间生命周期、HTTP / WebSocket、Git 操作、用量和额度、扩展 |
 | **工作空间容器** | 运行 Claude Code / Codex CLI 和项目工具，连接配置的模型服务商 |
 | **持久存储** | SQLite 状态与账本、项目文件、home 目录、共享文件与 JSONL 聊天历史 |
-| **可选 abox-link** | 通过明确的白名单，连接本机可达的内网服务 |
+| **可选 abox-link** | 浏览所选文件夹并按需上传文件 |
 
 对话与终端共享文件，**不会自动共享对话上下文**。一个空间可有多条对话线程，默认最多 3 条可以同时运行网页对话回合（管理员可调）（发给运行中线程的消息、或超过上限时发出的消息会排队）；长对话先显示最新内容，向上滚动时逐页加载更早的记录。每位用户的 `/shared` 可供其所有空间使用。停止容器后文件与历史保留，但容器内进程会结束。
 
@@ -197,7 +196,7 @@ sudo ./agentbox -config config.json
 | --- | --- | --- |
 | **网页控制台** | 对话、原版 CLI 终端、文件、Git、技能、MCP 与系统管理 | 服务端自带，本机无需安装 Agent |
 | **桌面应用** | Windows/macOS 原生入口、项目终端、文件传输与可选同步 | [下载 0.1.2](https://github.com/devilcoolyue/agentbox/releases/tag/desktop-v0.1.2) · 未签名公开测试版 |
-| **abox-link** | 让云端空间访问白名单内的内网服务 | 可选工具；Windows、macOS、Linux 本机面板或无头命令行 |
+| **abox-link** | 让 AgentBox 浏览你添加的文件夹 | 可选工具；Windows、macOS、Linux 本机面板或无头命令行 |
 | **HTTP / WebSocket API** | 脚本管理空间、查询用量 | [API 文档](docs/api.md) |
 
 桌面应用连接已有服务端，不替代或升级服务端。**同步默认关闭，需管理员显式启用。** 桌面 0.1.2 需手动下载安装（macOS 未公证、Windows 未签名、没有自动更新），早于桌面源码现已接入的多语言界面。见[桌面指南](desktop/README.md)。
@@ -225,7 +224,7 @@ sudo ./agentbox -config config.json
 | 查看或管理成本 | [用量与额度](docs/usage-and-quotas.md) · [价格目录](docs/pricing-catalog.md) |
 | 启用扩展、打断模型复读 | [扩展与 SPI](docs/architecture/extensions-spi.md) · [独立循环保护网关（开发预览）](docs/loop-guard.md) |
 | 让强模型带便宜模型干活 | [主管委派](docs/architecture/delegation-supervisor.md) |
-| 访问内网服务 | [代理与 abox-link](docs/networking.md) |
+| 访问电脑上的文件 | [代理与设备连接](docs/networking.md) |
 | 安装、升级、备份与恢复 | [部署手册](deploy/README.md) · [版本发布](docs/releases.md) · [CLI 兼容性](docs/compatibility.md) |
 | 配置服务端或接入脚本 | [配置参考](docs/configuration.md) · [API 文档](docs/api.md) |
 | 选择界面语言或制作主题 | [语言与偏好](docs/i18n.md) · [界面主题](docs/themes.md) |
@@ -235,7 +234,7 @@ sudo ./agentbox -config config.json
 
 ## 开发里程碑
 
-当前服务端正式版为 **v0.1.20**（2026-11-12）。最近几个版本新增了主管委派、主题编辑器与本地存储容量管理（v0.1.13），Agent 提问、跟进消息、`/` 命令、`@` 引用、上下文占用、任务列表与逐次请求计费（v0.1.14），扩展、Webhook 通知、回合计时和后台执行的 Git 网络操作（v0.1.16），缓存保活、逐次请求实测耗时与实时结算、按 CLI 样式显示的工具调用和图标管理（v0.1.17），对话刻度、带倒计时的系统通告、受限出网、终端用量扣费与按用户设置存储上限（v0.1.18），同一空间最多 3 条对话线程并行、多终端标签与可折叠的工作台顶栏（v0.1.19），以及经隧道把重活交给自己电脑的 `abox-remote`、管理员的登录与活跃面板、用量趋势图和可配置的同时对话数（v0.1.20）。详见[更新记录](CHANGELOG.md)。
+当前服务端正式版为 **v0.1.20**（2026-11-12）。最近几个版本新增了主管委派、主题编辑器与本地存储容量管理（v0.1.13），Agent 提问、跟进消息、`/` 命令、`@` 引用、上下文占用、任务列表与逐次请求计费（v0.1.14），扩展、Webhook 通知、回合计时和后台执行的 Git 网络操作（v0.1.16），缓存保活、逐次请求实测耗时与实时结算、按 CLI 样式显示的工具调用和图标管理（v0.1.17），对话刻度、带倒计时的系统通告、受限出网、终端用量扣费与按用户设置存储上限（v0.1.18），同一空间最多 3 条对话线程并行、多终端标签与可折叠的工作台顶栏（v0.1.19），以及管理员的登录与活跃面板、用量趋势图和可配置的同时对话数（v0.1.20）。详见[更新记录](CHANGELOG.md)。
 
 第一轮 M1～M5（故障定位、首次使用、日常可靠性、维护质量、多端一致性）已随 v0.1.11 发布，真实用户观察、性能阈值、恢复目标、桌面签名等外部验收仍未完成（[记录](docs/milestones/backlog.md)）。第二轮接续：
 

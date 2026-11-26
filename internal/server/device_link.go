@@ -2,7 +2,6 @@ package server
 
 import (
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -64,11 +63,12 @@ func (h *deviceHub) closeAll() {
 
 func (s *Server) handleDeviceLinkWS(w http.ResponseWriter, r *http.Request) {
 	if !s.cfg.GetDeviceLink().Enabled {
-		writeErr(w, http.StatusForbidden, "device sharing disabled")
+		writeErr(w, http.StatusForbidden, "设备连接已停用")
 		return
 	}
-	user, token := reqUser(r), bearerToken(r)
-	if token == "" {
+	user := reqUser(r)
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || token == "" {
 		writeErr(w, http.StatusUnauthorized, "device credentials required")
 		return
 	}
@@ -97,11 +97,13 @@ func (s *Server) handleDeviceLinkWS(w http.ResponseWriter, r *http.Request) {
 	defer sess.Close()
 
 	s.devices.connectMu.Lock()
-	if !s.cfg.GetDeviceLink().Enabled || sess.IsClosed() {
+	owner, valid := s.store.TokenUser(token)
+	if !valid || owner.Name != user.Name || !owner.CreatedAt.Equal(user.CreatedAt) ||
+		!s.cfg.GetDeviceLink().Enabled || sess.IsClosed() {
 		s.devices.connectMu.Unlock()
 		return
 	}
-	if err := s.saveLinkFolders(user, folders); err != nil {
+	if err := s.saveLinkFolders(user, token, folders); err != nil {
 		s.devices.connectMu.Unlock()
 		log.Printf("save device folders for %q: %v", user.Name, err)
 		return
@@ -114,17 +116,23 @@ func (s *Server) handleDeviceLinkWS(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeviceLinkStatus(w http.ResponseWriter, r *http.Request) {
 	user := reqUser(r)
+	enabled := s.cfg.GetDeviceLink().Enabled
 	sess, _ := s.liveLinkFolders(user)
-	view := map[string]any{"enabled": s.cfg.GetDeviceLink().Enabled, "connected": sess != nil}
+	view := map[string]any{"enabled": enabled, "connected": enabled && sess != nil}
 	if user.Role == store.RoleAdmin {
-		s.devices.mu.RLock()
-		online := make([]string, 0, len(s.devices.conns))
-		for name, conn := range s.devices.conns {
-			if !conn.IsClosed() {
-				online = append(online, name)
+		online := []string{}
+		if enabled {
+			s.devices.mu.RLock()
+			for name, conn := range s.devices.conns {
+				if conn.IsClosed() {
+					continue
+				}
+				if owner, ok := s.store.TokenUser(s.devices.info[name].token); ok && owner.Name == name {
+					online = append(online, name)
+				}
 			}
+			s.devices.mu.RUnlock()
 		}
-		s.devices.mu.RUnlock()
 		sort.Strings(online)
 		view["online_users"] = online
 	}
@@ -166,12 +174,4 @@ func (s *Server) handleDeviceLinkClientGet(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
 	http.ServeFile(w, r, path)
-}
-
-func portOf(hostPort string) string {
-	_, port, err := net.SplitHostPort(hostPort)
-	if err != nil {
-		return ""
-	}
-	return port
 }

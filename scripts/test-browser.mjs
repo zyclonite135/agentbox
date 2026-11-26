@@ -660,6 +660,25 @@ export async function smoke(page) {
    await page.locator('#dev-st-title').filter({hasText:'设备已连接'}).waitFor();
    await page.locator('#dev-pair').click();
    await page.locator('#dev-pair-code').filter({hasText:'ABOX1-device-fixture'}).waitFor();
+   let releasePairResponse;
+   const pendingPair = new Promise(resolve => { releasePairResponse = resolve; });
+   await page.route("**/api/device-link/pair", async route => {
+    await pendingPair;
+    await route.fulfill({json:{code:"ABOX1-stale",expires_in:600}});
+   });
+   const requested = page.waitForRequest("**/api/device-link/pair");
+   await page.locator("#dev-pair").click();
+   await requested;
+   await page.goto(base+"/#/usage");
+   await page.locator("#view-usage").waitFor({state:"visible"});
+   const answered = page.waitForResponse("**/api/device-link/pair");
+   releasePairResponse();
+   await (await answered).finished();
+   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+   assert.equal(await page.locator("#dev-pair-code").textContent(), "", "pairing code returned after leaving the page");
+   await page.unroute("**/api/device-link/pair");
+   await page.goto(base+"/#/device-link");
+   await page.locator("#view-device-link").waitFor({state:"visible"});
    deviceConnected = false;
    await page.reload();
    await page.locator('#dev-st-title').filter({hasText:'等待接入'}).waitFor();

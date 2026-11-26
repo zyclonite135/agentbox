@@ -86,6 +86,7 @@ export function recordServerVoice(options) {
             options.onEnd(false);
             return;
         }
+        options.onStopping();
         recorder.port.postMessage("flush");
         flushTimer = window.setTimeout(() => void finish(), 500);
     }

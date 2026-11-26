@@ -13,12 +13,14 @@ import { canRecordVoice, recordServerVoice, serverVoiceEnabled } from "./voice-s
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const btn = $("btn-voice");
 const input = $<HTMLTextAreaElement>("chat-input");
+const finishingText = "正在完成语音识别";
 const serverPreference = "agentbox-voice-server";
 const serverSupported = canRecordVoice();
 let useServer = false;
 try { useServer = localStorage.getItem(serverPreference) === "true"; } catch (_) {}
 let serverRec: ReturnType<typeof recordServerVoice> | undefined;
 let voiceAttempt = 0;
+let recordingState: "idle" | "recording" | "finishing" = "idle";
 
 function preferServer(enabled: boolean) {
   useServer = enabled;
@@ -36,15 +38,17 @@ function idleTitle() {
     : i18nText("语音输入：点击说话，再点一次停止");
 }
 
-let rec: SpeechRecognition | null = null; // 当前识别实例，非 null 即录音中
+let rec: SpeechRecognition | null = null;
 let base = "";         // 录音开始时输入框已有的内容
 let finalText = "";    // 已定稿的识别结果（interim 部分每次整体重写）
 let stopRequested = false;
 
 if (!SR && !serverSupported) btn.classList.add("hidden");
-setRecUI(false);
+setAttrRender($("voice-finishing-label"), "data-label", () => i18nText(finishingText));
+setRecUI("idle");
 
 btn.addEventListener("click", (event) => {
+  if (recordingState === "finishing") return;
   if (serverRec) {
     serverRec.stop();
     return;
@@ -59,6 +63,10 @@ btn.addEventListener("click", (event) => {
   else if (SR) start();
 });
 
+function flattenTranscript(text: string) {
+  return text.replace(/[ \t]*[\r\n\u2028\u2029]\s*/g, " ");
+}
+
 function startServer() {
   const original = input.value;
   const prefix = original && !/\s$/.test(original) ? original + " " : original;
@@ -67,18 +75,19 @@ function startServer() {
   try {
     serverRec = recordServerVoice({
       onReady: () => toast(i18nText("正在聆听，再点一次 🎤 停止")),
+      onStopping: () => setRecUI("finishing"),
       onText: (text) => {
         if (S.thread?.id !== thread?.id || S.current?.id !== session?.id) {
           abortServerRecording();
           return;
         }
-        const transcript = text.trim();
+        const transcript = flattenTranscript(text).trim();
         input.value = transcript ? prefix + transcript : original;
         autoGrow();
       },
       onEnd: (reachedLimit) => {
         serverRec = undefined;
-        setRecUI(false);
+        setRecUI("idle");
         if (reachedLimit) toast(i18nText("单次服务器语音输入限时 30 秒，文字已保留"));
       },
       onError: (error) => {
@@ -91,12 +100,12 @@ function startServer() {
         } else {
           toast(i18nText("服务器语音识别失败，请重试"), true);
         }
-        setRecUI(false);
+        setRecUI("idle");
       },
     });
-    setRecUI(true);
+    setRecUI("recording");
   } catch (_) {
-    setRecUI(false);
+    setRecUI("idle");
     toast(i18nText("服务器语音识别失败，请重试"), true);
   }
 }
@@ -107,7 +116,7 @@ function offerServerVoice() {
   void serverVoiceEnabled().then((enabled) => {
     if (!enabled || attempt !== voiceAttempt || rec || serverRec) return;
     preferServer(true);
-    setRecUI(false);
+    setRecUI("idle");
     toast(i18nText("浏览器语音识别不可用。再次点击麦克风即可使用服务器识别，请重新说一遍。"));
   }).catch(() => {});
 }
@@ -132,7 +141,7 @@ function start() {
       if (res.isFinal) finalText += res[0].transcript;
       else interim += res[0].transcript;
     }
-    input.value = base + finalText + interim;
+    input.value = base + flattenTranscript(finalText + interim);
     autoGrow();
   };
   r.onerror = (e) => {
@@ -155,25 +164,32 @@ function start() {
       try { r.start(); return; } catch (_) { fallback = true; }
     }
     rec = null;
-    setRecUI(false);
+    setRecUI("idle");
     if (fallback) offerServerVoice();
   };
 
   try { r.start(); } catch (e) { toast(i18nText("无法启动语音识别：") + (e as Error).message, true); offerServerVoice(); return; }
   rec = r;
-  setRecUI(true);
+  setRecUI("recording");
   toast(i18nText("正在聆听，再点一次 🎤 停止"));
 }
 
 function stopNativeRecording() {
   stopRequested = true;
-  try { rec!.stop(); } catch (_) {}
+  setRecUI("finishing");
+  try { rec!.stop(); } catch (_) { abortIfRecording(); }
 }
 
-function setRecUI(on: boolean) {
-  btn.classList.toggle("rec", on);
-  setTip(btn, () => on ? i18nText("停止录音") : idleTitle());
-  setAttrRender(btn, "aria-label", () => on ? i18nText("停止录音") : i18nText("语音输入")); // 纯图标按钮，可访问名称得跟着状态走
+function setRecUI(state: typeof recordingState) {
+  recordingState = state;
+  const finishing = state === "finishing";
+  const recording = state === "recording";
+  btn.classList.toggle("rec", recording);
+  btn.classList.toggle("voice-finishing", finishing);
+  if (finishing) btn.setAttribute("aria-disabled", "true");
+  else btn.removeAttribute("aria-disabled");
+  setTip(btn, finishing ? null : () => recording ? i18nText("停止录音") : idleTitle());
+  setAttrRender(btn, "aria-label", () => i18nText(finishing ? finishingText : recording ? "停止录音" : "语音输入"));
 }
 
 /* 录音途中手动发送（Enter / 发送键）：先掐掉识别，
@@ -182,13 +198,15 @@ function abortServerRecording() {
   if (!serverRec) return;
   serverRec.cancel();
   serverRec = undefined;
-  setRecUI(false);
+  setRecUI("idle");
 }
 
 for (const event of ["thread-changed", "open-session", "view-changed", "unauthorized"]) {
   bus.addEventListener(event, abortIfRecording);
 }
-input.addEventListener("input", abortServerRecording);
+input.addEventListener("input", () => {
+  if (serverRec || rec) abortIfRecording();
+});
 
 function abortIfRecording() {
   voiceAttempt++;
@@ -196,7 +214,7 @@ function abortIfRecording() {
   if (!rec) return;
   const r = rec;
   rec = null;
-  setRecUI(false);
+  setRecUI("idle");
   try { r.abort(); } catch (_) {}
 }
 $("chat-send").addEventListener("click", abortIfRecording, true);
@@ -204,4 +222,4 @@ input.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey && !isImeEnter(e) && !enterInsertsNewline()) abortIfRecording();
 }, true);
 
-window.addEventListener("agentbox-language-change", () => setRecUI(!!rec || !!serverRec));
+window.addEventListener("agentbox-language-change", () => setRecUI(recordingState));

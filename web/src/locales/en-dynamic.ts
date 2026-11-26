@@ -1761,6 +1761,7 @@ export default {
   "无法启动语音识别：": "Unable to start speech recognition:",
   "正在聆听，再点一次 🎤 停止": "Listening. Click 🎤 again to stop.",
   "停止录音": "Stop recording",
+  "正在完成语音识别": "Finishing transcription",
   "语音输入": "Voice input",
   "请求格式错误": "Invalid request",
   "请检查输入后重新提交。": "Check your input and submit again.",

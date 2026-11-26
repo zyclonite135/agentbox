@@ -549,8 +549,12 @@
                   <button id="btn-attach" class="icon-btn" aria-label="添加附件" data-tip="添加附件（图片或文件，48 小时后过期）" data-i18n-attrs="{&quot;aria-label&quot;:&quot;添加附件&quot;,&quot;data-tip&quot;:&quot;添加附件（图片或文件，48 小时后过期）&quot;}">
                     <svg width="18" height="18" data-icon="composer.attach" aria-hidden="true"></svg>
                   </button>
-                  <button id="btn-voice" class="icon-btn" aria-label="语音输入" data-tip="语音输入：点击说话，再点一次停止" data-i18n-attrs="{&quot;aria-label&quot;:&quot;语音输入&quot;,&quot;data-tip&quot;:&quot;语音输入：点击说话，再点一次停止&quot;}">
-                    <svg width="18" height="18" data-icon="composer.mic" aria-hidden="true"></svg>
+                  <button id="btn-voice" type="button" class="icon-btn" aria-label="语音输入" data-tip="语音输入：点击说话，再点一次停止" data-i18n-attrs="{&quot;aria-label&quot;:&quot;语音输入&quot;,&quot;data-tip&quot;:&quot;语音输入：点击说话，再点一次停止&quot;}">
+                    <span class="voice-mark" aria-hidden="true">
+                      <svg width="18" height="18" data-icon="composer.mic" aria-hidden="true"></svg>
+                      <span class="voice-progress spin"></span>
+                    </span>
+                    <span id="voice-finishing-label" aria-hidden="true"></span>
                   </button>
                   <div id="chat-delegate-picker" class="delegate-picker" hidden>
                     <button id="chat-delegate" type="button" class="icon-btn chat-delegate" aria-haspopup="dialog" aria-expanded="false" aria-controls="chat-delegate-pop">

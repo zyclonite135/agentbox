@@ -16,6 +16,7 @@ export async function serverVoiceEnabled(signal?: AbortSignal) {
 
 export function recordServerVoice(options: {
   onReady: () => void;
+  onStopping: () => void;
   onText: (text: string) => void;
   onEnd: (reachedLimit: boolean) => void;
   onError: (error: unknown) => void;
@@ -91,6 +92,7 @@ export function recordServerVoice(options: {
       options.onEnd(false);
       return;
     }
+    options.onStopping();
     recorder.port.postMessage("flush");
     flushTimer = window.setTimeout(() => void finish(), 500);
   }

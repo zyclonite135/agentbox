@@ -1057,9 +1057,8 @@ function eventNodes(ev: AgentEvent | undefined, opts: { live?: boolean; activity
       // Codex/Claude fallbacks. Raw CLI totals could disagree with settlement.
       out.push(chip([i18nText("✓ 回合完成"), secs].filter(Boolean).join(" · "), "result"));
     } else {
-      const errors = Array.isArray(ev.errors) ? ev.errors.filter((error): error is string => typeof error === "string" && !!error) : [];
-      const message = [...new Set([ev.result, ...errors].filter(Boolean))].join("\n");
-      out.push(agentDiagnostic(ev, message || ev.error?.message || ev.subtype || "", "error"));
+      const errors = Array.isArray(ev.errors) ? ev.errors : [];
+      out.push(agentDiagnostic(ev, [ev.result, ...errors, ev.error?.message], "error"));
     }
     return out;
   }
@@ -1093,7 +1092,7 @@ function eventNodes(ev: AgentEvent | undefined, opts: { live?: boolean; activity
   }
   if (ev.type === "error") {
     // will_retry：连接抖动，CLI 自己在重连，回合没失败
-    out.push(agentDiagnostic(ev, typeof ev.message === "string" ? ev.message : ev.error?.message || "", ev.will_retry ? "retry" : "error"));
+    out.push(agentDiagnostic(ev, [ev.message, ev.error?.message], ev.will_retry === true ? "retry" : "error"));
     return out;
   }
   if (ev.type === "warning" && typeof ev.message === "string" && ev.message) {

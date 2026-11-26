@@ -46,6 +46,31 @@ test('external diagnostics use exact codes or known text and keep identifiers fo
   assert.equal(diagnostic.extra, 'raw details');
 });
 
+test('malformed diagnostics leave history usable and retries do not ask for a second request', () => {
+  const summary = diagnostic => interpolate(ru[diagnostic.source], diagnostic.params);
+  const malformed = describeAgentDiagnostic({error:{message:{}}}, {unexpected:'object'}, 'error');
+  assert.equal(summary(malformed), 'При выполнении запроса произошла ошибка.');
+  assert.equal(malformed.raw, '');
+  const retry = describeAgentDiagnostic({code:'rate_limit_exceeded'}, 'Too many requests. Request ID: req_retry.', 'retry');
+  assert.equal(summary(retry), 'Агент повторяет запрос.');
+  assert.equal(retry.code, 'rate_limit_exceeded');
+  assert.equal(retry.requestID, 'req_retry');
+  const fields = describeAgentDiagnostic({
+    code:-32000, additionalDetails:'outer details',
+    error:{codexErrorInfo:{responseStreamDisconnected:{httpStatusCode:null}}},
+  }, 'raw', 'retry');
+  assert.equal(fields.code, '-32000');
+  assert.equal(fields.extra, 'outer details');
+  assert.equal(summary(fields), 'Связь прервалась. Агент повторяет запрос.');
+  const structured = describeAgentDiagnostic({error:{code:'insufficient_quota'}}, 'The model "gpt-6-sol" is not available', 'error');
+  assert.equal(summary(structured), 'Квота у провайдера исчерпана.');
+  const quota = 'API Error: 429 {"error":{"code":"insufficient_quota"},"request_id":"req_quota"}';
+  const claude = describeAgentDiagnostic({type:'result', subtype:'error_during_execution'}, ['Failed', {ignored:true}, quota], 'error');
+  assert.equal(summary(claude), 'Квота у провайдера исчерпана.');
+  assert.equal(claude.raw, 'Failed\n' + quota);
+  assert.equal(claude.requestID, 'req_quota');
+});
+
 test('saved timeout changes apply to subsequent requests, preserving an in-flight deadline', async t => {
   t.mock.timers.enable({apis:['setTimeout']});
   let timeout=30_000;

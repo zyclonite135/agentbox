@@ -350,6 +350,13 @@ type codexDiagnostic struct {
 	HTTPStatusCode    int             `json:"httpStatusCode,omitempty"`
 }
 
+type codexDiagnosticEvent struct {
+	Type string `json:"type"`
+	codexDiagnostic
+	Error     *codexDiagnostic `json:"error,omitempty"`
+	WillRetry bool             `json:"will_retry,omitempty"`
+}
+
 // handleNotification 翻译一条服务端通知；回合结束返回 true。
 func (c *appServerConn) handleNotification(method string, params json.RawMessage) bool {
 	switch method {
@@ -366,11 +373,10 @@ func (c *appServerConn) handleNotification(method string, params json.RawMessage
 	case "item/mcpToolCall/progress":
 		c.toolProgress(params)
 	case "warning":
-		var p struct {
-			Message string `json:"message"`
-		}
-		if json.Unmarshal(params, &p) == nil && p.Message != "" {
-			c.emitJSON(map[string]any{"type": "warning", "message": p.Message})
+		var p codexDiagnostic
+		json.Unmarshal(params, &p)
+		if p.Message != "" {
+			c.emitJSON(codexDiagnosticEvent{Type: "warning", codexDiagnostic: p})
 		}
 	case "model/rerouted":
 		var p struct {
@@ -441,20 +447,9 @@ func (c *appServerConn) handleNotification(method string, params json.RawMessage
 		}
 		if msg != "" || p.Error != nil || len(p.CodexErrorInfo) > 0 || len(p.Code) > 0 {
 			p.Message = msg
-			ev := map[string]any{"type": "error", "message": msg, "error": p.Error}
-			if p.Error == nil {
-				ev["error"] = p.codexDiagnostic
-			}
-			if p.RequestID != "" {
-				ev["requestId"] = p.RequestID
-			}
-			if p.ProviderRequestID != "" {
-				ev["request_id"] = p.ProviderRequestID
-			}
-			if p.WillRetry { // 连接抖动后 CLI 自己重试，回合还在继续，网页按提示而非失败显示
-				ev["will_retry"] = true
-			}
-			c.emitJSON(ev)
+			c.emitJSON(codexDiagnosticEvent{
+				Type: "error", codexDiagnostic: p.codexDiagnostic, Error: p.Error, WillRetry: p.WillRetry,
+			})
 		}
 	}
 	return false

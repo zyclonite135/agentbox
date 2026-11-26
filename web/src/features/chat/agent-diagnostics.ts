@@ -56,6 +56,8 @@ const identifier = (value: unknown) => {
   const text = string(value);
   return /^[a-z0-9][\w.-]{0,159}$/i.test(text) ? text : "";
 };
+const diagnosticCode = (value: unknown) =>
+  typeof value === "number" && Number.isSafeInteger(value) ? String(value) : identifier(value);
 const modelID = (value: unknown) => {
   const text = string(value);
   return /^[a-z0-9][\w./:-]{0,127}(?:\[1m\])?$/i.test(text) ? text : "";
@@ -74,26 +76,29 @@ function providerPayload(message: string) {
   catch { return undefined; }
 }
 
-export function describeAgentDiagnostic(value: unknown, raw: string, tone: Tone) {
+const fallback = (tone: Tone) => tone === "retry" ? label.retry : tone === "warning" ? label.warning : label.failed;
+
+function describeMessage(value: unknown, raw: string, tone: Tone) {
   const event = record(value);
   const error = record(event?.error) || event;
   const text = raw.trim();
-  const extra = string(error?.additionalDetails);
-  const body = providerPayload(text) || providerPayload(extra);
+  const extraValue = error?.additionalDetails ?? event?.additionalDetails;
+  const extra = typeof extraValue === "string" ? extraValue : "";
+  const body = providerPayload(text) || providerPayload(extra.trim());
   const provider = record(body?.error) || body;
   const info = error?.codexErrorInfo ?? event?.codexErrorInfo;
   const variant = Object.keys(record(info) || {})[0] || "";
   const codexCode = identifier(info) || identifier(variant);
-  const providerCode = identifier(provider?.code) || identifier(error?.code) || identifier(event?.code);
+  const providerCode = diagnosticCode(provider?.code) || diagnosticCode(error?.code) || diagnosticCode(event?.code);
   const providerType = identifier(provider?.type) || (error !== event ? identifier(error?.type) : "");
-  const codes = [providerCode, codexCode, providerType].filter(Boolean);
   const message = string(provider?.message) || text.replace(/^API Error:\s*[45]\d{2}\s*[-:]?\s*/i, "");
   const status = httpStatus(record(record(info)?.[variant])?.httpStatusCode)
     || httpStatus(error?.httpStatusCode ?? error?.status_code ?? event?.httpStatusCode ?? event?.status_code ?? body?.status)
     || (/^(?:exceeded retry limit,\s*last status:|unexpected status|API Error:)\s*([45]\d{2})\b/i.exec(text)?.[1] || "");
   const requestID = identifier(provider?.request_id ?? body?.request_id ?? error?.request_id ?? error?.requestId ?? event?.request_id ?? event?.requestId)
-    || identifier(/(?:^|[\s,])request[_ -]id\s*:\s*([\w.-]+)/i.exec(raw)?.[1]);
-  const detail = { raw, code: codes[0], status, requestID, extra };
+    || identifier(/(?:^|[\s,])request[_ -]id\s*:\s*[\x60'"]?([\w-](?:[\w.-]*[\w-])?)/i.exec(raw)?.[1]);
+  const code = providerCode || codexCode || providerType || (event?.type === "result" ? identifier(event.subtype) : "");
+  const detail = { code, status, requestID, extra };
   const summary = (source: string, params?: Params) => ({ ...detail, source, params });
 
   if (tone === "warning") {
@@ -104,15 +109,22 @@ export function describeAgentDiagnostic(value: unknown, raw: string, tone: Tone)
   }
   const model = modelID(provider?.model ?? error?.model ?? event?.model)
     || modelID(/^(?:No accounts with a plan supporting model|(?:The )?model)\s+[\x60'"]([^'\x60"]+)[\x60'"]/i.exec(message)?.[1]);
-  if (codes.includes("no_plan_support_for_model") || /^No accounts with a plan supporting model\b/i.test(message)) {
-    return model ? summary(label.proxyModel, { model }) : summary(label.proxyUnnamed);
+  if (tone === "retry") {
+    const dropped = codexCode === "responseStreamDisconnected" || /^stream disconnected before completion\b/i.test(message);
+    return summary(dropped ? label.disconnected : label.retry);
   }
-  if (codes.some(code => ["model_not_found", "modelNotFound", "unsupported_model"].includes(code))
-      || /^(?:The )?model [\x60'"][^'\x60"]+[\x60'"] (?:does not exist|is not supported|is not available)/i.test(message)) {
-    return model ? summary(label.unavailableModel, { model }) : summary(label.unnamedModel);
-  }
-  const named = byCode.get(providerCode) || byCode.get(codexCode);
-  if (named) return summary(named);
+  const missingModel = () => model ? summary(label.unavailableModel, { model }) : summary(label.unnamedModel);
+  const missingProxyModel = () => model ? summary(label.proxyModel, { model }) : summary(label.proxyUnnamed);
+  const byExplicitCode = (value: string) => {
+    if (value === "no_plan_support_for_model") return missingProxyModel();
+    if (["model_not_found", "modelNotFound", "unsupported_model"].includes(value)) return missingModel();
+    const source = byCode.get(value);
+    return source ? summary(source) : undefined;
+  };
+  const named = byExplicitCode(providerCode) || byExplicitCode(codexCode);
+  if (named) return named;
+  if (/^No accounts with a plan supporting model\b/i.test(message)) return missingProxyModel();
+  if (/^(?:The )?model [\x60'"][^'\x60"]+[\x60'"] (?:does not exist|is not supported|is not available)/i.test(message)) return missingModel();
   const env = /^Missing environment variable:\s*[\x60'"]?([A-Za-z_][A-Za-z0-9_]*)[\x60'"]?\.?$/i.exec(message);
   if (env) return summary(label.missingEnv, { name: env[1] });
   if (/^(?:Incorrect API key provided|Invalid (?:x-)?api[- ]key\b)/i.test(message)) return summary(label.invalidKey);
@@ -133,15 +145,32 @@ export function describeAgentDiagnostic(value: unknown, raw: string, tone: Tone)
   if (status === "403") return summary(label.forbidden);
   if (status === "529") return summary(label.overload);
   if (status === "408" || status === "504" || /^(?:request (?:timed out|timeout)|(?:operation|connection) timed out|deadline exceeded)\b/i.test(message)) return summary(label.timeout);
-  if (tone === "retry" && (codexCode === "responseStreamDisconnected" || /^stream disconnected before completion\b/i.test(message))) return summary(label.disconnected);
   if (["httpConnectionFailed", "responseStreamConnectionFailed", "responseStreamDisconnected"].includes(codexCode)
       || /^(?:connection refused|error sending request|failed to connect|stream disconnected before completion)\b/i.test(message)) {
-    return summary(tone === "retry" ? label.disconnected : label.connect);
+    return summary(label.connect);
   }
-  return summary(tone === "retry" ? label.retry : tone === "warning" ? label.warning : label.failed);
+  return summary(fallback(tone));
 }
 
-export function agentDiagnostic(value: unknown, raw: string, tone: Tone) {
+export function describeAgentDiagnostic(value: unknown, raw: unknown, tone: Tone) {
+  const input: unknown[] = Array.isArray(raw) ? raw : [raw];
+  const messages = [...new Set(input.filter((text): text is string => typeof text === "string" && !!text.trim()))];
+  const primary = describeMessage(value, messages[0] || "", tone);
+  const original = messages.join("\n");
+  const fallbackSource = fallback(tone);
+  if (primary.source === fallbackSource) {
+    for (const message of messages.slice(1)) {
+      const candidate = describeMessage(value, message, tone);
+      if (candidate.source !== fallbackSource) return {
+        ...candidate, raw: original,
+        code: candidate.code || primary.code, status: candidate.status || primary.status, requestID: candidate.requestID || primary.requestID,
+      };
+    }
+  }
+  return { ...primary, raw: original };
+}
+
+export function agentDiagnostic(value: unknown, raw: unknown, tone: Tone) {
   const diagnostic = describeAgentDiagnostic(value, raw, tone);
   const chip = document.createElement("div");
   chip.className = "chip has-icon agent-diagnostic " + (tone === "error" ? "err" : "warn");

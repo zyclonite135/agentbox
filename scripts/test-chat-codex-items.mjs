@@ -540,22 +540,24 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
   {kind:'user', ts, text:'Diagnostic fixtures'},
   {kind:'event', ts, event:{type:'warning', message:'Model metadata for "gpt-fixture" not found. Defaulting to fallback metadata; this can degrade performance and cause issues.'}},
   {kind:'event', ts, event:{type:'error', message:missingEnvironment}},
-  {kind:'event', ts, event:{type:'result', subtype:'error_during_execution', errors:[quota]}},
+  {kind:'event', ts, event:{type:'result', subtype:'error_during_execution', result:'Execution failed.', errors:[quota]}},
   {kind:'event', ts, event:{type:'turn.failed', error:{message:unknown}}},
+  {kind:'event', ts, event:{type:'turn.failed', error:{message:{invalid:true}}}},
  ]);
  await reload();
  await setLanguage('ru');
  const diagnostics = page.locator('#chat-log .agent-diagnostic');
- await diagnostics.nth(3).waitFor();
+ await diagnostics.nth(4).waitFor();
  assert.match(await diagnostics.nth(0).innerText(),/Codex не нашёл метаданные модели gpt-fixture/);
  assert.equal(await diagnostics.nth(0).evaluate(el=>el.classList.contains('warn')),true);
  assert.match(await diagnostics.nth(1).innerText(),/Не задана переменная окружения CODEX_LB_API_KEY\./);
  assert.match(await diagnostics.nth(2).innerText(),/Квота у провайдера исчерпана/);
  assert.match(await diagnostics.nth(3).innerText(),/При выполнении запроса произошла ошибка/);
+ assert.match(await diagnostics.nth(4).innerText(),/При выполнении запроса произошла ошибка/);
  assert.equal(await diagnostics.locator('details[open]').count(),0);
  await diagnostics.nth(2).getByText('Подробности',{exact:true}).click();
  assert.match(await diagnostics.nth(2).innerText(),/insufficient_quota.*req_quota/s);
- assert.equal(await diagnostics.nth(2).locator('pre').textContent(),quota);
+ assert.equal(await diagnostics.nth(2).locator('pre').textContent(),'Execution failed.\n'+quota);
  await page.setViewportSize({width:320,height:780});
  await diagnostics.nth(3).locator('summary').press('Enter');
  assert.equal(await diagnostics.nth(3).locator('pre').textContent(),unknown);
@@ -567,10 +569,12 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  send({type:'status', state:'running'});
  send({type:'agent_event', ts, event:{type:'error', will_retry:true,
   error:{message:'stream disconnected before completion: connection reset',codexErrorInfo:{responseStreamDisconnected:{httpStatusCode:null}}}}});
+ send({type:'agent_event', ts, event:{type:'error', will_retry:true, message:'Too many requests', code:'rate_limit_exceeded'}});
  send({type:'agent_event', ts, event:{type:'turn.failed',error:{message:retry}}});
  send({type:'status', state:'idle'});
  await diagnostics.last().getByText('Провайдер отклонил запрос после нескольких попыток (HTTP 429).',{exact:true}).waitFor();
- assert.match(await diagnostics.nth(4).innerText(),/Связь прервалась\. Агент повторяет запрос/);
+ await diagnostics.getByText('Связь прервалась. Агент повторяет запрос.',{exact:true}).waitFor();
+ await diagnostics.getByText('Агент повторяет запрос.',{exact:true}).waitFor();
  await setLanguage('en');
  assert.match(await diagnostics.last().innerText(),/The provider rejected the request after several attempts/);
  await setLanguage(previousLanguage);

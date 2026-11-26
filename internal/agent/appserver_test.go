@@ -524,6 +524,7 @@ func TestCodexDiagnosticMetadata(t *testing.T) {
 		Type      string          `json:"type"`
 		Message   string          `json:"message"`
 		Error     codexDiagnostic `json:"error"`
+		Code      json.RawMessage `json:"code"`
 		RequestID string          `json:"requestId"`
 		WillRetry bool            `json:"will_retry"`
 	}
@@ -535,9 +536,11 @@ func TestCodexDiagnosticMetadata(t *testing.T) {
 		}
 		events = append(events, decoded)
 	}}
-	c.handleNotification("error", json.RawMessage(`{"error":{"message":"interrupted","codexErrorInfo":{"responseStreamDisconnected":{"httpStatusCode":null}}},"requestId":"req_fixture","willRetry":true}`))
+	c.handleNotification("error", json.RawMessage(`{"error":{"message":"interrupted","codexErrorInfo":{"responseStreamDisconnected":{"httpStatusCode":null}}},"code":-32000,"requestId":"req_fixture","willRetry":true}`))
 	c.handleNotification("turn/completed", json.RawMessage(`{"turn":{"status":"failed","error":{"message":"request rejected","codexErrorInfo":"usageLimitExceeded","additionalDetails":"fixture details","request_id":"req_quota","httpStatusCode":429}}}`))
-	if len(events) != 2 || events[0].Type != "error" || events[0].Message != "interrupted" || !events[0].WillRetry || events[0].RequestID != "req_fixture" ||
+	c.handleNotification("warning", json.RawMessage(`{"message":"heads up","code":"fixture_warning","requestId":"req_warning"}`))
+	if len(events) != 3 || events[0].Type != "error" || events[0].Message != "interrupted" || !events[0].WillRetry || events[0].RequestID != "req_fixture" ||
+		string(events[0].Code) != "-32000" ||
 		!strings.Contains(string(events[0].Error.CodexErrorInfo), "responseStreamDisconnected") {
 		t.Fatalf("retry diagnostic lost metadata: %+v", events)
 	}
@@ -545,6 +548,10 @@ func TestCodexDiagnosticMetadata(t *testing.T) {
 	if failed.Type != "turn.failed" || failed.Error.Message != "request rejected" || string(failed.Error.CodexErrorInfo) != `"usageLimitExceeded"` ||
 		failed.Error.AdditionalDetails != "fixture details" || failed.Error.ProviderRequestID != "req_quota" || failed.Error.HTTPStatusCode != 429 {
 		t.Fatalf("terminal diagnostic lost metadata: %+v", failed)
+	}
+	if warning := events[2]; warning.Type != "warning" || warning.Message != "heads up" ||
+		string(warning.Code) != `"fixture_warning"` || warning.RequestID != "req_warning" {
+		t.Fatalf("warning lost metadata: %+v", warning)
 	}
 }
 

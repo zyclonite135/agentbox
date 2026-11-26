@@ -38,6 +38,12 @@ func (c Config) Paired() bool {
 	return c.Server != "" && c.User != "" && c.Token != ""
 }
 
+// An empty but configured catalog still needs a connection to clear the
+// previous catalog on the server after the last folder is removed.
+func (c Config) foldersOnly() bool {
+	return c.Folders != nil && len(c.Allow) == 0 && len(c.Maps) == 0
+}
+
 // Validate checks the parts the user edits in the panel, returning a message
 // meant to be shown verbatim in the UI. It also reports the parsed forms so
 // callers do not parse twice.
@@ -60,10 +66,10 @@ func (c Config) Validate() (tunnel.Whitelist, []tunnel.MapSpec, error) {
 		allow = append(allow, spec.Target) // a mapped target is implicitly allowed
 	}
 	if len(allow) == 0 {
-		if c.Folders != nil {
+		if c.foldersOnly() {
 			return nil, maps, nil
 		}
-		return nil, nil, fmt.Errorf("至少要有一条放行规则或端口映射（默认拒绝一切）")
+		return nil, nil, fmt.Errorf("请先添加本机文件夹、放行规则或端口映射")
 	}
 	wl, err := tunnel.ParseWhitelist(allow)
 	if err != nil {

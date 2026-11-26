@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -33,6 +34,9 @@ func TestLocalFolderBrowserAndImport(t *testing.T) {
 	}
 	const folderID = "test-folder-00001"
 	shares := []tunnel.Folder{{ID: folderID, Name: "Exchange"}}
+	for i := 1; i < tunnel.MaxFolders; i++ {
+		shares = append(shares, tunnel.Folder{ID: fmt.Sprintf("test-folder-extra-%02d", i), Name: strings.Repeat("&", 128)})
+	}
 	if err := s.saveLinkFolders(user, shares); err != nil {
 		t.Fatal(err)
 	}

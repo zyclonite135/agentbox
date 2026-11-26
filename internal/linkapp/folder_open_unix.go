@@ -13,14 +13,5 @@ func openLocalEntry(root *os.Root, name string, directory bool) (*os.File, error
 	if directory {
 		flags |= unix.O_DIRECTORY
 	}
-	file, err := root.OpenFile(name, flags, 0)
-	if err != nil {
-		return nil, err
-	}
-	info, err := file.Stat()
-	if err != nil || !directory && !info.Mode().IsRegular() {
-		file.Close()
-		return nil, os.ErrNotExist
-	}
-	return file, nil
+	return root.OpenFile(name, flags, 0)
 }

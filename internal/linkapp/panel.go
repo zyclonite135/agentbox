@@ -147,18 +147,18 @@ func (p *Panel) handlePair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.mu.Lock()
-	cfg, err := Pair(p.cfg, req.Code, req.Insecure)
+	cfg, err := Pair(p.Config(), req.Code, req.Insecure)
 	if err != nil {
-		p.mu.Unlock()
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := SaveConfig(cfg); err != nil {
-		p.mu.Unlock()
 		writeErr(w, http.StatusInternalServerError, "保存配置失败："+err.Error())
 		return
 	}
+	// The connection uses the credentials and folders it started with.
+	p.sup.Stop()
+	p.mu.Lock()
 	p.cfg = cfg
 	p.mu.Unlock()
 

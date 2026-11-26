@@ -38,6 +38,7 @@ export async function linkI18nSmoke(page) {
   let configPayload = null;
   let refuseSave = false;
   let refusePair = true;
+  let folderRequestStarted, releaseFolderRequest;
   const diagnostic = '已保存 <script>window.untrusted = true</script>';
   await page.route('**/api/**', async route => {
     try {
@@ -63,6 +64,10 @@ export async function linkI18nSmoke(page) {
         state = { ...state, ...configPayload };
       } else if (url.pathname === '/api/folders') {
         const folder = req.postDataJSON();
+        if (!folder.id) {
+          await new Promise(resolve => { releaseFolderRequest = resolve; folderRequestStarted(); });
+          state.status = { ...state.status, folders_only: true };
+        }
         state.folders = folder.id ? [] : [{ id: 'folder-fixture-01', ...folder }];
       } else assert.equal(url.pathname, '/api/state');
       await route.fulfill({ json: state });
@@ -152,15 +157,24 @@ export async function linkI18nSmoke(page) {
 
     const dialogText = new Promise(resolve => page.once('dialog', async dialog => { resolve(dialog.message()); await dialog.dismiss(); }));
     await page.locator('#btn-unpair').click();
-    assert.equal(await dialogText, en['解除绑定后需要重新配对才能连接，放行规则会保留。继续？']);
+    assert.equal(await dialogText, en['解除绑定会移除已共享的文件夹，放行规则会保留。继续？']);
     assert.equal(mutations, 4, 'canceling an unpair confirmation must not send a request');
 
     await language.selectOption('ru');
+    const folderStarted = new Promise(resolve => { folderRequestStarted = resolve; });
     await page.locator('#local-folder-name').fill('Документы <script>');
     await page.locator('#local-folder-path').fill('C:\\Документы\\Обмен');
     await page.getByRole('button', { name: 'Добавить папку' }).click();
+    await folderStarted;
+    try {
+      await page.locator('#local-folder-name').fill('Следующая папка');
+    } finally {
+      releaseFolderRequest();
+    }
     const folder = page.locator('#local-folder-list .local-folder-row');
     await folder.waitFor();
+    assert.equal(await page.locator('#local-folder-name').inputValue(), 'Следующая папка');
+    assert.match(await page.locator('#st-sub').textContent(), /Папки с этого компьютера/);
     assert.match(await folder.innerText(), /Документы <script>/);
     assert.equal(await folder.locator('script').count(), 0);
     await folder.getByRole('button', { name: 'Убрать папку' }).click();

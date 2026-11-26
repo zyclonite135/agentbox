@@ -82,15 +82,26 @@ class PanelAPIError extends Error {
   }
 }
 
+let stateRevision = 0;
+let pendingWrites = 0;
 async function api(path, body) {
-  const res = await fetch("/api" + path, {
-    method: body === undefined ? "GET" : "POST",
-    headers: { "X-Abox-Panel": "1", "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new PanelAPIError(typeof data.error === "string" ? data.error : res.statusText);
-  return data;
+  const writing = body !== undefined;
+  if (writing) {
+    stateRevision++;
+    pendingWrites++;
+  }
+  try {
+    const res = await fetch("/api" + path, {
+      method: writing ? "POST" : "GET",
+      headers: { "X-Abox-Panel": "1", "Content-Type": "application/json" },
+      body: writing ? JSON.stringify(body) : undefined,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new PanelAPIError(typeof data.error === "string" ? data.error : res.statusText);
+    return data;
+  } finally {
+    if (writing) pendingWrites--;
+  }
 }
 
 let state = null;   // 服务端权威状态
@@ -98,6 +109,7 @@ let draft = null;   // 用户正在编辑的副本；null 表示无未保存改�
 let logSeq = 0;
 let rulesKey = null; // 当前画出来的规则行签名，值没变就不重建
 let foldersKey = "";
+let folderSaving = false;
 
 /* ---- 渲染 ---- */
 
@@ -134,7 +146,8 @@ function render() {
 
 function subtitle(st) {
   if (st.state === "online") {
-    const parts = [tr(st.transparent ? "透明访问" : "兼容代理"), tr("已连接 {duration}", { duration: uptime(Date.now() - st.since) })];
+    const mode = st.folders_only ? "本机文件夹" : st.transparent ? "透明访问" : "兼容代理";
+    const parts = [tr(mode), tr("已连接 {duration}", { duration: uptime(Date.now() - st.since) })];
     if (typeof st.ping_ms === "number" && st.ping_ms >= 0) {
       parts.push(tr("延迟 {latency}", { latency: fmtLatency(st.ping_ms) }));
     }
@@ -253,13 +266,19 @@ function renderFolders() {
 }
 
 async function saveFolder(button, body) {
+  if (folderSaving) return;
   await withBusy(button, async () => {
+    folderSaving = true;
     try {
       state = await api("/folders", body);
-      if (!body.id) $("local-folder-form").reset();
+      if (!body.id && $("local-folder-name").value === body.name && $("local-folder-path").value === body.path) {
+        $("local-folder-form").reset();
+      }
       render();
     } catch (error) {
       toast(error.message, true);
+    } finally {
+      folderSaving = false;
     }
   });
 }
@@ -347,7 +366,7 @@ $("btn-pair").addEventListener("click", async () => {
       state = await api("/pair", { code, insecure: $("pair-insecure").checked });
       $("pair-code").value = "";
       render();
-      toastUI("接入成功，接下来添加放行规则");
+      toastUI("接入成功，可以添加本机文件夹或放行规则");
     } catch (e) {
       pairErrorSource = e instanceof PanelAPIError ? e.source : "";
       $("pair-err").textContent = e.message;
@@ -417,10 +436,11 @@ $("btn-save").addEventListener("click", async () => {
 $("btn-revert").addEventListener("click", () => { draft = null; render(); });
 
 $("btn-unpair").addEventListener("click", async () => {
-  if (!confirm(tr("解除绑定后需要重新配对才能连接，放行规则会保留。继续？"))) return;
+  if (!confirm(tr("解除绑定会移除已共享的文件夹，放行规则会保留。继续？"))) return;
   try {
     state = await api("/unpair", {});
     draft = null;
+    $("local-folder-form").reset();
     render();
   } catch (e) {
     toast(e.message, true);
@@ -482,8 +502,12 @@ function toast(msg, bad) {
 }
 
 async function refresh() {
+  if (pendingWrites) return;
+  const revision = stateRevision;
   try {
-    state = await api("/state");
+    const snapshot = await api("/state");
+    if (revision !== stateRevision) return;
+    state = snapshot;
     render();
   } catch (_) { /* 面板进程没了，下一轮再试 */ }
 }

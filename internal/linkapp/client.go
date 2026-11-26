@@ -1,7 +1,6 @@
 package linkapp
 
 import (
-	"agentbox/internal/netaccess"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -18,6 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/yamux"
 
+	"agentbox/internal/netaccess"
 	"agentbox/internal/tunnel"
 )
 
@@ -136,10 +136,18 @@ func dialTunnel(ctx context.Context, cfg Config, maps []tunnel.MapSpec) (*yamux.
 		for _, folder := range cfg.Folders {
 			shares = append(shares, folder.Folder)
 		}
-		raw, _ := json.Marshal(shares)
-		hdr.Set(tunnel.FoldersHeader, base64.RawURLEncoding.EncodeToString(raw))
+		var raw bytes.Buffer
+		encoder := json.NewEncoder(&raw)
+		// This is an HTTP header, not HTML. Escaping printable characters
+		// can grow a valid catalog past a reverse proxy's header limit.
+		encoder.SetEscapeHTML(false)
+		if err := encoder.Encode(shares); err != nil {
+			return nil, nil, err
+		}
+		hdr.Set(tunnel.FoldersHeader, base64.RawURLEncoding.EncodeToString(raw.Bytes()))
 	}
-	if cfg.Transparent {
+	transparent := cfg.Transparent && !cfg.foldersOnly()
+	if transparent {
 		rules, err := netaccess.NormalizeRules(cfg.Allow)
 		if err != nil {
 			return nil, nil, err
@@ -167,7 +175,7 @@ func dialTunnel(ctx context.Context, cfg Config, maps []tunnel.MapSpec) (*yamux.
 		return nil, nil, fmt.Errorf("连接 %s: %w", target, err)
 	}
 
-	if cfg.Transparent && resp.Header.Get(netaccess.CapabilityHeader) != netaccess.Protocol {
+	if transparent && resp.Header.Get(netaccess.CapabilityHeader) != netaccess.Protocol {
 		conn.Close()
 		return nil, nil, fmt.Errorf("服务端不支持透明访问，请升级服务端或关闭客户端透明访问")
 	}

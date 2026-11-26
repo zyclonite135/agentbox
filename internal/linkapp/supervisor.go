@@ -28,6 +28,7 @@ const (
 // Status is the supervisor snapshot the panel renders.
 type Status struct {
 	Transparent bool        `json:"transparent"`
+	FoldersOnly bool        `json:"folders_only,omitempty"`
 	State       State       `json:"state"`
 	Detail      string      `json:"detail"`
 	Since       int64       `json:"since"` // unix millis the current session came online, 0 if not online
@@ -42,6 +43,7 @@ type Status struct {
 // while it runs.
 type Supervisor struct {
 	transparent bool
+	foldersOnly bool
 	// Relogin, when set, is called after the server rejects the stored token
 	// and returns a fresh one. The headless CLI sets it (it holds a password);
 	// the panel leaves it nil, because pairing deliberately keeps no password —
@@ -84,7 +86,7 @@ func (s *Supervisor) MirrorTo(fn func(string)) {
 func (s *Supervisor) Status() Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := Status{Transparent: s.transparent, State: s.state, Detail: s.detail, Maps: s.maps, PingMS: -1}
+	st := Status{Transparent: s.transparent, FoldersOnly: s.foldersOnly, State: s.state, Detail: s.detail, Maps: s.maps, PingMS: -1}
 	if s.state == StateOnline && !s.since.IsZero() {
 		st.Since = s.since.UnixMilli()
 		if s.pingOK {
@@ -120,6 +122,8 @@ func (s *Supervisor) Start(cfg Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	s.running, s.cancel, s.done = true, cancel, done
+	s.foldersOnly = cfg.foldersOnly()
+	s.transparent = cfg.Transparent && !s.foldersOnly
 	s.state, s.detail, s.maps = StateConnecting, "正在连接…", nil
 	s.mu.Unlock()
 
@@ -229,10 +233,9 @@ func (s *Supervisor) serveOnce(ctx context.Context, link *tunnel.Link, cfg Confi
 	}
 
 	s.mu.Lock()
-	s.transparent = cfg.Transparent
 	s.state, s.detail, s.since, s.maps, s.pingOK = StateOnline, "", time.Now(), mapStatus, false
 	s.mu.Unlock()
-	s.log.Printf("隧道已建立，容器现在可以访问你的内网了")
+	s.log.Printf("隧道已建立")
 
 	// Sample tunnel latency alongside the live session; the loop dies when the
 	// session drops (Ping errors) or the connection winds down (ctx cancel).

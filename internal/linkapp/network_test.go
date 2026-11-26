@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,6 +66,50 @@ func TestTransparentCapabilityNegotiation(t *testing.T) {
 				t.Fatal("rules not sent")
 			}
 		})
+	}
+}
+
+func TestFoldersOnlyDoesNotRequireTransparentAccess(t *testing.T) {
+	folders := make([]localFolder, tunnel.MaxFolders)
+	for i := range folders {
+		folders[i] = localFolder{Folder: tunnel.Folder{ID: strings.Repeat(string(rune('a'+i)), 26), Name: strings.Repeat("&", 128)}, Path: "/local/private"}
+	}
+	for _, shares := range [][]localFolder{folders, {}} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get(netaccess.CapabilityHeader) != "" || r.Header.Get(netaccess.RulesHeader) != "" {
+				http.Error(w, "transparent access disabled", http.StatusConflict)
+				return
+			}
+			header := r.Header.Get(tunnel.FoldersHeader)
+			raw, err := base64.RawURLEncoding.DecodeString(header)
+			var catalog []tunnel.Folder
+			if err != nil || len(header) >= 8<<10 || json.Unmarshal(raw, &catalog) != nil || catalog == nil || len(catalog) != len(shares) || strings.Contains(string(raw), "/local/private") {
+				http.Error(w, "invalid folder catalog", http.StatusBadRequest)
+				return
+			}
+			up := websocket.Upgrader{}
+			conn, err := up.Upgrade(w, r, nil)
+			if err == nil {
+				defer conn.Close()
+				_, _, _ = conn.ReadMessage()
+			}
+		}))
+		cfg := Config{Server: srv.URL, User: "alice", Token: "synthetic", Transparent: true, Folders: shares}
+		wl, maps, err := cfg.Validate()
+		if err != nil || len(wl) != 0 || len(maps) != 0 {
+			srv.Close()
+			t.Fatalf("folders-only configuration parsed as network access: %v, %v, %v", wl, maps, err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		sess, _, err := dialTunnel(ctx, cfg, maps)
+		if err == nil {
+			sess.Close()
+		}
+		cancel()
+		srv.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 func TestTransparentValidationKeepsLegacyRules(t *testing.T) {

@@ -30,6 +30,12 @@ func openLocalFolder(path string) (*os.Root, error) {
 	if relative == "" {
 		return root, nil
 	}
+	return openFolderParents(root, relative)
+}
+
+// Each parent handle pins the checked directory before opening the next name.
+// This consumes the input handle, returning only the final one.
+func openFolderParents(root *os.Root, relative string) (*os.Root, error) {
 	for _, part := range strings.Split(relative, string(filepath.Separator)) {
 		info, err := root.Lstat(part)
 		if err != nil || !info.IsDir() {
@@ -51,17 +57,35 @@ func openLocalFolder(path string) (*os.Root, error) {
 	return root, nil
 }
 
-// Open each component under a rooted handle and reject links. Root also confines
-// resolution when an entry changes between the type check and the open.
+// Resolve one component at a time so links in intermediate directories are
+// rejected by the same identity check as links in a configured folder path.
 func openFolderEntry(root *os.Root, name string, directory bool) (*os.File, error) {
-	for parent := name; parent != "."; parent = filepath.ToSlash(filepath.Dir(parent)) {
-		info, err := root.Lstat(filepath.FromSlash(parent))
-		if err != nil || (parent != name || directory) && !info.IsDir() ||
-			parent == name && !directory && !info.Mode().IsRegular() {
-			return nil, os.ErrNotExist
+	dir, leaf := filepath.Split(filepath.FromSlash(name))
+	if dir != "" {
+		start, err := root.OpenRoot(".")
+		if err != nil {
+			return nil, err
 		}
+		root, err = openFolderParents(start, strings.TrimSuffix(dir, string(filepath.Separator)))
+		if err != nil {
+			return nil, err
+		}
+		defer root.Close()
 	}
-	return openLocalEntry(root, filepath.FromSlash(name), directory)
+	info, err := root.Lstat(leaf)
+	if err != nil || directory && !info.IsDir() || !directory && !info.Mode().IsRegular() {
+		return nil, os.ErrNotExist
+	}
+	file, err := openLocalEntry(root, leaf, directory)
+	if err != nil {
+		return nil, err
+	}
+	actual, err := file.Stat()
+	if err != nil || !os.SameFile(info, actual) {
+		file.Close()
+		return nil, os.ErrNotExist
+	}
+	return file, nil
 }
 
 func folderHandler(folders []localFolder) func(io.ReadWriter) {
@@ -177,14 +201,23 @@ func (p *Panel) handleFolders(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg.Folders = append([]localFolder{}, cfg.Folders...)
 	if req.ID != "" {
+		previous := len(cfg.Folders)
 		for i, folder := range cfg.Folders {
 			if folder.ID == req.ID {
 				cfg.Folders = append(cfg.Folders[:i], cfg.Folders[i+1:]...)
 				break
 			}
 		}
+		if len(cfg.Folders) == previous {
+			writeJSON(w, http.StatusOK, p.state())
+			return
+		}
 	} else {
 		path := req.Path
+		// Explorer's Copy as path includes a pair of quotes.
+		if len(path) >= 2 && path[0] == '"' && path[len(path)-1] == '"' {
+			path = path[1 : len(path)-1]
+		}
 		name := strings.TrimSpace(req.Name)
 		if !filepath.IsAbs(path) || !tunnel.ValidFolderName(name) || len(cfg.Folders) >= tunnel.MaxFolders {
 			writeErr(w, http.StatusBadRequest, "请输入有效的文件夹名称与绝对路径（最多 16 个）")

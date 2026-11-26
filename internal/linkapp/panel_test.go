@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"agentbox/internal/tunnel"
 )
 
 // The panel can open a hole into the user's intranet, so the guard in front of
@@ -93,6 +96,72 @@ func TestStartRefusesRulelessConfig(t *testing.T) {
 	err := sup.Start(Config{Server: "https://box.example.com", User: "a", Token: "t"})
 	if err == nil {
 		t.Fatal("want an error when there are no allow rules")
+	}
+}
+
+func TestRePairStopsTunnelWithPreviousFolders(t *testing.T) {
+	t.Setenv("ABOX_LINK_HOME", t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/tunnel/pair/redeem" {
+			writeJSON(w, http.StatusOK, map[string]string{"user": "new-user", "token": "new-token"})
+			return
+		}
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	old := Config{Server: server.URL, User: "old-user", Token: "old-token", Folders: []localFolder{{Folder: tunnel.Folder{ID: "fixture-folder-01", Name: "Reports"}, Path: t.TempDir()}}}
+	sup := NewSupervisor()
+	defer sup.Stop()
+	if err := sup.Start(old); err != nil {
+		t.Fatal(err)
+	}
+	panel := NewPanel(old, sup)
+	body, err := json.Marshal(map[string]string{"code": tunnel.EncodePairCode(server.URL, "fixture")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/pair", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+	panel.handlePair(rec, req)
+	if rec.Code != http.StatusOK || sup.Running() {
+		t.Fatalf("previous tunnel still running or pair failed: %d, %s", rec.Code, rec.Body)
+	}
+	got, err := LoadConfig()
+	if err != nil || got.User != "new-user" || len(got.Folders) != 0 {
+		t.Fatalf("new pairing retained the old folders: %+v, %v", got, err)
+	}
+}
+
+func TestFolderPanelAcceptsQuotedPath(t *testing.T) {
+	t.Setenv("ABOX_LINK_HOME", t.TempDir())
+	path, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	panel := NewPanel(Config{Server: "https://example.invalid", User: "user", Token: "token"}, NewSupervisor())
+	change := func(fields map[string]string) {
+		t.Helper()
+		body, _ := json.Marshal(fields)
+		req := httptest.NewRequest(http.MethodPost, "/api/folders", strings.NewReader(string(body)))
+		rec := httptest.NewRecorder()
+		panel.handleFolders(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("folder change failed: %d %s", rec.Code, rec.Body)
+		}
+	}
+	change(map[string]string{"id": "unknown-folder"})
+	if panel.Config().Folders != nil {
+		t.Fatal("removing an unknown folder enabled folder-only mode")
+	}
+	change(map[string]string{"name": "Отчёты", "path": `"` + path + `"`})
+	shares := panel.Config().Folders
+	if len(shares) != 1 || shares[0].Path != path {
+		t.Fatalf("quoted path was not saved correctly: %+v", shares)
+	}
+	change(map[string]string{"id": shares[0].ID})
+	cfg, err := LoadConfig()
+	if err != nil || !cfg.foldersOnly() || len(cfg.Folders) != 0 {
+		t.Fatalf("empty catalog was not saved for removal on the server: %+v %v", cfg.Folders, err)
 	}
 }
 

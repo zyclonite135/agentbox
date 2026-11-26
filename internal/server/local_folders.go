@@ -76,7 +76,9 @@ func (s *Server) savedLinkFolders(user store.User) []tunnel.Folder {
 		return nil
 	}
 	defer root.Close()
-	raw, err := root.ReadFile("local-folders.json", 8192)
+	// JSON encoding on disk can escape characters that were sent literally in
+	// the handshake, so leave room for a full catalog of 16 display names.
+	raw, err := root.ReadFile("local-folders.json", 16<<10)
 	var catalog linkFolderCatalog
 	if err != nil || json.Unmarshal(raw, &catalog) != nil || !catalog.Owner.Equal(user.CreatedAt) {
 		return nil

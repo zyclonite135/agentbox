@@ -488,6 +488,7 @@ func (s *Server) routes() *http.ServeMux {
 	mux.Handle("POST /api/sessions/{id}/upload", s.auth(s.withSession(s.handleUpload)))
 	mux.Handle("GET /api/sessions/{id}/archive", s.auth(s.withSession(s.handleArchive)))
 	mux.Handle("GET /api/sessions/{id}/files", s.auth(s.withSession(s.handleFiles)))
+	mux.Handle("PUT /api/sessions/{id}/files/copy", s.auth(s.withSession(s.handleWorkspaceFileCopy)))
 	mux.Handle("GET /api/sessions/{id}/files/search", s.auth(s.withSession(s.handleFileMentions)))
 	mux.Handle("GET /api/sessions/{id}/chat/tasks", s.auth(s.withSession(s.handleChatTasks)))
 	mux.Handle("DELETE /api/sessions/{id}/files", s.auth(s.withSession(s.handleFileDelete)))

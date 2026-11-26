@@ -302,34 +302,49 @@ func (s *Server) handleLocalFile(w http.ResponseWriter, r *http.Request, workspa
 		s.saveChatAttachment(w, workspace, name, source)
 		return
 	}
-	stage, err := s.userFolderRoot(workspace.User)
+	name, err := s.storeWorkspaceCopy(r.Context(), workspace, name, false, limit, source)
 	if err != nil {
 		writeFileOpErr(w, err)
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"name": name})
+}
+
+// Stage outside container mounts and publish only complete files.
+func (s *Server) storeWorkspaceCopy(ctx context.Context, workspace store.Session, name string, replace bool, limit int64, source io.Reader) (string, error) {
+	stage, err := s.userFolderRoot(workspace.User)
+	if err != nil {
+		return "", err
 	}
 	defer stage.Close()
 	temp := ".agentbox-local-file-" + rand.Text()
 	defer stage.Remove(temp)
 	opts := safefs.WriteOptions{Mode: 0o644, Chown: true, UID: dockerx.AgentUID, GID: dockerx.AgentGID, BestEffortChown: os.Geteuid() != 0, MaxBytes: limit, Limit: true}
 	if _, err := stage.WriteAtomic(temp, source, opts); err != nil {
-		writeFileOpErr(w, err)
-		return
+		return "", err
 	}
-	err = s.workspaces().UseExisting(r.Context(), workspace.ID, func(current store.Session) error {
+	err = s.workspaces().UseExisting(ctx, workspace.ID, func(current store.Session) error {
 		dest, err := s.openDataDir(s.workspaceDir(current))
 		if err != nil {
 			return err
 		}
 		defer dest.Close()
-		return stage.RenameTo(temp, dest, name, false)
-	})
-	if err != nil {
-		if errors.Is(err, os.ErrExist) {
-			writeErr(w, http.StatusConflict, "a file with that name already exists in the workspace")
-			return
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-		writeFileOpErr(w, err)
-		return
+		if replace {
+			old, err := dest.Lstat(name)
+			if err == nil && !old.Mode().IsRegular() {
+				return errFileOpConflict
+			}
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+		}
+		return stage.RenameTo(temp, dest, name, replace)
+	})
+	if errors.Is(err, os.ErrExist) {
+		err = errFileOpConflict
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"name": name})
+	return name, err
 }

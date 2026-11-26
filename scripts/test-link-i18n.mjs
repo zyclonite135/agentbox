@@ -34,6 +34,7 @@ export async function linkI18nSmoke(page) {
       const req=route.request(), path=new URL(req.url()).pathname;
       assert.equal(req.headers()["x-abox-panel"],"1");
       if(path==="/api/logs") return route.fulfill({json:{latest:0,lines:[]}});
+      if(path==="/api/file-manager/workspaces" || path==="/api/file-manager/local") return route.fulfill({json:[]});
       if(path==="/api/pair"){
         assert.deepEqual(req.postDataJSON(),{code:"ABOX1-fixture",insecure:false});
         state={...state,paired:true,user:"fixture",server:"https://example.invalid"};
@@ -60,11 +61,12 @@ export async function linkI18nSmoke(page) {
       await language.selectOption(locale);
       assert.equal(await page.locator("html").getAttribute("lang"),locale);
     }
-    assert.equal(await page.title(),"abox-link · Общие папки");
+    assert.equal(await page.title(),"abox-link · Файловый менеджер");
     await page.locator("#btn-pair").click();
     assert.equal(await page.locator("#pair-err").textContent(),"Сначала вставьте код сопряжения");
     await page.locator("#pair-code").fill("ABOX1-fixture");
     await page.locator("#btn-pair").click();
+    await page.locator("#panel-body > summary").click();
     await page.locator("#panel-body").waitFor({state:"visible"});
     await page.locator("#btn-toggle").click();
     await page.locator("#st-title").filter({hasText:"Устройство подключено"}).waitFor();
@@ -74,7 +76,7 @@ export async function linkI18nSmoke(page) {
     const name=page.locator("#local-folder-name");
     await name.fill("Документы <script>");
     await page.locator("#local-folder-path").fill("C:\\Документы\\Обмен");
-    await page.getByRole("button",{name:"Добавить папку"}).click();
+    await page.locator("#local-folder-add").click();
     await requested;
     try { await name.fill("Следующая папка"); } finally { holdFolder(); }
     const row=page.locator(".local-folder-row");

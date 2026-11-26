@@ -2,6 +2,7 @@
 "use strict";
 
 import { createI18n, languages } from "./i18n-core.js";
+import { createFileManager } from "./file-manager.js";
 import en from "./locales/en.js";
 import zhTW from "./locales/zh-TW.js";
 import ru from "./locales/ru.js";
@@ -11,7 +12,7 @@ const tr = (source, params) => i18n.t(source, params);
 // Only explicitly marked interface text is translated. Local paths, connection logs,
 // pairing codes and server diagnostics never enter this catalog.
 const staticSources = new WeakMap();
-const translatedAttributes = ["aria-label", "title"];
+const translatedAttributes = ["aria-label", "title", "placeholder"];
 function translateMarkers(root = document) {
   for (const el of root.querySelectorAll("[data-i18n]")) {
     if (!staticSources.has(el)) staticSources.set(el, el.textContent.trim());
@@ -35,6 +36,9 @@ const $ = (id) => document.getElementById(id);
 
 // This panel is embedded in its own binary, so its small icon set is standalone.
 const actionIcons = {
+  "left": "M19 12H5m6 6-6-6 6-6",
+  "right": "M5 12h14m-6-6 6 6-6 6",
+  "folderPlus": "M3 7v12h18V8H11L9 5H3v2m9 4v5m-2.5-2.5h5",
   "link": "m10 13 4-4M8 16l-1 1a3.5 3.5 0 0 1-5-5l4-4a3.5 3.5 0 0 1 5 0m2 8a3.5 3.5 0 0 0 5 0l4-4a3.5 3.5 0 0 0-5-5l-1 1",
   "plus": "M12 5v14M5 12h14",
   "play": "M6.5 3.5 20 12 6.5 20.5Z",
@@ -133,6 +137,7 @@ function render() {
 
   renderFolders();
   renderOptions();
+  manager.update(state);
 
 }
 
@@ -365,6 +370,8 @@ async function refresh() {
   } catch (_) { /* 面板进程没了，下一轮再试 */ }
 }
 
+const manager = createFileManager({ tr, locale: () => i18n.locale, errorMessage: panelErrorMessage, toast, pickManualFolder: () => { $("panel-body").open = true; $("local-folder-path").focus(); } });
+
 const languageSelect = $("interface-language");
 for (const language of [{ value: "system", label: "跟随系统" }, ...languages.filter(language => language.value !== "system")]) {
   const option = document.createElement("option");
@@ -377,6 +384,7 @@ function renderLanguage() {
   document.documentElement.lang = i18n.locale;
   languageSelect.value = i18n.preference;
   translateMarkers();
+  manager.translate();
   // renderRules keeps its existing DOM when rule values have not changed.
   // Switching language must never discard an unsaved folder or cursor.
   render();

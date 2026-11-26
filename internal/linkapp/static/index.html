@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-i18n>abox-link 文件共享</title>
+  <title data-i18n>abox-link 文件管理器</title>
   <link rel="icon" href="/img/logo.svg">
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/file-manager.css">
 </head>
 <body>
 
@@ -13,7 +14,6 @@
   <div class="brand">
     <img class="brand-mark" src="/img/logo.svg" width="20" height="20" alt="">
     <strong>ABOX-LINK</strong>
-    <span class="brand-sub" data-i18n>文件共享</span>
     <span class="brand-ver" id="hdr-version"></span>
   </div>
   <div class="top-tools">
@@ -70,6 +70,7 @@
     </div>
     <div class="link-foot">
       <div class="link-read">
+        <span class="st-label" data-i18n>共享访问</span>
         <div class="st-title" id="st-title" data-i18n>未连接</div>
         <div class="st-sub" id="st-sub"></div>
       </div>
@@ -77,13 +78,99 @@
     </div>
   </section>
 
-  <div id="panel-body" class="desk hidden">
+
+  <section id="file-manager" class="file-manager hidden" aria-labelledby="fm-heading">
+    <h1 id="fm-heading" data-i18n>文件管理器</h1>
+    <div class="fm-panes">
+    <section class="fm-pane" id="fm-local" aria-labelledby="fm-local-title">
+      <header class="fm-pane-head">
+        <div class="fm-pane-title">
+          <span class="fm-pane-icon" data-fm-icon="computer" aria-hidden="true"></span>
+          <h2 data-i18n id="fm-local-title">本机</h2>
+        </div>
+        <button class="ghost" id="fm-pick-folder" type="button" data-icon="plus" data-i18n>添加文件夹</button>
+      </header>
+      <div class="fm-pane-tools">
+        <select id="fm-local-root" aria-label="本机文件夹" data-i18n-aria-label="本机文件夹"></select>
+        <button type="button" class="fm-icon" id="fm-local-refresh" data-fm-icon="refresh" title="刷新" data-i18n-title="刷新" aria-label="刷新" data-i18n-aria-label="刷新"></button>
+      </div>
+      <div class="fm-path">
+        <button class="fm-icon" id="fm-local-back" type="button" data-fm-icon="up" title="上一级" data-i18n-title="上一级" aria-label="上一级" data-i18n-aria-label="上一级"></button>
+        <nav id="fm-local-crumbs" class="fm-crumbs" aria-label="本机" data-i18n-aria-label="本机"></nav>
+      </div>
+      <div class="fm-search">
+        <span data-fm-icon="search" aria-hidden="true"></span>
+        <input id="fm-local-filter" type="search" data-i18n-placeholder="按名称查找" data-i18n-aria-label="按名称查找" aria-label="按名称查找" placeholder="按名称查找" autocomplete="off">
+      </div>
+      <div class="fm-list-head">
+        <input id="fm-local-all" type="checkbox" aria-label="选择所有文件" data-i18n-aria-label="选择所有文件">
+        <button class="fm-sort" id="fm-local-sort" type="button"><span data-i18n>名称</span> <span data-fm-icon="chevron" aria-hidden="true"></span></button>
+        <span class="fm-size" data-i18n>大小</span>
+        <span></span>
+      </div>
+      <ul class="fm-list" id="fm-local-list"></ul>
+      <p class="fm-empty" id="fm-local-notice" role="status"></p>
+      <footer class="fm-pane-foot"><span id="fm-local-count"></span><button class="ghost" type="button" id="fm-local-copy" data-icon="right" data-i18n>复制到服务器</button></footer>
+    </section>
+
+    <section class="fm-pane" id="fm-remote" aria-labelledby="fm-remote-title">
+      <header class="fm-pane-head">
+        <div class="fm-pane-title">
+          <span class="fm-pane-icon" data-fm-icon="workspace" aria-hidden="true"></span>
+          <h2 data-i18n id="fm-remote-title">工作空间</h2>
+        </div>
+        <button class="ghost" id="fm-mkdir" type="button" data-icon="folderPlus" data-i18n>新建文件夹</button>
+      </header>
+      <div class="fm-pane-tools">
+        <select id="fm-remote-root" aria-label="选择工作空间" data-i18n-aria-label="选择工作空间"></select>
+        <button type="button" class="fm-icon" id="fm-remote-refresh" data-fm-icon="refresh" title="刷新" data-i18n-title="刷新" aria-label="刷新" data-i18n-aria-label="刷新"></button>
+      </div>
+      <div class="fm-path">
+        <button class="fm-icon" id="fm-remote-back" type="button" data-fm-icon="up" title="上一级" data-i18n-title="上一级" aria-label="上一级" data-i18n-aria-label="上一级"></button>
+        <nav id="fm-remote-crumbs" class="fm-crumbs" aria-label="工作空间" data-i18n-aria-label="工作空间"></nav>
+      </div>
+      <div class="fm-search">
+        <span data-fm-icon="search" aria-hidden="true"></span>
+        <input id="fm-remote-filter" type="search" data-i18n-placeholder="按名称查找" data-i18n-aria-label="按名称查找" aria-label="按名称查找" placeholder="按名称查找" autocomplete="off">
+      </div>
+      <div class="fm-list-head">
+        <input id="fm-remote-all" type="checkbox" aria-label="选择所有文件" data-i18n-aria-label="选择所有文件">
+        <button class="fm-sort" id="fm-remote-sort" type="button"><span data-i18n>名称</span> <span data-fm-icon="chevron" aria-hidden="true"></span></button>
+        <span class="fm-size" data-i18n>大小</span>
+        <span></span>
+      </div>
+      <ul class="fm-list" id="fm-remote-list"></ul>
+      <p class="fm-empty" id="fm-remote-notice" role="status"></p>
+      <footer class="fm-pane-foot"><span id="fm-remote-count"></span><button class="ghost" type="button" id="fm-remote-copy" data-icon="left" data-i18n>保存到电脑</button></footer>
+    </section>
+    </div>
+    <section id="fm-transfers" class="fm-transfers hidden" aria-labelledby="fm-transfers-title">
+      <div class="fm-transfer-head"><h2 id="fm-transfers-title" data-i18n>传输队列</h2><button type="button" class="ghost" id="fm-clear" data-i18n>清除已结束的传输</button></div>
+      <ul class="fm-queue" id="fm-queue"></ul>
+    </section>
+  </section>
+  <dialog id="fm-dialog" class="fm-dialog" aria-labelledby="fm-dialog-title">
+    <form method="dialog">
+      <h2 id="fm-dialog-title"></h2>
+      <p id="fm-dialog-text"></p>
+      <label id="fm-dialog-label"><span class="hidden" id="fm-dialog-input-label"></span><input id="fm-dialog-input" type="text" autocomplete="off" aria-labelledby="fm-dialog-input-label"></label>
+      <div id="fm-dialog-actions" class="fm-dialog-actions"></div>
+    </form>
+  </dialog>
+  <dialog id="fm-preview" class="fm-dialog fm-preview" aria-labelledby="fm-preview-title">
+    <form method="dialog"><header><h2 id="fm-preview-title"></h2><button class="fm-icon" type="submit" data-fm-icon="close" data-i18n-aria-label="关闭" aria-label="关闭"></button></header></form>
+    <img id="fm-preview-image" alt="">
+  </dialog>
+
+  <details id="panel-body" class="fm-settings hidden">
+    <summary data-i18n>连接设置</summary>
+    <div class="desk">
 
     <div class="col col-main">
 
       <section class="card">
         <div class="head">
-          <h2 data-i18n>本机文件夹</h2>
+          <h2 data-i18n>共享文件夹</h2>
           <span class="head-line"></span>
         </div>
         <p data-i18n>连接后可在 AgentBox 的「文件 → 从我的电脑」中只读浏览这些文件夹。</p>
@@ -131,7 +218,8 @@
       </section>
 
     </div>
-  </div>
+    </div>
+  </details>
 </main>
 
 <div class="toast hidden" id="toast"></div>

@@ -136,3 +136,39 @@ func TestLocalFolderBrowserAndImport(t *testing.T) {
 		t.Fatal("unpaired folders remain visible")
 	}
 }
+
+func TestWorkspaceFileCopyKeepsArchiveBytes(t *testing.T) {
+	s, workspace := newTestServer(t)
+	if err := s.store.Put(workspace); err != nil {
+		t.Fatal(err)
+	}
+	parent := filepath.Join(s.workspaceDir(workspace), "out")
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	put := func(source, query string, length int64) int {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPut, "/api/file-copy?path=out%2Freports.zip"+query, strings.NewReader(source))
+		r.ContentLength = length
+		s.handleWorkspaceFileCopy(w, r, workspace)
+		return w.Code
+	}
+	if status := put("archive", "", 7); status != http.StatusOK {
+		t.Fatalf("copy: %d", status)
+	}
+	if status := put("replacement", "", 11); status != http.StatusConflict {
+		t.Fatalf("collision: %d", status)
+	}
+	if status := put("partial", "&replace=1", 20); status == http.StatusOK {
+		t.Fatal("truncated replacement succeeded")
+	}
+	if got, err := os.ReadFile(filepath.Join(parent, "reports.zip")); err != nil || string(got) != "archive" {
+		t.Fatalf("archive changed: %q, %v", got, err)
+	}
+	if status := put("replacement", "&replace=1", 11); status != http.StatusOK {
+		t.Fatalf("replace: %d", status)
+	}
+	if got, err := os.ReadFile(filepath.Join(parent, "reports.zip")); err != nil || string(got) != "replacement" {
+		t.Fatalf("wrong replacement: %q, %v", got, err)
+	}
+}

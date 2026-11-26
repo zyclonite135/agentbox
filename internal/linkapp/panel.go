@@ -19,14 +19,16 @@ import (
 type Panel struct {
 	sup *Supervisor
 
-	mu      sync.Mutex // guards cfg, which the handlers read-modify-write
-	actions sync.Mutex // serializes configuration changes with connection restarts
-	cfg     Config
+	mu        sync.Mutex // guards cfg, which the handlers read-modify-write
+	actions   sync.Mutex // serializes configuration changes with connection restarts
+	cfg       Config
+	transfers chan struct{}
+	picker    chan struct{}
 }
 
 // NewPanel returns a panel over cfg and sup.
 func NewPanel(cfg Config, sup *Supervisor) *Panel {
-	return &Panel{cfg: cfg, sup: sup}
+	return &Panel{cfg: cfg, sup: sup, transfers: make(chan struct{}, 2), picker: make(chan struct{}, 1)}
 }
 
 // Config returns a copy of the current config.
@@ -52,6 +54,12 @@ func (p *Panel) Handler() http.Handler {
 	mux.HandleFunc("POST /api/unpair", p.handleUnpair)
 	mux.HandleFunc("POST /api/config", p.handleConfig)
 	mux.HandleFunc("POST /api/folders", p.handleFolders)
+	mux.HandleFunc("GET /api/file-manager/local", p.managerLocal)
+	mux.HandleFunc("GET /api/file-manager/workspaces", p.managerRemote)
+	mux.HandleFunc("GET /api/file-manager/remote", p.managerRemote)
+	mux.HandleFunc("POST /api/file-manager/action", p.managerRemoteAction)
+	mux.HandleFunc("POST /api/file-manager/transfer", p.managerTransfer)
+	mux.HandleFunc("POST /api/file-manager/pick-folder", p.managerPickFolder)
 	mux.HandleFunc("POST /api/start", p.handleStart)
 	mux.HandleFunc("POST /api/stop", p.handleStop)
 	mux.HandleFunc("POST /api/autostart", p.handleAutostart)
@@ -81,6 +89,9 @@ func localGuard(next http.Handler) http.Handler {
 		if origin := r.Header.Get("Origin"); origin != "" && !isLoopbackOrigin(origin) {
 			http.Error(w, "跨站请求被拒绝", http.StatusForbidden)
 			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Cache-Control", "no-store")
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.Header.Get("X-Abox-Panel") != "1" {
 			http.Error(w, "缺少 X-Abox-Panel 头", http.StatusForbidden)

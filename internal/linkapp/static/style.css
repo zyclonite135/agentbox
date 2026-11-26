@@ -102,10 +102,6 @@ body {
   font-family: var(--ui);
   font-size: 13px; font-weight: 600; letter-spacing: .18em;
 }
-.brand-sub {
-  color: var(--muted); font-size: 12px;
-  padding-left: 9px; border-left: 1px solid var(--line);
-}
 /* 版本号挂在品牌旁：升级后先看这里，确认跑的是不是刚下载的那个 */
 .brand-ver { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .acct { display: flex; align-items: center; gap: 9px; min-width: 0; }
@@ -418,7 +414,6 @@ input[type=text]:focus, textarea:focus {
 @media (max-width: 560px) {
   main { padding: 16px; }
   .top { padding: 12px 16px; }
-  .brand-sub { display: none; }
   .top-tools { gap: 10px; margin-left: auto; }
   .acct-name { max-width: 140px; }
 

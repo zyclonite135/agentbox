@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"agentbox/internal/archivex"
+	"agentbox/internal/devicelink"
 	"agentbox/internal/dockerx"
 	"agentbox/internal/safefs"
 	"agentbox/internal/store"
@@ -592,4 +593,28 @@ func openFileArea(dir string) (*safefs.Root, error) {
 	}
 	defer parent.Close()
 	return parent.Sub(filepath.Base(dir))
+}
+
+func (s *Server) handleWorkspaceFileCopy(w http.ResponseWriter, r *http.Request, workspace store.Session) {
+	name := r.URL.Query().Get("path")
+	if name == "." || !devicelink.ValidFolderPath(name) || !filepath.IsLocal(filepath.FromSlash(name)) {
+		writeFileOpErr(w, errFileOpInvalid)
+		return
+	}
+	limit := s.cfg.GetMaxUploadMB() << 20
+	if r.ContentLength < 0 {
+		writeErr(w, http.StatusLengthRequired, "file length required")
+		return
+	}
+	if r.ContentLength > limit {
+		writeErr(w, http.StatusRequestEntityTooLarge, "file exceeds upload limit")
+		return
+	}
+	source := &exactLocalFile{reader: io.LimitedReader{R: r.Body, N: r.ContentLength}}
+	copied, err := s.storeWorkspaceCopy(r.Context(), workspace, name, r.URL.Query().Get("replace") == "1", limit, source)
+	if err != nil {
+		writeFileOpErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"name": copied})
 }

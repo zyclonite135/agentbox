@@ -14,6 +14,7 @@ import { openPreview } from "./preview.js";
 import { svgIcon } from "./chat-render.js";
 import { setTip } from "./tip.js";
 import { bindMenu, moreButton } from "./menu.js";
+import { closeLocalFiles } from "./features/files/local-folders.js";
 
 /* 树形状态：expanded=已展开的目录（相对当前根），cache=已拉取的目录列表（"" 为当前根），
  * gen=竞态防护——快速连续导航时只让最后一次请求的结果上屏 */
@@ -710,6 +711,7 @@ function updateFileLabels() {
 updateFileLabels();
 
 function setFileScope(scope: FileScope) {
+  closeLocalFiles();
   if (S.fileScope === scope) return;
   S.fileScope = scope;
   S.filePath = "";

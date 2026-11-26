@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"time"
@@ -134,6 +135,7 @@ func (w Whitelist) Allowed(host, port string, lookupIP func(string) ([]net.IP, e
 // whitelist and dials allowed targets on the local machine.
 type Link struct {
 	Whitelist Whitelist
+	Folders   func(io.ReadWriter)
 	// Logf logs one audit line per connection; nil disables logging.
 	Logf func(format string, args ...any)
 	// DialTimeout bounds each outbound dial (default 10s).
@@ -162,7 +164,14 @@ func (l *Link) Serve(sess *yamux.Session) error {
 func (l *Link) serveStream(stream *yamux.Stream) {
 	defer stream.Close()
 	typ, addr, err := ReadRequest(stream)
-	if err != nil || typ != StreamConnect {
+	if err != nil {
+		return
+	}
+	if typ == StreamFolders {
+		if l.Folders != nil {
+			_ = stream.SetDeadline(time.Now().Add(5 * time.Minute))
+			l.Folders(stream)
+		}
 		return
 	}
 	host, port, err := net.SplitHostPort(addr)

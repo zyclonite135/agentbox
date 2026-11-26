@@ -577,6 +577,9 @@ func (s *Server) routes() *http.ServeMux {
 	mux.Handle("POST /api/sessions/{id}/chat/reset", s.auth(s.withSession(s.handleThreadNew)))
 	mux.Handle("GET /api/tunnel", s.auth(http.HandlerFunc(s.handleTunnelWS)))
 	mux.Handle("GET /api/tunnel/status", s.auth(http.HandlerFunc(s.handleTunnelStatus)))
+	mux.Handle("GET /api/local-folders", s.auth(http.HandlerFunc(s.handleLocalFolders)))
+	mux.Handle("GET /api/local-folders/{folder}", s.auth(http.HandlerFunc(s.handleLocalFolder)))
+	mux.Handle("POST /api/sessions/{id}/local-file", s.auth(s.withSession(s.handleLocalFile)))
 	mux.Handle("POST /api/tunnel/pair", s.auth(http.HandlerFunc(s.handleTunnelPair)))
 	// Redemption is unauthenticated by design: the pairing code is the credential.
 	mux.HandleFunc("POST /api/tunnel/pair/redeem", s.handleTunnelPairRedeem)

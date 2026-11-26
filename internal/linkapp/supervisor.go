@@ -159,7 +159,7 @@ func (s *Supervisor) run(ctx context.Context, cfg Config, wl tunnel.Whitelist, m
 		s.log.Printf("隧道已停止")
 	}()
 
-	link := &tunnel.Link{Whitelist: wl, Logf: s.log.Printf}
+	link := &tunnel.Link{Whitelist: wl, Logf: s.log.Printf, Folders: folderHandler(cfg.Folders)}
 	backoff := time.Second
 
 	for {

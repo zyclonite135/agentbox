@@ -1,5 +1,17 @@
 // App-authored interface messages. Keys and interpolation placeholders remain stable.
 export default {
+  "请在 abox-link 中添加本机文件夹并启动连接。": "Add a folder in abox-link and start the connection.",
+  "只读访问": "Read-only access",
+  "本机离线": "Computer is offline",
+  "无法读取本机文件": "Could not read files from your computer",
+  "此文件夹为空": "This folder is empty",
+  "复制到工作空间": "Copy to workspace",
+  "附加到对话": "Attach to chat",
+  "正在复制…": "Copying…",
+  "已复制到工作空间": "Copied to the workspace",
+  "工作空间中已有同名文件": "A file with this name already exists in the workspace",
+  "无法复制本机文件": "Could not copy the file from your computer",
+  "请先等待对话加载完成": "Wait for the chat to load",
   "处理请求时发生错误。": "An error occurred while processing the request.",
   "代理报告了一条警告。": "The agent reported a warning.",
   "代理正在重试请求。": "The agent is retrying the request.",

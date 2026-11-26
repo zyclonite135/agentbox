@@ -131,6 +131,14 @@ func dialTunnel(ctx context.Context, cfg Config, maps []tunnel.MapSpec) (*yamux.
 	hdr := http.Header{}
 	hdr.Set("Authorization", "Bearer "+cfg.Token)
 	hdr.Set(tunnel.FeaturesHeader, tunnel.SelfFeature)
+	if cfg.Paired() {
+		shares := make([]tunnel.Folder, 0, len(cfg.Folders))
+		for _, folder := range cfg.Folders {
+			shares = append(shares, folder.Folder)
+		}
+		raw, _ := json.Marshal(shares)
+		hdr.Set(tunnel.FoldersHeader, base64.RawURLEncoding.EncodeToString(raw))
+	}
 	if cfg.Transparent {
 		rules, err := netaccess.NormalizeRules(cfg.Allow)
 		if err != nil {

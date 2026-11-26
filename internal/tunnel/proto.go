@@ -57,6 +57,8 @@ func ReadRequest(r io.Reader) (typ byte, addr string, err error) {
 		return 0, "", err
 	}
 	switch t[0] {
+	case StreamFolders:
+		return t[0], "", nil
 	case StreamConnect:
 		var l [2]byte
 		if _, err = io.ReadFull(r, l[:]); err != nil {

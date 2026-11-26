@@ -48,6 +48,9 @@ func Pair(cfg Config, code string, insecure bool) (Config, error) {
 		return cfg, fmt.Errorf("服务器返回的配对结果不完整")
 	}
 
+	if cfg.Server != base.String() || cfg.User != out.User {
+		cfg.Folders = nil
+	}
 	cfg.Server = base.String()
 	cfg.User = out.User
 	cfg.Token = out.Token

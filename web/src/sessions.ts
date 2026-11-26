@@ -12,7 +12,7 @@ import { setSelectValue } from "./select.js";
 import { api } from "./api.js";
 import { refreshAll } from "./data.js";
 import { showView, renderSidebar, updateTopbarTitle } from "./shell.js";
-import { chatTeardown, resetChatImgs, loadPick, updateHero, loadHistory, connectChat } from "./chat.js";
+import { attachLocalFile, chatTeardown, resetChatImgs, loadPick, updateHero, loadHistory, connectChat } from "./chat.js";
 import { setThreadBar, closeThreadPanel } from "./chat-threads.js";
 import { termTeardown, termDisconnect, termReconnect, openTerm, termSpendPolling } from "./term.js";
 import { resetTree, loadFiles } from "./files.js";
@@ -152,6 +152,21 @@ function closeChannels() {
 }
 
 bus.addEventListener("open-session", (e) => openSession((e as CustomEvent<Session>).detail));
+bus.addEventListener("local-file-attach", (event) => {
+  const { name, folder, path } = (event as CustomEvent<{ name: string; folder: string; path: string }>).detail;
+  if (!S.current || S.histLoading || S.histError) {
+    toast(i18nText("请先等待对话加载完成"), true);
+    return;
+  }
+  const owner = S.token, session = S.current.id, thread = S.thread?.id;
+  setTab("chat");
+  // Let the chat pane settle before the attachment changes the composer's height.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (S.token === owner && S.current?.id === session && S.thread?.id === thread && S.tab === "chat") {
+      void attachLocalFile(name, folder, path);
+    }
+  }));
+});
 bus.addEventListener("data-updated", () => { if (S.current) renderHead(); });
 
 /* ---------------- 标签页 ---------------- */

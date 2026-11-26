@@ -8,7 +8,7 @@ import { actionButton, buttonLabel } from "./icons.js";
 import { S, bus, emit } from "./state.js";
 import type { Pick } from "./state.js";
 import type {
-  APIProblem, ChatMessage, ChatTasksView, FileMentionsView, History, ModelOption, QuestionView, QuotaPause, ReasoningCapability, SessionModels, SlashCommandsView, SteerView, ThreadOutline,
+  APIProblem, ChatMessage, ChatTasksView, FileMentionsView, History, ModelOption, QuestionView, QuotaPause, ReasoningCapability, SessionModels, SlashCommandsView, SteerView, ThreadOutline, UploadResult,
 } from "./types.js";
 import { $, fmtClock, fmtElapsed, spinEl, insertAtCursor, openLightbox, isMobile, onMobileChange, askPrompt, toast, isImeEnter, enterInsertsNewline } from "./util.js";
 import { api, wsURL, imgURLFromPath, uploadAttachment } from "./api.js";
@@ -648,21 +648,32 @@ function renderAttach() {
 }
 
 async function attachFile(file: File) {
+  return attachToComposer(file.name, file.type.startsWith("image/"), (session, signal) =>
+    uploadAttachment(file, { session, signal }));
+}
+
+export function attachLocalFile(name: string, folder: string, path: string) {
+  return attachToComposer(name, false, (session, signal) => api<UploadResult>(`/sessions/${session}/local-file`, {
+    method: "POST", signal, headers: { "Content-Type": "application/json", "X-AgentBox-Local-Files": "1" },
+    body: JSON.stringify({ folder, path, attachment: true }),
+  }));
+}
+
+async function attachToComposer(name: string, isImg: boolean, upload: (session: string, signal: AbortSignal) => Promise<UploadResult>) {
   if(!S.current||S.histLoading||S.histError)return;
   if(chatImgs.map.size>=64){toast(i18nText("每条草稿最多保留 64 个附件。"),true);return;}
   const session = S.current.id, owner = S.token, controller = new AbortController();
-  const isImg = file.type.startsWith("image/");
   const n = ++chatImgs.seq;
   const ownsUpload = () => S.current?.id === session && S.token === owner && attachmentUploads.get(n) === controller;
-  chatImgs.map.set(n, { path: "", name: "", orig: file.name || "", kind: isImg ? "img" : "file" });
+  chatImgs.map.set(n, { path: "", name: "", orig: name, kind: isImg ? "img" : "file" });
   attachmentUploads.set(n, controller);
   drafts?.save();
   renderAttach();
   try {
-    const res = await uploadAttachment(file,{session,signal:controller.signal});
+    const res = await upload(session, controller.signal);
     if (!ownsUpload()) return;
     const kind = isImg || res.path.startsWith("/shared/.images/") ? "img" : "file";
-    chatImgs.map.set(n, { ...res, orig: res.orig || file.name || "", kind, valid: true });
+    chatImgs.map.set(n, { ...res, orig: res.orig || name, kind, valid: true });
   } catch (e) {
     if (!ownsUpload()) return;
     chatImgs.map.delete(n);

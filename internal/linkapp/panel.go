@@ -19,8 +19,9 @@ import (
 type Panel struct {
 	sup *Supervisor
 
-	mu  sync.Mutex // guards cfg, which the handlers read-modify-write
-	cfg Config
+	mu      sync.Mutex // guards cfg, which the handlers read-modify-write
+	actions sync.Mutex // serializes configuration changes with tunnel restarts
+	cfg     Config
 }
 
 // NewPanel returns a panel over cfg and sup.
@@ -50,6 +51,7 @@ func (p *Panel) Handler() http.Handler {
 	mux.HandleFunc("POST /api/pair", p.handlePair)
 	mux.HandleFunc("POST /api/unpair", p.handleUnpair)
 	mux.HandleFunc("POST /api/config", p.handleConfig)
+	mux.HandleFunc("POST /api/folders", p.handleFolders)
 	mux.HandleFunc("POST /api/start", p.handleStart)
 	mux.HandleFunc("POST /api/stop", p.handleStop)
 	mux.HandleFunc("POST /api/autostart", p.handleAutostart)
@@ -120,6 +122,7 @@ func (p *Panel) state() map[string]any {
 		"insecure":     cfg.Insecure,
 		"allow":        emptySlice(cfg.Allow),
 		"maps":         emptySlice(cfg.Maps),
+		"folders":      cfg.Folders,
 		"auto_connect": cfg.AutoConnect,
 		"running":      p.sup.Running(),
 		"status":       p.sup.Status(),
@@ -134,6 +137,8 @@ func (p *Panel) handleLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Panel) handlePair(w http.ResponseWriter, r *http.Request) {
+	p.actions.Lock()
+	defer p.actions.Unlock()
 	var req struct {
 		Code     string `json:"code"`
 		Insecure bool   `json:"insecure"`
@@ -162,6 +167,8 @@ func (p *Panel) handlePair(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Panel) handleUnpair(w http.ResponseWriter, r *http.Request) {
+	p.actions.Lock()
+	defer p.actions.Unlock()
 	p.sup.Stop()
 
 	// Best-effort: revoke the session token on the server so a leaked or copied
@@ -179,6 +186,7 @@ func (p *Panel) handleUnpair(w http.ResponseWriter, r *http.Request) {
 	p.mu.Lock()
 	cfg := p.cfg
 	cfg.Server, cfg.User, cfg.Token = "", "", ""
+	cfg.Folders = nil
 	if err := SaveConfig(cfg); err != nil {
 		p.mu.Unlock()
 		writeErr(w, http.StatusInternalServerError, "保存配置失败："+err.Error())
@@ -192,6 +200,8 @@ func (p *Panel) handleUnpair(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Panel) handleConfig(w http.ResponseWriter, r *http.Request) {
+	p.actions.Lock()
+	defer p.actions.Unlock()
 	var req struct {
 		Transparent bool     `json:"transparent"`
 		Allow       []string `json:"allow"`
@@ -242,6 +252,8 @@ func (p *Panel) handleConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Panel) handleStart(w http.ResponseWriter, r *http.Request) {
+	p.actions.Lock()
+	defer p.actions.Unlock()
 	if err := p.sup.Start(p.Config()); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
@@ -250,6 +262,8 @@ func (p *Panel) handleStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Panel) handleStop(w http.ResponseWriter, r *http.Request) {
+	p.actions.Lock()
+	defer p.actions.Unlock()
 	p.sup.Stop()
 	writeJSON(w, http.StatusOK, p.state())
 }

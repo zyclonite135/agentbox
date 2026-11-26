@@ -743,6 +743,15 @@ function renderAttach() {
         $("chat-send").disabled = S.histLoading || !!S.histError || attachmentUploads.size > 0 || sender.busy || !!drafts?.blocked() || !!outbox?.blocked();
 }
 async function attachFile(file) {
+    return attachToComposer(file.name, file.type.startsWith("image/"), (session, signal) => uploadAttachment(file, { session, signal }));
+}
+export function attachLocalFile(name, folder, path) {
+    return attachToComposer(name, false, (session, signal) => api(`/sessions/${session}/local-file`, {
+        method: "POST", signal, headers: { "Content-Type": "application/json", "X-AgentBox-Local-Files": "1" },
+        body: JSON.stringify({ folder, path, attachment: true }),
+    }));
+}
+async function attachToComposer(name, isImg, upload) {
     if (!S.current || S.histLoading || S.histError)
         return;
     if (chatImgs.map.size >= 64) {
@@ -750,19 +759,18 @@ async function attachFile(file) {
         return;
     }
     const session = S.current.id, owner = S.token, controller = new AbortController();
-    const isImg = file.type.startsWith("image/");
     const n = ++chatImgs.seq;
     const ownsUpload = () => S.current?.id === session && S.token === owner && attachmentUploads.get(n) === controller;
-    chatImgs.map.set(n, { path: "", name: "", orig: file.name || "", kind: isImg ? "img" : "file" });
+    chatImgs.map.set(n, { path: "", name: "", orig: name, kind: isImg ? "img" : "file" });
     attachmentUploads.set(n, controller);
     drafts?.save();
     renderAttach();
     try {
-        const res = await uploadAttachment(file, { session, signal: controller.signal });
+        const res = await upload(session, controller.signal);
         if (!ownsUpload())
             return;
         const kind = isImg || res.path.startsWith("/shared/.images/") ? "img" : "file";
-        chatImgs.map.set(n, { ...res, orig: res.orig || file.name || "", kind, valid: true });
+        chatImgs.map.set(n, { ...res, orig: res.orig || name, kind, valid: true });
     }
     catch (e) {
         if (!ownsUpload())

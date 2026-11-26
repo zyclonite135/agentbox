@@ -12,6 +12,8 @@ export const ruSettingsNav: Readonly<Record<string, string>> = {
 };
 
 export default {
+  "本机文件": "С моего компьютера",
+  "返回": "Назад",
   "初始密码": "Начальный пароль",
   "数据上限": "Лимит данных",
   "缓存上限": "Лимит кэша",

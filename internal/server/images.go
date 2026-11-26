@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -64,7 +65,12 @@ func (s *Server) handleImageUpload(w http.ResponseWriter, r *http.Request, sess 
 		return
 	}
 
-	ext := strings.ToLower(filepath.Ext(hdr.Filename))
+	s.saveChatAttachment(w, sess, hdr.Filename, file)
+}
+
+func (s *Server) saveChatAttachment(w http.ResponseWriter, sess store.Session, original string, file io.Reader) {
+	maxBytes := s.cfg.GetMaxUploadMB() << 20
+	ext := strings.ToLower(filepath.Ext(original))
 	if !attachExtRe.MatchString(ext) {
 		ext = ".bin"
 	}
@@ -95,7 +101,7 @@ func (s *Server) handleImageUpload(w http.ResponseWriter, r *http.Request, sess 
 	}
 	writeJSON(w, http.StatusOK, map[string]string{
 		"name": name,
-		"orig": filepath.Base(hdr.Filename),
+		"orig": filepath.Base(original),
 		"path": dockerx.SharedMount + "/" + subdir + "/" + name,
 	})
 }

@@ -61,6 +61,9 @@ export async function linkI18nSmoke(page) {
         if (refuseSave) { await route.fulfill({ status: 400, json: { error: diagnostic } }); return; }
         configPayload = req.postDataJSON();
         state = { ...state, ...configPayload };
+      } else if (url.pathname === '/api/folders') {
+        const folder = req.postDataJSON();
+        state.folders = folder.id ? [] : [{ id: 'folder-fixture-01', ...folder }];
       } else assert.equal(url.pathname, '/api/state');
       await route.fulfill({ json: state });
     } catch (error) { failures.push(error.message); await route.abort(); }
@@ -151,6 +154,17 @@ export async function linkI18nSmoke(page) {
     await page.locator('#btn-unpair').click();
     assert.equal(await dialogText, en['解除绑定后需要重新配对才能连接，放行规则会保留。继续？']);
     assert.equal(mutations, 4, 'canceling an unpair confirmation must not send a request');
+
+    await language.selectOption('ru');
+    await page.locator('#local-folder-name').fill('Документы <script>');
+    await page.locator('#local-folder-path').fill('C:\\Документы\\Обмен');
+    await page.getByRole('button', { name: 'Добавить папку' }).click();
+    const folder = page.locator('#local-folder-list .local-folder-row');
+    await folder.waitFor();
+    assert.match(await folder.innerText(), /Документы <script>/);
+    assert.equal(await folder.locator('script').count(), 0);
+    await folder.getByRole('button', { name: 'Убрать папку' }).click();
+    await folder.waitFor({ state: 'detached' });
     await language.selectOption('ru');
     await page.reload();
     await page.locator('#card-status').waitFor({ state: 'visible' });

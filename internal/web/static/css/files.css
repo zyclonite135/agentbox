@@ -88,6 +88,19 @@
 .files-head .num { text-align: right; }
 .files-head .factions-head { text-align: right; }
 .files-list { flex: 1; overflow-y: auto; padding: 0 20px 20px; }
+#tab-files.show-local-files :is(.files-actions,.files-crumb,#files-head,#files-list,#upload-progress) { display:none; }
+.local-files { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; padding:12px 20px 20px; }
+.local-files-toolbar,.local-file-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; }
+.local-files-toolbar > strong,.local-file-name { flex:1 1 150px; min-width:0; overflow-wrap:anywhere; }
+.local-file-row { padding:8px 0; border-bottom:1px solid var(--line); }
+.local-file-row button { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
+.local-file-name { text-align:start; }
+#local-files-more { margin-top:12px; }
+@media (max-width:760px) {
+  #tab-files .scope-switch { flex-wrap:wrap; }
+  .local-files { padding-inline:12px; }
+  .local-files .btn { min-height:44px; }
+}
 .file-row {
   padding-top: 6px; padding-bottom: 6px;
   border-bottom: 1px solid var(--line-soft);

@@ -97,6 +97,7 @@ let state = null;   // 服务端权威状态
 let draft = null;   // 用户正在编辑的副本；null 表示无未保存改动
 let logSeq = 0;
 let rulesKey = null; // 当前画出来的规则行签名，值没变就不重建
+let foldersKey = "";
 
 /* ---- 渲染 ---- */
 
@@ -126,6 +127,7 @@ function render() {
   actionLabel($("btn-toggle"), tr(look.btn), look.btn === "停止" ? "stop" : "play");
 
   renderRules();
+  renderFolders();
   renderOptions();
   $("savebar").classList.toggle("hidden", !draft);
 }
@@ -230,6 +232,42 @@ function removeBtn(onClick) {
   b.addEventListener("click", onClick);
   return b;
 }
+
+function renderFolders() {
+  const folders = state.folders || [];
+  const key = JSON.stringify(folders);
+  if (key === foldersKey) return;
+  foldersKey = key;
+  const list = $("local-folder-list");
+  list.replaceChildren();
+  for (const folder of folders) {
+    const row = document.createElement("div");
+    row.className = "rule local-folder-row";
+    const text = document.createElement("span");
+    text.textContent = folder.name + " · " + folder.path;
+    const remove = removeBtn(() => void saveFolder(remove, { id: folder.id }));
+    localizedAttribute(remove, "aria-label", "移除文件夹");
+    row.append(text, remove);
+    list.append(row);
+  }
+}
+
+async function saveFolder(button, body) {
+  await withBusy(button, async () => {
+    try {
+      state = await api("/folders", body);
+      if (!body.id) $("local-folder-form").reset();
+      render();
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+}
+
+$("local-folder-form").addEventListener("submit", event => {
+  event.preventDefault();
+  void saveFolder($("local-folder-add"), { name: $("local-folder-name").value, path: $("local-folder-path").value });
+});
 
 function ruleRow(value, placeholder, onCommit, onRemove) {
   const row = document.createElement("div");

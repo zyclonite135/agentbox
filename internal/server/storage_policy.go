@@ -82,6 +82,10 @@ func (s *Server) reserveStorageWrite(r *http.Request) (func(), bool) {
 	if storageRoutineRoutes[r.Pattern] && bytes == smallWriteBytes {
 		reserve = limits.FloorBytes()
 	}
+	return s.reserveStorageBytes(r, bytes, reserve)
+}
+
+func (s *Server) reserveStorageBytes(r *http.Request, bytes, reserve int64) (func(), bool) {
 	s.storageReserveMu.Lock()
 	defer s.storageReserveMu.Unlock()
 	for _, disk := range readStorageDisks(s) {

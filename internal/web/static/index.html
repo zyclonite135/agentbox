@@ -722,6 +722,7 @@
                 <div class="scope-switch" role="tablist">
                   <button id="scope-ws" class="scope-btn active" data-icon="folder" data-i18n-text="[&quot;空间文件&quot;]">空间文件</button>
                   <button id="scope-shared" class="scope-btn" data-icon="folder-shared" data-i18n-text="[&quot;共享目录&quot;]">共享目录</button>
+                  <button id="scope-local" class="scope-btn" type="button" data-icon="folder" data-i18n="本机文件">本机文件</button>
                   <span class="help" tabindex="0" aria-label="共享目录说明" data-i18n-attrs="{&quot;aria-label&quot;:&quot;共享目录说明&quot;}">?
                     <span class="help-tip" role="tooltip" data-i18n-text="[&quot;）仅属于当前工作空间。&quot;,&quot;）供你名下的所有工作空间读写，适合传递代码与构建产物。\n                      在对话或终端中，可让 Agent 直接访问这些路径。\n                    &quot;]">
                       <b data-i18n-text="[&quot;空间文件&quot;]">空间文件</b>（<code>/workspace</code>）仅属于当前工作空间。<br>
@@ -748,6 +749,16 @@
               <span data-i18n-text="[&quot;名称&quot;]">名称</span><span data-i18n-text="[&quot;权限&quot;]">权限</span><span class="num" data-i18n-text="[&quot;大小&quot;]">大小</span><span data-i18n-text="[&quot;修改时间&quot;]">修改时间</span><span class="factions-head" data-i18n-text="[&quot;操作&quot;]">操作</span>
             </div>
             <div id="files-list" class="files-list"></div>
+            <section id="local-files" class="local-files" hidden>
+              <div class="local-files-toolbar">
+                <button id="local-files-back" class="btn btn-sm" type="button" data-icon="arrow-left" data-i18n="返回" hidden>返回</button>
+                <strong id="local-files-path"></strong>
+                <button id="local-files-refresh" class="btn btn-sm" type="button" data-icon="refresh" data-i18n="刷新">刷新</button>
+              </div>
+              <p id="local-files-status" class="note" role="status"></p>
+              <div id="local-files-list"></div>
+              <button id="local-files-more" class="btn btn-sm" type="button" data-i18n="加载更多" hidden>加载更多</button>
+            </section>
           </section>
 
           <!-- 变更（Git 审查） -->

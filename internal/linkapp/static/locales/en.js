@@ -1,5 +1,15 @@
 // Authored abox-link interface messages. Never translate network targets or logs.
 export default {
+  "本机文件夹": "Folders from this computer",
+  "连接后可在 AgentBox 的文件页只读浏览这些文件夹。": "Once connected, browse these folders from Files in AgentBox.",
+  "显示名称": "Display name",
+  "本机文件夹的绝对路径": "Absolute folder path",
+  "添加文件夹": "Add folder",
+  "移除文件夹": "Remove folder",
+  "请先接入服务器": "Pair with the server first",
+  "请输入有效的文件夹名称与绝对路径（最多 16 个）": "Enter a name and an absolute folder path. You can add up to 16 folders.",
+  "无法打开本机文件夹": "Could not open the folder",
+  "保存配置失败": "Could not save settings",
   "abox-link 内网隧道": "abox-link Private network tunnel",
   "内网隧道": "Private network tunnel",
   "界面语言": "Interface language",

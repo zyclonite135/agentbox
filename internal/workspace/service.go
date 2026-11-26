@@ -460,6 +460,20 @@ func (s *Service) Delete(ctx context.Context, id string, purge bool) error {
 	}
 	return nil
 }
+
+// UseExisting serializes a final filesystem change with workspace deletion.
+func (s *Service) UseExisting(ctx context.Context, id string, fn func(store.Session) error) error {
+	lock := s.lock(id)
+	if err := lock.acquire(ctx); err != nil {
+		return err
+	}
+	defer lock.release()
+	session, ok := s.store.Get(id)
+	if !ok {
+		return ErrSessionGone
+	}
+	return fn(session)
+}
 func (s *Service) deleteWorker(ctx context.Context, worker store.Session) error {
 	l := s.lock(worker.ID)
 	if err := l.acquire(ctx); err != nil {

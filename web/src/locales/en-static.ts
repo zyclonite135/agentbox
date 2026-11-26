@@ -1,5 +1,7 @@
 // Authored interface text only; never translate user content.
 export default {
+  "本机文件": "From my computer",
+  "返回": "Back",
   "初始密码": "Initial password",
   "数据上限": "Data limit",
   "缓存上限": "Cache limit",

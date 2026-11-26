@@ -54,6 +54,8 @@ type connInfo struct {
 	Remote      string
 	Transparent bool
 	SelfTarget  bool // the link dials tunnel.SelfHost on its own loopback
+	folders     []tunnel.Folder
+	folderToken string
 }
 
 func newTunnelHub() *tunnelHub {
@@ -510,6 +512,11 @@ func (s *Server) handleTunnelWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := reqUser(r).Name
+	folders, err := parseLinkFolders(r.Header.Get(tunnel.FoldersHeader))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid folder catalog")
+		return
+	}
 	var networkRules []string
 	transparent := r.Header.Get(netaccess.CapabilityHeader) == netaccess.Protocol
 	if transparent {
@@ -577,11 +584,20 @@ func (s *Server) handleTunnelWS(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if folders != nil {
+		if err := s.saveLinkFolders(reqUser(r), folders); err != nil {
+			s.network.connectMu.Unlock()
+			releaseMaps()
+			sess.Close()
+			return
+		}
+	}
 	_, unregister := s.tunnels.register(user, sess, r.RemoteAddr)
 	s.tunnels.mu.Lock()
 	info := s.tunnels.info[user]
 	info.Transparent = transparent
 	info.SelfTarget = hasFeature(r.Header.Get(tunnel.FeaturesHeader), tunnel.SelfFeature)
+	info.folders, info.folderToken = folders, bearerToken(r)
 	s.tunnels.info[user] = info
 	s.tunnels.mu.Unlock()
 	s.network.connectMu.Unlock()

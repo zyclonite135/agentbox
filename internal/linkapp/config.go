@@ -22,14 +22,15 @@ import (
 // deliberately absent: pairing exchanges it once for a token, and only the
 // token is stored.
 type Config struct {
-	Transparent bool     `json:"transparent"`
-	Server      string   `json:"server"`       // agentbox base URL
-	User        string   `json:"user"`         // agentbox username
-	Token       string   `json:"token"`        // session token from pairing/login
-	Insecure    bool     `json:"insecure"`     // skip TLS verification
-	Allow       []string `json:"allow"`        // whitelist rules (CIDR / host / host:port)
-	Maps        []string `json:"maps"`         // port maps, "PORT=HOST:PORT"
-	AutoConnect bool     `json:"auto_connect"` // dial the tunnel as soon as the app starts
+	Transparent bool          `json:"transparent"`
+	Server      string        `json:"server"`       // agentbox base URL
+	User        string        `json:"user"`         // agentbox username
+	Token       string        `json:"token"`        // session token from pairing/login
+	Insecure    bool          `json:"insecure"`     // skip TLS verification
+	Allow       []string      `json:"allow"`        // whitelist rules (CIDR / host / host:port)
+	Maps        []string      `json:"maps"`         // port maps, "PORT=HOST:PORT"
+	AutoConnect bool          `json:"auto_connect"` // dial the tunnel as soon as the app starts
+	Folders     []localFolder `json:"folders"`
 }
 
 // Paired reports whether the config carries usable server credentials.
@@ -59,6 +60,9 @@ func (c Config) Validate() (tunnel.Whitelist, []tunnel.MapSpec, error) {
 		allow = append(allow, spec.Target) // a mapped target is implicitly allowed
 	}
 	if len(allow) == 0 {
+		if c.Folders != nil {
+			return nil, maps, nil
+		}
 		return nil, nil, fmt.Errorf("至少要有一条放行规则或端口映射（默认拒绝一切）")
 	}
 	wl, err := tunnel.ParseWhitelist(allow)

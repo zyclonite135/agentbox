@@ -373,6 +373,10 @@ input[type=text]:focus, textarea:focus {
 /* ---------- 规则行 ---------- */
 
 .rules { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+#local-folder-list:empty { display: none; }
+#local-folder-form label { display: grid; gap: 4px; min-width: 0; }
+#local-folder-form input { width: 100%; min-width: 0; }
+.local-folder-row span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 
 /* 空态是个邀请，也是一句实话 */
 .rules:empty::before {

@@ -24,6 +24,7 @@ let uploadView;
 let uploadRecovery = 0;
 let recoveryTimer;
 export function resetTree() {
+    clearFileDrag();
     tree.gen++;
     uploadRecovery++;
     clearTimeout(recoveryTimer);
@@ -85,6 +86,7 @@ export async function loadFiles() {
     const sess = S.current;
     if (!sess)
         return;
+    clearFileDrag();
     const gen = ++tree.gen;
     tree.cache.clear(); // 每次都取最新内容，展开状态保留
     $("files-list").replaceChildren(filesSkeleton());
@@ -157,8 +159,10 @@ function upRow() {
     buttonLabel(label, () => i18nText("上一级"), "arrow-left");
     label.setAttribute("role", "button");
     label.tabIndex = 0;
+    const parent = parentRel(S.filePath);
+    bindFileDrop(row, parent);
     const up = () => {
-        S.filePath = S.filePath.split("/").slice(0, -1).join("/");
+        S.filePath = parent;
         resetTree();
         loadFiles();
     };
@@ -221,6 +225,9 @@ function fileRow(ent, rel, depth) {
         glyph.append(svgIcon(fileIconName(ent.name), 15));
         name.appendChild(glyph);
     }
+    const path = joinRel(S.filePath, rel);
+    if (ent.is_dir)
+        bindFileDrop(row, path);
     // 名称：目录点击进入，文件点击预览/编辑
     const label = document.createElement("span");
     label.className = "flabel";
@@ -235,6 +242,7 @@ function fileRow(ent, rel, depth) {
         }
         : () => openPreview(joinRel(S.filePath, rel), ent);
     setTip(label, () => ent.is_dir ? i18nText("进入目录") : i18nText("预览 / 编辑"));
+    bindFileDrag(label, { scope: S.fileScope, path, isDir: ent.is_dir });
     label.addEventListener("click", open);
     label.addEventListener("keydown", (e) => { if (e.key === "Enter")
         open(); });
@@ -246,7 +254,7 @@ function fileRow(ent, rel, depth) {
         text.appendChild(cell(fmtSize(ent.size), "fsub"));
     name.appendChild(text);
     row.appendChild(name);
-    row.append(cell(ent.mode || "", "fperm"), cell(ent.is_dir ? "" : fmtSize(ent.size), "fsize num"), cell(ent.mtime ? fmtDateTime(ent.mtime) : "", "ftime"), fileActions(ent, joinRel(S.filePath, rel)));
+    row.append(cell(ent.mode || "", "fperm"), cell(ent.is_dir ? "" : fmtSize(ent.size), "fsize num"), cell(ent.mtime ? fmtDateTime(ent.mtime) : "", "ftime"), fileActions(ent, path));
     return row;
 }
 function fileAction(label, icon, action, danger = false) {
@@ -346,8 +354,119 @@ function setInlineError(id, message) {
     el.textContent = message || "";
     el.classList.toggle("hidden", !message);
 }
+function isSameDirectory(source, destination) {
+    return source.scope === destination.scope && parentRel(source.path) === destination.path;
+}
+function isInsideSource(source, destination) {
+    return source.isDir && source.scope === destination.scope
+        && (destination.path === source.path || destination.path.startsWith(source.path + "/"));
+}
+function moveFile(session, source, destination) {
+    return api("/sessions/" + session + "/files/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            source_scope: source.scope,
+            source_path: source.path,
+            destination_scope: destination.scope,
+            destination_dir: destination.path,
+        }),
+    });
+}
+function showFileMoved(source, destination) {
+    toast(i18nText("{p0}已移动到 {p1}", {
+        p0: source.isDir ? i18nText("文件夹") : i18nText("文件"),
+        p1: fullScopePath(destination.scope, destination.path),
+    }));
+}
+// Keep the move source in this page. Only a marker goes in DataTransfer.
+const fileMoveType = "application/x-agentbox-file-move";
+const mouseInput = window.matchMedia("(any-pointer: fine)");
+let fileDrag;
+let fileDropTarget;
+let fileDropBusy = false;
+function highlightFileDrop(target) {
+    if (fileDropTarget === target)
+        return;
+    fileDropTarget?.classList.remove("file-drop-active");
+    fileDropTarget = target;
+    fileDropTarget?.classList.add("file-drop-active");
+}
+function clearFileDrag() {
+    fileDrag = undefined;
+    highlightFileDrop();
+}
+function bindFileDrag(label, source) {
+    label.draggable = mouseInput.matches;
+    const gen = tree.gen;
+    label.addEventListener("dragstart", (e) => {
+        const session = S.current?.id, token = S.token;
+        if (!session || !e.dataTransfer || fileDropBusy || gen !== tree.gen || !mouseInput.matches) {
+            e.preventDefault();
+            return;
+        }
+        clearFileDrag();
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData(fileMoveType, "1");
+        fileDrag = {
+            source, session,
+            isCurrent: () => S.token === token && S.current?.id === session && S.tab === "files" && tree.gen === gen,
+        };
+    });
+    label.addEventListener("dragend", clearFileDrag);
+}
+function bindFileDrop(target, path) {
+    const destination = { scope: S.fileScope, path };
+    // Breadcrumbs can stay visible while a new directory is loading.
+    const session = S.current?.id, directory = S.filePath;
+    const eligibleDrag = (e) => {
+        const drag = fileDrag;
+        if (!drag?.isCurrent() || !e.dataTransfer?.types.includes(fileMoveType))
+            return;
+        if (drag.session !== session || S.fileScope !== destination.scope || S.filePath !== directory)
+            return;
+        if (isSameDirectory(drag.source, destination) || isInsideSource(drag.source, destination))
+            return;
+        return drag;
+    };
+    target.addEventListener("dragover", (e) => {
+        if (!eligibleDrag(e) || !e.dataTransfer)
+            return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        highlightFileDrop(target);
+    });
+    target.addEventListener("dragleave", (e) => {
+        if (fileDropTarget === target && !target.contains(e.relatedTarget))
+            highlightFileDrop();
+    });
+    target.addEventListener("drop", async (e) => {
+        const drag = eligibleDrag(e);
+        if (!drag || fileDropBusy)
+            return;
+        e.preventDefault();
+        clearFileDrag();
+        fileDropBusy = true;
+        const token = S.token;
+        try {
+            await moveFile(drag.session, drag.source, destination);
+            if (S.token === token)
+                showFileMoved(drag.source, destination);
+            if (S.token === token && S.current?.id === drag.session && S.fileScope === destination.scope && S.tab === "files") {
+                void loadFiles();
+            }
+        }
+        catch (e) {
+            if (S.token === token)
+                toast(i18nText("移动失败：") + e.message, true);
+        }
+        finally {
+            fileDropBusy = false;
+        }
+    });
+}
 function moveIsNoop() {
-    return fileOp.moveScope === fileOp.sourceScope && fileOp.movePath === parentRel(fileOp.sourcePath);
+    return isSameDirectory({ scope: fileOp.sourceScope, path: fileOp.sourcePath }, { scope: fileOp.moveScope, path: fileOp.movePath });
 }
 function updateMoveTarget() {
     $("file-move-target").textContent = fullScopePath(fileOp.moveScope, fileOp.movePath);
@@ -375,9 +494,7 @@ function renderMoveCrumb() {
     }
 }
 function moveDirDisabled(path) {
-    if (!fileOp.entry?.is_dir || fileOp.moveScope !== fileOp.sourceScope)
-        return false;
-    return path === fileOp.sourcePath || path.startsWith(fileOp.sourcePath + "/");
+    return isInsideSource({ scope: fileOp.sourceScope, path: fileOp.sourcePath, isDir: fileOp.entry?.is_dir === true }, { scope: fileOp.moveScope, path });
 }
 async function loadMoveDirs() {
     const sess = S.current;
@@ -475,20 +592,11 @@ $("file-move-ok").addEventListener("click", async () => {
     $("file-move-ws").disabled = true;
     $("file-move-shared").disabled = true;
     try {
-        const wasDir = fileOp.entry.is_dir;
-        const destinationLabel = fullScopePath(fileOp.moveScope, fileOp.movePath);
-        await api(`/sessions/${sess.id}/files/move`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                source_scope: fileOp.sourceScope,
-                source_path: fileOp.sourcePath,
-                destination_scope: fileOp.moveScope,
-                destination_dir: fileOp.movePath,
-            }),
-        });
+        const source = { scope: fileOp.sourceScope, path: fileOp.sourcePath, isDir: fileOp.entry.is_dir };
+        const destination = { scope: fileOp.moveScope, path: fileOp.movePath };
+        await moveFile(sess.id, source, destination);
         $("dlg-file-move").close();
-        toast(i18nText("{p0}已移动到 {p1}", { p0: String(wasDir ? i18nText("文件夹") : i18nText("文件")), p1: String(destinationLabel) }));
+        showFileMoved(source, destination);
         resetTree();
         loadFiles();
     }
@@ -656,6 +764,7 @@ async function rerenderTree() {
     const sess = S.current;
     if (!sess)
         return;
+    clearFileDrag();
     const gen = ++tree.gen;
     let entries = tree.cache.get("");
     if (!entries) {
@@ -684,7 +793,8 @@ function renderCrumb() {
     const crumb = $("files-crumb");
     crumb.replaceChildren();
     const root = document.createElement("a");
-    root.textContent = S.fileScope === "shared" ? "/shared" : "/workspace";
+    root.textContent = scopeRoot(S.fileScope);
+    bindFileDrop(root, "");
     root.addEventListener("click", () => { S.filePath = ""; resetTree(); loadFiles(); });
     crumb.appendChild(root);
     let acc = "";
@@ -694,6 +804,7 @@ function renderCrumb() {
         const a = document.createElement("a");
         const target = acc;
         a.textContent = part;
+        bindFileDrop(a, target);
         a.addEventListener("click", () => { S.filePath = target; resetTree(); loadFiles(); });
         crumb.appendChild(a);
     }

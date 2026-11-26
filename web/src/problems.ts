@@ -177,6 +177,7 @@ export const problemMessages: Record<string, readonly [string, string]> = {
 type Translate = (source: string, params?: Params) => string;
 // Known messages from older JSON endpoints and the bundled upgrade helper.
 const legacyErrors = new Set([
+  "目标目录中已存在同名文件或目录",
   "账号出口代理已停用",
   "账号出口代理尚未就绪",
   "请输入有效的 HTTP / HTTPS 地址",

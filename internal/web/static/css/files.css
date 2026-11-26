@@ -138,6 +138,13 @@
 .file-row .fsub { display: none; color: var(--muted); font-size: 11px; line-height: 1.3; }
 .file-row .flabel:hover { color: var(--text-hi); text-decoration: underline; text-underline-offset: 3px; }
 .file-row.dir .flabel { color: var(--text); font-weight: 600; }
+.file-row .flabel[draggable="true"] { cursor: grab; }
+.file-row .flabel[draggable="true"]:active { cursor: grabbing; }
+.file-row.file-drop-active, .files-crumb a.file-drop-active {
+  background: color-mix(in srgb, var(--amber) 16%, var(--panel));
+  box-shadow: inset 0 0 0 1px var(--amber);
+}
+.files-crumb a.file-drop-active { border-radius: 3px; }
 .file-row.empty-dir { border-bottom: none; }
 .file-row .muted { color: var(--muted); font-style: normal; }
 .file-row .fperm { color: var(--muted); font-size: 12px; letter-spacing: 0; }

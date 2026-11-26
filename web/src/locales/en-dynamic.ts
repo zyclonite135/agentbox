@@ -719,6 +719,7 @@ export default {
   "文件": "File",
   "{p0}已移动到 {p1}": "{p0} moved to {p1}",
   "移动失败：": "Move failed: ",
+  "目标目录中已存在同名文件或目录": "The destination already contains a file or folder with this name",
   "删除文件夹": "Delete folder",
   "删除文件": "Delete file",
   "确认删除「{p0}」？": "Delete “{p0}”?",

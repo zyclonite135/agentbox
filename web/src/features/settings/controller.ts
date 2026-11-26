@@ -3,6 +3,7 @@ import {fillDecisionSettings,decisionSettingsGroup,initDecisionSettings,refreshD
 import { initSettingsMaintenance } from "./maintenance.js";
 import { i18n, setAttr, setAttrRender, setText, setTextRender, t as i18nText } from "../../i18n.js";
 import { initSettingsLayout } from "./layout.js";
+import { initSecurityLayout } from "./security-layout.js";
 import { ruSettingsNav } from "../../locales/ru-static.js";
 import { initImageUpdates, fillImageUpdateSettings, startImageUpdates, stopImageUpdates } from "./image-updates.js";
 import { loadSystem, stopSystem, startMonitor, stopMonitor } from "./operations.js";
@@ -14,7 +15,7 @@ import { DEFAULT_TERMINAL_TIP, terminalTipSource, terminalTipText } from "../../
  * 容器与资源、模型管理、安全与访问、关于。 */
 "use strict";
 
-import { actionButton } from "../../icons.js";
+import { actionButton, svgIcon } from "../../icons.js";
 import { openIconManager, leaveIconManager } from "../../icon-manager.js";
 import { openAnnouncementAdmin, leaveAnnouncementAdmin } from "../../announcement-admin.js";
 import { openUserActivity, leaveUserActivity } from "./user-activity.js";
@@ -86,6 +87,7 @@ export const MODEL_TABS = ["accounts", "pricing", "system"];
 
 export function createSettingsController() {
  const owner=S.token,role=S.role,lifetime=new AbortController();
+ const refreshSecurityLayout = role === "admin" ? initSecurityLayout($("sec-security"), lifetime.signal) : undefined;
  const scope=new SettingsRequests(httpApi,()=>S.token===owner&&S.role===role);
  const requests=scope;
  const busyButtons=new Set<Parameters<typeof baseBusy>[0]>();
@@ -115,6 +117,7 @@ async function openSettingsView() {
     const restore = holdDirty();
     fillSettingsForms();
     restore();
+    refreshSecurityLayout?.();
     refreshDecisionSettings();
   } catch (e) { if(!scope.current())return;
     if(scope.current())toast(i18nText("读取设置失败：") + (e as Error).message, true);
@@ -570,6 +573,7 @@ function fillSettingsForms() {
   setSelectValue($<HTMLSelectElement>("set-tips-anim"), tips.animation || "scroll");
   renderModels();
   rebaseline();
+  refreshSecurityLayout?.();
 }
 
 /* 模型网关只服务检查模型流量的扩展：没有这类扩展启用时不监听，这里如实说明。 */
@@ -833,9 +837,21 @@ function userRow(u: User, storage: StorageQuotaSummary | null) {
     acts.appendChild(del);
   }
 
-  row.append(name, role, quota);
-  if (u.storage) row.append(storageChip(u.storage));
-  row.append(meta, acts);
+  const identity = document.createElement("div");
+  identity.className = "security-user-identity";
+  identity.append(name, role, quota);
+  if (u.storage) identity.append(storageChip(u.storage));
+  identity.append(meta);
+  const more = document.createElement("button");
+  more.type = "button";
+  more.className = "security-user-more security-mobile-only";
+  more.append(svgIcon("more", 18));
+  setAttrRender(more, "aria-label", () => i18nText("{p0} 的更多操作", { p0: u.name }));
+  more.setAttribute("aria-expanded", "false");
+  more.addEventListener("click", () => {
+    more.setAttribute("aria-expanded", String(more.getAttribute("aria-expanded") === "false"));
+  });
+  row.append(identity, more, acts);
   return row;
 }
 

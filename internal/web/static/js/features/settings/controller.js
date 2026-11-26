@@ -3,6 +3,7 @@ import { fillDecisionSettings, decisionSettingsGroup, initDecisionSettings, refr
 import { initSettingsMaintenance } from "./maintenance.js";
 import { i18n, setAttr, setAttrRender, setText, setTextRender, t as i18nText } from "../../i18n.js";
 import { initSettingsLayout } from "./layout.js";
+import { initSecurityLayout } from "./security-layout.js";
 import { ruSettingsNav } from "../../locales/ru-static.js";
 import { initImageUpdates, fillImageUpdateSettings, startImageUpdates, stopImageUpdates } from "./image-updates.js";
 import { loadSystem, stopSystem, startMonitor, stopMonitor } from "./operations.js";
@@ -12,7 +13,7 @@ import { DEFAULT_TERMINAL_TIP, terminalTipSource, terminalTipText } from "../../
 /* settings：系统设置视图 —— 账号池维护（含 OAuth / API Key 登录弹窗）、
  * 容器与资源、模型管理、安全与访问、关于。 */
 "use strict";
-import { actionButton } from "../../icons.js";
+import { actionButton, svgIcon } from "../../icons.js";
 import { openIconManager, leaveIconManager } from "../../icon-manager.js";
 import { openAnnouncementAdmin, leaveAnnouncementAdmin } from "../../announcement-admin.js";
 import { openUserActivity, leaveUserActivity } from "./user-activity.js";
@@ -68,6 +69,7 @@ export const SET_SECS = ["accounts", "proxies", "container", "models", "decision
 export const MODEL_TABS = ["accounts", "pricing", "system"];
 export function createSettingsController() {
     const owner = S.token, role = S.role, lifetime = new AbortController();
+    const refreshSecurityLayout = role === "admin" ? initSecurityLayout($("sec-security"), lifetime.signal) : undefined;
     const scope = new SettingsRequests(httpApi, () => S.token === owner && S.role === role);
     const requests = scope;
     const busyButtons = new Set();
@@ -109,6 +111,7 @@ export function createSettingsController() {
             const restore = holdDirty();
             fillSettingsForms();
             restore();
+            refreshSecurityLayout?.();
             refreshDecisionSettings();
         }
         catch (e) {
@@ -570,6 +573,7 @@ export function createSettingsController() {
         setSelectValue($("set-tips-anim"), tips.animation || "scroll");
         renderModels();
         rebaseline();
+        refreshSecurityLayout?.();
     }
     /* 模型网关只服务检查模型流量的扩展：没有这类扩展启用时不监听，这里如实说明。 */
     function renderModelGateway(st) {
@@ -848,10 +852,22 @@ export function createSettingsController() {
             });
             acts.appendChild(del);
         }
-        row.append(name, role, quota);
+        const identity = document.createElement("div");
+        identity.className = "security-user-identity";
+        identity.append(name, role, quota);
         if (u.storage)
-            row.append(storageChip(u.storage));
-        row.append(meta, acts);
+            identity.append(storageChip(u.storage));
+        identity.append(meta);
+        const more = document.createElement("button");
+        more.type = "button";
+        more.className = "security-user-more security-mobile-only";
+        more.append(svgIcon("more", 18));
+        setAttrRender(more, "aria-label", () => i18nText("{p0} 的更多操作", { p0: u.name }));
+        more.setAttribute("aria-expanded", "false");
+        more.addEventListener("click", () => {
+            more.setAttribute("aria-expanded", String(more.getAttribute("aria-expanded") === "false"));
+        });
+        row.append(identity, more, acts);
         return row;
     }
     /* ---------------- 统一保存条：各卡片的配置项分组登记 ---------------- */

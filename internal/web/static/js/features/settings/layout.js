@@ -29,8 +29,13 @@ export function initSettingsLayout(content, signal) {
             if (topic.id)
                 button.setAttribute("aria-controls", topic.id);
             button.addEventListener("click", () => {
-                const destination = title ?? topic;
-                destination.tabIndex = -1;
+                const fold = topic.querySelector(":scope > .security-fold-row > .security-fold");
+                const mobileFold = fold?.getClientRects().length ? fold : undefined;
+                if (mobileFold?.getAttribute("aria-expanded") === "false")
+                    mobileFold.click();
+                const destination = mobileFold ?? title ?? topic;
+                if (!mobileFold)
+                    destination.tabIndex = -1;
                 destination.focus({ preventScroll: true });
                 content.scrollTop += topic.getBoundingClientRect().top - content.getBoundingClientRect().top;
             }, { signal });

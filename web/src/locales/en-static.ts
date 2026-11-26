@@ -1,5 +1,13 @@
 // Authored interface text only; never translate user content.
 export default {
+  "初始密码": "Initial password",
+  "数据上限": "Data limit",
+  "缓存上限": "Cache limit",
+  "隧道参数": "Tunnel settings",
+  "用户数 · {p0}": "Users · {p0}",
+  "隧道已开启": "Tunnel enabled",
+  "隧道已关闭": "Tunnel disabled",
+  "上传上限 · {p0} MB": "Upload limit · {p0} MB",
   "如何选择模型？": "Which model should I choose?",
   "可用模型取决于工作空间使用的账号。": "Available models depend on the account used by the workspace.",
   "选用模型": "Select",

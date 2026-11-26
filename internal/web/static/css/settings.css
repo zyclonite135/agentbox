@@ -848,6 +848,70 @@
 }
 .settings-toggle { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; min-height:44px; cursor:pointer; }
 .settings-toggle-label { min-width:0; overflow-wrap:anywhere; }
+#sec-security :is(.security-mobile-only,.security-mobile-caption) { display:none; }
+#sec-security :is(.security-disclosure:not(.card),.security-disclosure-body,.security-user-field,.security-user-identity) { display:contents; }
+#sec-security .field > .security-caption > label { font-size:12.5px; color:var(--muted); }
+#sec-security .field-row .field:not(:has(.hint,.field-hint)) > .security-caption:first-child { margin-top:auto; }
+#sec-security .security-tunnel-master { order:1; }
+#sec-security .security-tunnel-tail { order:2; }
+.security-help-popup {
+  position:fixed; inset:max(12px, env(safe-area-inset-top)) 12px auto;
+  margin-inline:auto; max-height:min(60dvh, 28em); width:min(420px, calc(100% - 24px));
+  min-width:0; overflow:auto; overscroll-behavior:contain;
+  padding:10px 14px 14px; border:1px solid var(--line); border-radius:var(--settings-radius);
+  background:var(--panel-solid); color:var(--text); box-shadow:var(--shadow-lg);
+  overflow-wrap:anywhere;
+}
+.security-help-popup > header { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+.security-help-popup h3 { margin:0; font-size:14px; min-width:0; }
+.security-help-popup .dlg-x { width:44px; height:44px; }
+.security-help-text { display:grid; gap:8px; font-size:13px; line-height:1.55; }
+.security-help-text p { margin:0; }
+@media (max-width:760px) {
+  #sec-security > .sec-intro,
+  #sec-security :is(.settings-topic-title,.security-inline-help,.security-password-title,.security-permission-title,.security-transport-title),
+  #sec-security :is(.settings-topic,.security-disclosure):not([data-security-open]) > :is(.settings-block,.security-disclosure-body) { display:none; }
+  #sec-security > .settings-topic {
+    gap:0; border:1px solid var(--line); border-radius:var(--settings-radius); background:var(--panel);
+  }
+  #sec-security .settings-topic > .settings-block { border:0; border-top:1px solid var(--line); background:none; }
+  #sec-security .security-fold-row { display:flex; align-items:center; min-width:0; }
+  #sec-security .security-fold {
+    flex:1; min-width:0; min-height:44px; padding:8px 10px; gap:8px;
+    display:flex; align-items:center; text-align:start; color:var(--text);
+    background:none; border:0; border-radius:calc(8px * var(--radius-scale)); font-weight:600;
+    overflow-wrap:anywhere;
+  }
+  #sec-security .settings-topic > .security-fold-row > .security-fold { min-height:58px; padding:9px 11px; }
+  #sec-security .security-fold > span { flex:1; min-width:0; }
+  #sec-security .security-fold > svg { flex:none; color:var(--accent); }
+  #sec-security .security-fold .security-fold-caret { color:var(--muted); }
+  #sec-security .security-fold[aria-expanded="true"] .security-fold-caret { transform:rotate(180deg); }
+  #sec-security .security-group-summary { display:block; color:var(--muted); font-size:12px; font-weight:400; }
+  #sec-security :is(.security-disclosure:not(.card),.security-disclosure-body,.security-user-field) { display:grid; min-width:0; gap:8px; }
+  #sec-security .security-disclosure { border-top:1px solid var(--line); }
+  #sec-security .security-disclosure .security-fold { padding-inline:0; color:var(--accent); }
+  #sec-security .security-tunnel-tail, #sec-security .security-tunnel-master { order:0; }
+  #sec-security .security-caption { display:flex; gap:4px; align-items:center; min-width:0; }
+  #sec-security .security-caption > :first-child { flex:1; min-width:0; overflow-wrap:anywhere; }
+  #sec-security .security-help-trigger, #sec-security .security-user-more {
+    display:inline-grid; place-items:center; flex:none; inline-size:44px; block-size:44px;
+    padding:0; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--accent);
+  }
+  #sec-security :is(.security-help-trigger,.security-user-more)[aria-expanded="true"] {
+    background:var(--panel-2); border-color:var(--amber-dim);
+  }
+  #sec-security .user-add, #sec-security .user-add-storage:not(.hidden) { display:grid; grid-template-columns:minmax(0,1fr); padding-top:0; border:0; }
+  #sec-security .security-user-field > input { width:100%; min-width:0; }
+  #sec-security .security-user-field > input::placeholder { opacity:0; }
+  #sec-security .security-user-field:has(>input.hidden) { display:none; }
+  #sec-security .user-row { display:grid; grid-template-columns:minmax(0,1fr) auto; font-size:13px; align-items:start; }
+  #sec-security .security-user-identity { display:flex; flex-wrap:wrap; align-items:baseline; min-width:0; gap:4px 8px; }
+  #sec-security .security-user-identity .u-meta { flex-basis:100%; }
+  #sec-security .user-row .u-actions { display:none; grid-column:1 / -1; }
+  #sec-security .security-user-more[aria-expanded="true"] + .u-actions { display:flex; }
+  #sec-security :is(#btn-user-add,#btn-pw-save) { width:100%; justify-content:center; }
+}
 #view-settings .field :is(input,select,.select-trigger,textarea) { min-width:0; max-width:100%; }
 #view-settings .field .tag { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
 #view-settings :is(.card-desc,.note,.field-hint,.kv dd,.acct-proxy,.u-meta) { overflow-wrap:anywhere; }

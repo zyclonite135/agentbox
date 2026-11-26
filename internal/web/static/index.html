@@ -1494,28 +1494,45 @@
               </div>
               <section id="settings-user-access" class="settings-topic" data-settings-topic data-settings-topic-icon="users">
                 <h3 class="settings-topic-title" data-i18n="用户与凭证">用户与凭证</h3>
-                <div class="settings-block">
+                <div class="settings-block" id="settings-user-access-panel">
                 <div class="card">
-                  <h3 data-i18n-text="[&quot;用户管理&quot;]">用户管理</h3>
-                  <p class="card-desc" data-i18n="普通用户只能访问自己的工作空间和本机偏好，无法查看服务端配置。">普通用户只能访问自己的工作空间和本机偏好，无法查看服务端配置。</p>
-                  <p class="settings-risk" data-i18n="删除用户会一并移除其工作空间和容器，文件仍保留在服务器磁盘上。">删除用户会一并移除其工作空间和容器，文件仍保留在服务器磁盘上。</p>
+                  <div class="security-caption" data-security-help="security-users-help security-delete-help"><h3 data-i18n-text="[&quot;用户管理&quot;]">用户管理</h3></div>
+                  <p id="security-users-help" class="card-desc security-inline-help" data-i18n="普通用户只能访问自己的工作空间和本机偏好，无法查看服务端配置。">普通用户只能访问自己的工作空间和本机偏好，无法查看服务端配置。</p>
+                  <p id="security-delete-help" class="settings-risk security-inline-help" data-i18n="删除用户会一并移除其工作空间和容器，文件仍保留在服务器磁盘上。">删除用户会一并移除其工作空间和容器，文件仍保留在服务器磁盘上。</p>
                   <div id="user-list" class="user-list"></div>
+                  <div class="security-disclosure" data-security-disclosure="添加用户">
+                  <div class="security-disclosure-body" id="security-add-panel">
                   <div class="user-add">
+                    <div class="security-user-field">
+                    <div class="security-caption security-mobile-caption" data-security-help="user-new-name"><label for="user-new-name" data-i18n="用户名">用户名</label></div>
                     <input id="user-new-name" type="text" class="mono" placeholder="用户名（小写字母数字开头，可含 - _）" autocapitalize="none" spellcheck="false" data-i18n-attrs="{&quot;placeholder&quot;:&quot;用户名（小写字母数字开头，可含 - _）&quot;}">
+                    </div>
+                    <div class="security-user-field">
+                    <div class="security-caption security-mobile-caption" data-security-help="user-new-pass"><label for="user-new-pass" data-i18n="初始密码">初始密码</label></div>
                     <input id="user-new-pass" type="password" placeholder="初始密码（至少 8 位）" autocomplete="new-password" data-i18n-attrs="{&quot;placeholder&quot;:&quot;初始密码（至少 8 位）&quot;}">
+                    </div>
                     <button id="btn-user-add" class="btn btn-sm" data-icon="plus" data-i18n-text="[&quot;添加用户&quot;]">添加用户</button>
                   </div>
                   <!-- 存储上限：服务端启用存储配额时才显示，占位文字带默认值，由 user-storage.ts 填 -->
                   <div id="user-add-storage" class="user-add-storage hidden">
+                    <div class="security-user-field">
+                    <div class="security-caption security-mobile-caption" data-security-help="user-new-data user-storage-note"><label for="user-new-data" data-i18n="数据上限">数据上限</label></div>
                     <input id="user-new-data" type="text" class="mono" inputmode="decimal" autocomplete="off">
+                    </div>
+                    <div class="security-user-field">
+                    <div class="security-caption security-mobile-caption" data-security-help="user-new-cache user-storage-note"><label for="user-new-cache" data-i18n="缓存上限">缓存上限</label></div>
                     <input id="user-new-cache" type="text" class="mono" inputmode="decimal" autocomplete="off">
-                    <span id="user-storage-note" class="field-hint"></span>
+                    </div>
+                    <span id="user-storage-note" class="field-hint security-inline-help"></span>
+                  </div>
+                  </div>
                   </div>
                 </div>
-                <div class="card">
-                  <h3 data-i18n-text="[&quot;修改登录密码&quot;]">修改登录密码</h3>
-                  <p class="card-desc" data-i18n="修改当前管理员的登录密码。">修改当前管理员的登录密码。</p>
-                  <details class="learn-more settings-details">
+                <div class="card security-disclosure" data-security-disclosure="修改登录密码" data-security-disclosure-help="security-password-help security-password-storage">
+                  <h3 class="security-password-title" data-i18n-text="[&quot;修改登录密码&quot;]">修改登录密码</h3>
+                  <div class="security-disclosure-body" id="security-password-panel">
+                  <p class="card-desc security-inline-help" data-i18n="修改当前管理员的登录密码。">修改当前管理员的登录密码。</p>
+                  <details id="security-password-help" class="learn-more settings-details security-inline-help">
                     <summary data-i18n="了解更多">了解更多</summary>
                     <p data-i18n-text="[&quot;修改当前管理员账号的登录密码。修改后本端保持登录，其他已登录端下次请求起需重新登录。&quot;]">修改当前管理员账号的登录密码。修改后本端保持登录，其他已登录端下次请求起需重新登录。</p>
                   </details>
@@ -1524,89 +1541,88 @@
                       <span data-i18n-text="[&quot;当前密码&quot;]">当前密码</span>
                       <input id="pw-old" type="password" autocomplete="current-password">
                     </label>
-                    <label class="field">
-                      <span data-i18n-text="[&quot;新密码（至少 8 位）&quot;]">新密码（至少 8 位）</span>
+                    <div class="field"><div class="security-caption" data-security-help="security-password-help security-password-storage"><label for="pw-new" data-i18n-text="[&quot;新密码（至少 8 位）&quot;]">新密码（至少 8 位）</label></div>
                       <input id="pw-new" type="password" autocomplete="new-password">
-                    </label>
+                    </div>
                   </div>
                   <div class="card-foot">
-                    <span class="note" data-i18n-text="[&quot;密码保存在服务端数据库（PBKDF2 哈希），不再依赖 config.json 的 auth_token&quot;]">密码保存在服务端数据库（PBKDF2 哈希），不再依赖 config.json 的 auth_token</span>
+                    <span id="security-password-storage" class="note security-inline-help" data-i18n-text="[&quot;密码保存在服务端数据库（PBKDF2 哈希），不再依赖 config.json 的 auth_token&quot;]">密码保存在服务端数据库（PBKDF2 哈希），不再依赖 config.json 的 auth_token</span>
                     <button id="btn-pw-save" class="btn btn-primary btn-sm" data-icon="key" data-i18n-text="[&quot;修改密码&quot;]">修改密码</button>
+                  </div>
                   </div>
                 </div>
                 </div>
               </section>
               <section id="settings-agent-access" class="settings-topic" data-settings-topic data-settings-topic-icon="key">
                 <h3 class="settings-topic-title" data-i18n="权限与网络">权限与网络</h3>
-                <div class="settings-block">
+                <div class="settings-block" id="settings-agent-access-panel">
                 <div class="card">
-                  <h3 data-i18n-text="[&quot;Agent 权限模式&quot;]">Agent 权限模式</h3>
-                  <label class="field">
-                    <span data-i18n-text="[&quot;容器内 Agent 的操作确认策略 &quot;]">容器内 Agent 的操作确认策略 <span class="tag live" data-i18n-text="[&quot;下一轮对话生效&quot;]">下一轮对话生效</span></span>
+                  <h3 class="security-permission-title" data-i18n-text="[&quot;Agent 权限模式&quot;]">Agent 权限模式</h3>
+                  <div class="field"><div class="security-caption" data-security-help="set-perm"><label for="set-perm" data-i18n-text="[&quot;容器内 Agent 的操作确认策略 &quot;]">容器内 Agent 的操作确认策略 <span class="tag live" data-i18n-text="[&quot;下一轮对话生效&quot;]">下一轮对话生效</span></label></div>
                     <select id="set-perm">
                       <option value="bypassPermissions" data-i18n-text="[&quot;bypassPermissions — 免确认（容器已隔离，推荐）&quot;]">bypassPermissions — 免确认（容器已隔离，推荐）</option>
                       <option value="acceptEdits" data-i18n-text="[&quot;acceptEdits — 自动接受文件编辑&quot;]">acceptEdits — 自动接受文件编辑</option>
                       <option value="plan" data-i18n-text="[&quot;plan — 仅规划，不执行&quot;]">plan — 仅规划，不执行</option>
                       <option value="default" data-i18n-text="[&quot;default — 每步确认&quot;]">default — 每步确认</option>
                     </select>
-                  </label>
+                  </div>
                 </div>
                 <div class="card">
-                  <h3 data-i18n-text="[&quot;内网反向隧道&quot;]">内网反向隧道</h3>
-                  <p class="card-desc" data-i18n="通过 abox-link 访问允许的内网服务。">通过 abox-link 访问允许的内网服务。</p>
-                  <details class="learn-more settings-details">
+                  <div class="security-caption" data-security-help="security-tunnel-description security-tunnel-overview security-tunnel-modes"><h3 data-i18n-text="[&quot;内网反向隧道&quot;]">内网反向隧道</h3></div>
+                  <p id="security-tunnel-description" class="card-desc security-inline-help" data-i18n="通过 abox-link 访问允许的内网服务。">通过 abox-link 访问允许的内网服务。</p>
+                  <details id="security-tunnel-overview" class="learn-more settings-details security-inline-help">
                     <summary data-i18n="了解更多">了解更多</summary>
                     <p data-i18n-text="[&quot;本机运行 abox-link 后，工作空间可以访问你放行的内网服务。保存后立即生效。&quot;]">本机运行 abox-link 后，工作空间可以访问你放行的内网服务。保存后立即生效。</p>
                   </details>
-                  <details class="learn-more"><summary data-i18n-text="[&quot;了解更多&quot;]">了解更多</summary><p data-i18n-text="[&quot;两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。&quot;]">两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。</p><p data-i18n-text="[&quot;：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。&quot;]"><b data-i18n-text="[&quot;透明模式（默认，推荐）&quot;]">透明模式（默认，推荐）</b>：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。</p><p data-i18n-text="[&quot;：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。&quot;]"><b data-i18n-text="[&quot;兼容代理模式（不推荐）&quot;]">兼容代理模式（不推荐）</b>：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。</p></details>
-                  <label class="settings-toggle"><span class="settings-toggle-label" data-i18n="使用透明模式（默认，推荐）">使用透明模式（默认，推荐）</span><input class="interface-switch" role="switch" type="checkbox" id="set-tunnel-transparent"></label>
-                  <div class="field-row"><label class="field"><span data-i18n-text="[&quot;网络控制监听地址&quot;]">网络控制监听地址</span><input id="set-network-bind" class="mono" placeholder="默认网桥地址:1082" data-i18n-attrs="{&quot;placeholder&quot;:&quot;默认网桥地址:1082&quot;}"></label><label class="field"><span data-i18n-text="[&quot;网络辅助镜像&quot;]">网络辅助镜像</span><input id="set-network-image" class="mono" placeholder="agentbox-network:latest"></label></div>
-                  <label class="settings-toggle"><span class="settings-toggle-label"><span data-i18n="启用隧道">启用隧道</span> <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></span><input class="interface-switch" role="switch" type="checkbox" id="set-tunnel-on"></label>
-                  <div class="field-row">
-                    <label class="field">
-                      <span data-i18n-text="[&quot;SOCKS 监听地址（须容器可达）&quot;]">SOCKS 监听地址（须容器可达）</span>
+                  <details id="security-tunnel-modes" class="learn-more security-inline-help"><summary data-i18n-text="[&quot;了解更多&quot;]">了解更多</summary><p data-i18n-text="[&quot;两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。&quot;]">两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。</p><p data-i18n-text="[&quot;：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。&quot;]"><b data-i18n-text="[&quot;透明模式（默认，推荐）&quot;]">透明模式（默认，推荐）</b>：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。</p><p data-i18n-text="[&quot;：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。&quot;]"><b data-i18n-text="[&quot;兼容代理模式（不推荐）&quot;]">兼容代理模式（不推荐）</b>：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。</p></details>
+                  <div class="settings-toggle security-tunnel-master"><div class="security-caption" data-security-help="security-tunnel-overview tunnel-note"><label for="set-tunnel-on" class="settings-toggle-label"><span data-i18n="启用隧道">启用隧道</span> <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></label></div><input class="interface-switch" role="switch" type="checkbox" id="set-tunnel-on"></div>
+                  <div class="security-disclosure security-tunnel-advanced" data-security-disclosure="隧道参数">
+                  <div class="security-disclosure-body" id="security-tunnel-panel">
+                  <div class="settings-toggle"><div class="security-caption" data-security-help="security-tunnel-modes"><label for="set-tunnel-transparent" class="settings-toggle-label" data-i18n="使用透明模式（默认，推荐）">使用透明模式（默认，推荐）</label></div><input class="interface-switch" role="switch" type="checkbox" id="set-tunnel-transparent"></div>
+                  <div class="field-row"><div class="field"><div class="security-caption" data-security-help="set-network-bind"><label for="set-network-bind" data-i18n-text="[&quot;网络控制监听地址&quot;]">网络控制监听地址</label></div><input id="set-network-bind" class="mono" placeholder="默认网桥地址:1082" data-i18n-attrs="{&quot;placeholder&quot;:&quot;默认网桥地址:1082&quot;}"></div><div class="field"><div class="security-caption" data-security-help="set-network-image security-tunnel-modes"><label for="set-network-image" data-i18n-text="[&quot;网络辅助镜像&quot;]">网络辅助镜像</label></div><input id="set-network-image" class="mono" placeholder="agentbox-network:latest"></div></div>
+                  <div class="field-row security-tunnel-tail">
+                    <div class="field"><div class="security-caption" data-security-help="tunnel-note"><label for="set-tunnel-bind" data-i18n-text="[&quot;SOCKS 监听地址（须容器可达）&quot;]">SOCKS 监听地址（须容器可达）</label></div>
                       <input id="set-tunnel-bind" type="text" class="mono" placeholder="172.17.0.1:1080">
-                    </label>
-                    <label class="field">
-                      <span data-i18n-text="[&quot;注入容器的代理主机（可选）&quot;]">注入容器的代理主机（可选）</span>
+                    </div>
+                    <div class="field"><div class="security-caption" data-security-help="security-tunnel-host-help"><label for="set-tunnel-host" data-i18n-text="[&quot;注入容器的代理主机（可选）&quot;]">注入容器的代理主机（可选）</label></div>
                       <input id="set-tunnel-host" type="text" class="mono" placeholder="默认取监听地址的主机" data-i18n-attrs="{&quot;placeholder&quot;:&quot;默认取监听地址的主机&quot;}">
-                    </label>
+                    </div>
                   </div>
-                  <div class="card-foot">
+                  <div class="card-foot security-tunnel-tail security-inline-help">
                     <span id="tunnel-note" class="note" data-i18n-text="[&quot;默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达&quot;]">默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达</span>
+                  </div>
+                  </div>
                   </div>
                 </div>
                 </div>
               </section>
               <section id="settings-transport-limits" class="settings-topic" data-settings-topic data-settings-topic-icon="shield">
                 <h3 class="settings-topic-title" data-i18n="上传与监听">上传与监听</h3>
-                <div class="settings-block">
+                <div class="settings-block" id="settings-transport-limits-panel">
                 <div class="card">
-                  <h3 data-i18n-text="[&quot;上传与监听&quot;]">上传与监听</h3>
+                  <h3 class="security-transport-title" data-i18n-text="[&quot;上传与监听&quot;]">上传与监听</h3>
                   <div class="field-row">
-                    <label class="field">
-                      <span data-i18n-text="[&quot;上传大小上限（MB）&quot;]">上传大小上限（MB）</span>
+                    <div class="field"><div class="security-caption" data-security-help="security-upload-help"><label for="set-upload" data-i18n-text="[&quot;上传大小上限（MB）&quot;]">上传大小上限（MB）</label></div>
                       <input id="set-upload" type="number" min="1" class="mono">
-                      <span class="hint" data-i18n="适用于项目、文件及聊天附件（含图片和 PDF），默认 512 MB。">适用于项目、文件及聊天附件（含图片和 PDF），默认 512 MB。</span>
-                    </label>
-                    <label class="field">
-                      <span data-i18n-text="[&quot;监听地址 &quot;]">监听地址 <span class="tag restart" data-i18n-text="[&quot;需重启&quot;]">需重启</span></span>
+                      <span id="security-upload-help" class="hint security-inline-help" data-i18n="适用于项目、文件及聊天附件（含图片和 PDF），默认 512 MB。">适用于项目、文件及聊天附件（含图片和 PDF），默认 512 MB。</span>
+                    </div>
+                    <div class="field"><div class="security-caption" data-security-help="security-note"><label for="set-listen" data-i18n-text="[&quot;监听地址 &quot;]">监听地址 <span class="tag restart" data-i18n-text="[&quot;需重启&quot;]">需重启</span></label></div>
                       <input id="set-listen" type="text" class="mono" placeholder="127.0.0.1:8180">
-                    </label>
+                    </div>
                   </div>
                   <div class="field-row">
-                    <label class="field">
-                      <span data-i18n="历史加载超时（秒）">历史加载超时（秒）</span>
+                    <div class="field"><div class="security-caption" data-security-help="security-history-help"><label for="set-history-timeout" data-i18n="历史加载超时（秒）">历史加载超时（秒）</label></div>
                       <input id="set-history-timeout" type="number" min="1" max="3600" step="1" class="mono">
-                      <span class="hint" data-i18n="适用于打开空间和加载更早历史，默认 120 秒。其他已打开的页面刷新后生效。">适用于打开空间和加载更早历史，默认 120 秒。其他已打开的页面刷新后生效。</span>
-                    </label>
+                      <span id="security-history-help" class="hint security-inline-help" data-i18n="适用于打开空间和加载更早历史，默认 120 秒。其他已打开的页面刷新后生效。">适用于打开空间和加载更早历史，默认 120 秒。其他已打开的页面刷新后生效。</span>
+                    </div>
                   </div>
-                  <div class="card-foot">
+                  <div class="card-foot security-inline-help">
                     <span id="security-note" class="note" data-i18n-text="[&quot;权限模式与上传上限即时生效；监听地址需重启 agentbox 服务&quot;]">权限模式与上传上限即时生效；监听地址需重启 agentbox 服务</span>
                   </div>
                 </div>
                 </div>
               </section>
+              <p id="security-tunnel-host-help" hidden data-i18n="默认取监听地址的主机">默认取监听地址的主机</p>
             </section>
 
             <!-- 运维监控 -->

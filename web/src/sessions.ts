@@ -158,14 +158,8 @@ bus.addEventListener("local-file-attach", (event) => {
     toast(i18nText("请先等待对话加载完成"), true);
     return;
   }
-  const owner = S.token, session = S.current.id, thread = S.thread?.id;
   setTab("chat");
-  // Let the chat pane settle before the attachment changes the composer's height.
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (S.token === owner && S.current?.id === session && S.thread?.id === thread && S.tab === "chat") {
-      void attachLocalFile(name, folder, path);
-    }
-  }));
+  void attachLocalFile(name, folder, path);
 });
 bus.addEventListener("data-updated", () => { if (S.current) renderHead(); });
 

@@ -79,12 +79,22 @@ export function createOutline(hooks) {
     }
     /** 给一个对话流容器挂上监听（实时对话流在 mount 时，历史窗口由对话页先登记） */
     const watched = new WeakSet();
+    let layoutFrame = 0;
     function watch(log) {
         if (watched.has(log))
             return;
         watched.add(log);
-        new ResizeObserver(() => { if (log === hooks.log())
-            layout(); }).observe(log);
+        new ResizeObserver(() => {
+            if (log !== hooks.log())
+                return;
+            // Updating the mobile outline button can resize the observed chat log.
+            cancelAnimationFrame(layoutFrame);
+            layoutFrame = requestAnimationFrame(() => {
+                layoutFrame = 0;
+                if (log === hooks.log())
+                    layout();
+            });
+        }).observe(log);
         log.addEventListener("scroll", () => { if (log === hooks.log())
             onScroll(); }, { passive: true });
         // 用户自己动了滚动：不再钉住跳转目标，也打断跳转动画
@@ -675,6 +685,8 @@ export function createOutline(hooks) {
         request?.abort();
         gen++;
         clearTimeout(refreshTimer);
+        cancelAnimationFrame(layoutFrame);
+        layoutFrame = 0;
         jumpSeq++;
         anim.stop();
         loadingFor = -1;

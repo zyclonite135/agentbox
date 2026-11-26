@@ -719,7 +719,7 @@ export async function smoke(page) {
   await problemsSmoke(page,base,()=>chatSocket,entries=>{historyEntries=entries;});
   if (process.env.AGENTBOX_BROWSER_ONLY_PROBLEMS === '1') { assert.deepEqual(errors,[]); return; }
   if (process.env.AGENTBOX_BROWSER_ONLY_IMAGE_UPDATES === '1') {
-   await imageUpdateSmoke(page); assert.deepEqual(errors,[]); return;
+   await imageUpdateSmoke(page); await updateComponentsSmoke(page); assert.deepEqual(errors,[]); return;
   }
   if (process.env.AGENTBOX_BROWSER_ONLY_REMOTE === '1') {
    await remoteBrowserSmoke(page); assert.deepEqual(errors,[]); return;

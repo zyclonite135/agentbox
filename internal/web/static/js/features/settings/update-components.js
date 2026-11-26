@@ -71,8 +71,6 @@ export function initUpdateComponents() {
     };
     refresh.addEventListener("click", () => { if (current() && shown())
         void load(); }, options);
-    $("component-image-open").addEventListener("click", () => { if (current())
-        document.querySelector('#set-nav [data-sec="container"]')?.click(); }, options);
     for (const event of ["navigation-changed", "view-changed", "app-ready"])
         bus.addEventListener(event, navigation, options);
     navigation();

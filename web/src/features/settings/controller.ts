@@ -4,7 +4,7 @@ import { initSettingsMaintenance } from "./maintenance.js";
 import { i18n, setAttr, setAttrRender, setText, setTextRender, t as i18nText } from "../../i18n.js";
 import { initSettingsLayout } from "./layout.js";
 import { initSecurityLayout } from "./security-layout.js";
-import { createSettingsHelp } from "./mobile-layout.js";
+import { createSettingsHelp, revealSettingsFold } from "./mobile-layout.js";
 import { ruSettingsNav } from "../../locales/ru-static.js";
 import { initImageUpdates, fillImageUpdateSettings, startImageUpdates, stopImageUpdates } from "./image-updates.js";
 import { loadSystem, stopSystem, startMonitor, stopMonitor } from "./operations.js";
@@ -973,15 +973,19 @@ function initSettings() {
  setText($("set-title"), personal ? "个人设置" : "系统设置");
  setText($("set-description"), personal ? "更改会在此浏览器中即时生效。" : "账号池、服务端配置与此浏览器的个人偏好。需要重启的项会单独标出。");
  $("set-savebar").hidden = true;
- $("set-nav").addEventListener("click", async (e) => {
-  const btn = (e.target as Element).closest<HTMLElement>("button[data-sec]");
-  if (!btn) return;
-  if (role === "admin" && btn.dataset.sec !== S.sec && !await confirmDiscard(fillSettingsForms)) {
-    emit("navigation-changed"); // 让窄屏分区下拉回到当前分区
-    return;
+ async function navigateSection(name: string) {
+  if (role === "admin" && name !== S.sec && !await confirmDiscard(fillSettingsForms)) {
+   emit("navigation-changed"); // 让窄屏分区下拉回到当前分区
+   return false;
   }
-  if(scope.current())setSec(btn.dataset.sec!);
-}, { signal: lifetime.signal });
+  if (!scope.current()) return false;
+  setSec(name);
+  return true;
+ }
+ $("set-nav").addEventListener("click", (event) => {
+  const name = (event.target as Element).closest<HTMLElement>("button[data-sec]")?.dataset.sec;
+  if (name) void navigateSection(name);
+ }, { signal: lifetime.signal });
 bus.addEventListener("open-settings", openSettingsView, { signal: lifetime.signal });
 // Keep privileged controls, requests and polling outside the ordinary user's lifetime.
 if (role !== "admin") return disposeSettings;
@@ -989,6 +993,9 @@ initDecisionSettings(lifetime.signal);
 initSettingsMaintenance(lifetime.signal,scope);
 initImageUpdates(lifetime.signal);
 initSaveBar(lifetime.signal);
+$("component-image-open").addEventListener("click", async () => {
+  if (await navigateSection("container")) revealSettingsFold($("settings-images"))?.focus();
+}, { signal: lifetime.signal });
 bus.addEventListener("view-changed", () => { if (S.view !== "settings") { stopMonitor();stopSystem(); stopImageUpdates(); } }, { signal: lifetime.signal });
 bus.addEventListener("data-updated", () => {
   if (S.view === "settings") keepScroll($("set-content"), () => { renderSettingsAccounts(); refreshModelDisplay(); });

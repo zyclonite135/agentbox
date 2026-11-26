@@ -1025,6 +1025,12 @@
   #view-settings .set-savebar { scroll-margin-block:60px; }
 }
 @container (max-width:740px) {
+  #view-settings .mon-card-head { flex-wrap:wrap; }
+  #view-settings .mon-card-head h3 { white-space:normal; overflow-wrap:anywhere; }
+  #view-settings .ua-filter { flex-wrap:wrap; min-width:0; max-width:100%; }
+  #view-settings :is(.ua-filter .select-trigger,.component-table .btn) {
+    min-width:0; max-width:100%; white-space:normal; overflow-wrap:anywhere;
+  }
   #view-settings :is(.mon-table-wrap,.price-table-wrap) { overflow:visible; margin-inline:0; }
   #view-settings table[data-settings-table] { display:block; width:100%; min-width:0; border-collapse:separate; }
   #view-settings [data-settings-table] thead { position:absolute; display:block; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }

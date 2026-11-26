@@ -39,13 +39,24 @@ export async function updateComponentsSmoke(page){
   await mkdir('output/playwright',{recursive:true});
   await page.locator('.update-components').scrollIntoViewIfNeeded();await page.screenshot({path:'output/playwright/update-components-desktop.png',animations:'disabled'});
   await page.setViewportSize({width:390,height:844});
+  const componentsFold=page.locator('.settings-fold[aria-controls="settings-update-components"]');
+  if(await componentsFold.getAttribute('aria-expanded')!=='true')await componentsFold.click();
+  await page.locator('.component-table').waitFor();
   assert.equal(await page.locator('.component-table').evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,'component comparison overflows');
   await page.locator('.update-components').scrollIntoViewIfNeeded();await page.screenshot({path:'output/playwright/update-components-mobile.png',animations:'disabled'});
-  await page.setViewportSize({width:1280,height:900});
+  await page.evaluate(()=>location.hash='#/settings/container');
+  const limitsFold=page.locator('#settings-chat-limits .settings-fold');
+  if(await limitsFold.getAttribute('aria-expanded')!=='true')await limitsFold.click();
+  assert.equal(await page.locator('#image-update-card').isVisible(),false);
+  await page.evaluate(()=>location.hash='#/settings/about');
+  await componentsFold.waitFor();
+  await ready();
   // Leaving aborts a slow observation; its result must not overwrite a new read.
   hold=true;const sent=page.waitForRequest(r=>new URL(r.url()).pathname==='/api/updates/components');
   await page.locator('#component-refresh').click();await sent;
   await page.locator('#component-image-open').click();await page.locator('#sec-container').waitFor({state:'visible'});
+  await page.locator('#image-update-card').waitFor();
+  await page.setViewportSize({width:1280,height:900});
   hold=false;image.reference='newer:image';for(const release of pending.splice(0))release();
   await page.evaluate(()=>location.hash='#/settings/about');await page.locator('#sec-about').waitFor({state:'visible'});
   await page.locator('#component-image-version').filter({hasText:'newer:image'}).waitFor();

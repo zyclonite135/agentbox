@@ -63,6 +63,8 @@ export async function diagnosticsSmoke(page,base){
     }
     await language(page,'en');
     await page.setViewportSize({width:390,height:844});
+    const resourcesFold=page.locator('#settings-resources > .settings-fold-row > .settings-fold');
+    if(await resourcesFold.getAttribute('aria-expanded')!=='true')await resourcesFold.click();
     await page.locator('#btn-environment-check').click();
     await page.waitForFunction(()=>{const d=document.querySelector('.diagnostics-dialog');return d && [...d.querySelectorAll('button')].some(b=>b.dataset.icon==="download" && !b.disabled);});
     assert.equal(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),true,'diagnostic dialog overflows');

@@ -3,3 +3,6 @@ third_party/go/** -whitespace -text
 third_party/licenses/** -whitespace -text
 third_party/desktop/** -whitespace -text
 desktop/third-party/NOTICES.txt -whitespace -text
+
+# Go embeds and hashes the template files byte for byte.
+internal/agent/builtin/** text=auto eol=lf

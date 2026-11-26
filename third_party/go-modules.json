@@ -140,6 +140,17 @@
     ]
   },
   {
+    "module": "github.com/go-ole/go-ole",
+    "version": "v1.3.0",
+    "source": "https://github.com/go-ole/go-ole",
+    "files": [
+      {
+        "path": "third_party/go/github.com_go-ole_go-ole@v1.3.0/LICENSE",
+        "sha256": "d883dbca28769ff23dd4368a8edb7ad9f9f23a8f86adde2875c6e41a828aac62"
+      }
+    ]
+  },
+  {
     "module": "github.com/google/uuid",
     "version": "v1.6.0",
     "source": "https://github.com/google/uuid",
@@ -276,13 +287,25 @@
     ]
   },
   {
-    "module": "github.com/things-go/go-socks5",
-    "version": "v0.1.1",
-    "source": "https://github.com/things-go/go-socks5",
+    "module": "github.com/wailsapp/wails/v3",
+    "version": "v3.1.0",
+    "source": "https://github.com/wailsapp/wails/v3",
     "files": [
       {
-        "path": "third_party/go/github.com_things-go_go-socks5@v0.1.1/LICENSE",
-        "sha256": "831892cd31b9eef0311bb1de9014527ef5d3592eed7add1f9f829510d2065e62"
+        "path": "third_party/go/github.com_wailsapp_wails_v3@v3.1.0/LICENSE",
+        "sha256": "cede95c28e6e9d67d1c1e49e8ba3c20250c7d4080c3faca1579b6732327ae40d"
+      },
+      {
+        "path": "third_party/go/github.com_wailsapp_wails_v3@v3.1.0/internal/go-common-file-dialog/LICENSE",
+        "sha256": "2c09e92358414ef4da9739026acadfbd0663118e590238b306d70ccf60db3159"
+      },
+      {
+        "path": "third_party/go/github.com_wailsapp_wails_v3@v3.1.0/internal/templates/ios/frontend/public/puppertino/LICENSE",
+        "sha256": "a82239687742375c71ef1cc05b9351f86db937b0dba8120c1f0a02e2b444508b"
+      },
+      {
+        "path": "third_party/go/github.com_wailsapp_wails_v3@v3.1.0/internal/webview2/webviewloader/LICENSE",
+        "sha256": "e2c9290019954c3c3664428b73b34186b2bb8faad9b2c50605d7cdd9df5c7177"
       }
     ]
   },

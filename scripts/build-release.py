@@ -83,7 +83,12 @@ with tempfile.TemporaryDirectory(prefix='agentbox-release-', dir=out.parent) as 
         folder.mkdir()
         binary = folder / (program + ('.exe' if system == 'windows' else ''))
         env = dict(os.environ, GOOS=system, GOARCH=arch, CGO_ENABLED='0')
-        subprocess.run(['go', 'build', '-trimpath', '-buildvcs=false', '-ldflags', flags,
+        build_flags = flags
+        build_tags = []
+        if program == 'abox-link' and system == 'windows':
+            build_flags += ' -H=windowsgui'
+            build_tags = ['-tags=production']
+        subprocess.run(['go', 'build', '-trimpath', '-buildvcs=false', *build_tags, '-ldflags', build_flags,
                         '-o', str(binary), './cmd/' + program], check=True, env=env)
         if program == 'abox-link':
             shutil.copy2(binary, clients / (f'abox-link-{system}-{arch}' + ('.exe' if system == 'windows' else '')))

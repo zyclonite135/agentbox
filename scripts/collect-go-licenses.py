@@ -18,7 +18,8 @@ for goos, goarch, package in [
     ('windows', 'amd64', './cmd/abox-sync'),
 ]:
     env = dict(os.environ, GOOS=goos, GOARCH=goarch, CGO_ENABLED='0')
-    raw = subprocess.check_output(['go', 'list', '-deps', '-json', package], env=env, text=True)
+    tags = ['-tags=production'] if goos == 'windows' and package == './cmd/abox-link' else []
+    raw = subprocess.check_output(['go', 'list', '-deps', '-json', *tags, package], env=env, text=True)
     decoder = json.JSONDecoder()
     while raw.strip():
         item, end = decoder.raw_decode(raw.lstrip())

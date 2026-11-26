@@ -33,7 +33,8 @@ for system, arch, package in [
     ('darwin','amd64','abox-link'), ('darwin','arm64','abox-link'), ('windows','amd64','abox-link'),
     ('darwin','amd64','abox-sync'), ('darwin','arm64','abox-sync'), ('windows','amd64','abox-sync')]:
     env = dict(os.environ, GOOS=system, GOARCH=arch, CGO_ENABLED='0')
-    lines = subprocess.check_output(['go','list','-deps','-f',
+    tags = ['-tags=production'] if system == 'windows' and package == 'abox-link' else []
+    lines = subprocess.check_output(['go','list','-deps',*tags,'-f',
         '{{if .Module}}{{if not .Module.Main}}{{.Module.Path}}{{end}}{{end}}','./cmd/'+package],
         cwd=ROOT, env=env, text=True).splitlines()
     linked.update(line for line in lines if line)

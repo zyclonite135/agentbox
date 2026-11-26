@@ -62,6 +62,13 @@ with tempfile.TemporaryDirectory(prefix='agentbox-release-test-') as tmp:
             raise SystemExit('Unexpected files in public binary package')
         if any(path.suffix in ('.go', '.ts') or path.name in ('AGENTS.md', '.git') for path in folder.rglob('*')):
             raise SystemExit('Unexpected project sources in binary package')
+        if r['program'] == 'abox-link' and r['os'] == 'windows':
+            with (folder / 'abox-link.exe').open('rb') as executable:
+                dos = executable.read(64)
+                executable.seek(int.from_bytes(dos[60:64], 'little'))
+                pe = executable.read(94)
+            if dos[:2] != b'MZ' or pe[:4] != b'PE\x00\x00' or pe[92:94] != b'\x02\x00':
+                raise SystemExit('Packaged Windows abox-link must use the GUI subsystem')
         meta=json.loads((folder/'build.json').read_text())
         for key in ['version','revision','os','arch']:
             if meta[key]!=r[key]:raise SystemExit('Metadata mismatch')

@@ -77,7 +77,7 @@ func TestRunPanelDaemonStaysQuietAboutVersions(t *testing.T) {
 func TestReplaceNotice(t *testing.T) {
 	const url = "http://127.0.0.1:7801"
 	withAutostart := replaceNotice(url, "", "v2", true, "darwin")
-	for _, want := range []string{"旧版", "an older version", "v2", url, "取消勾选「开机自启」", "pkill -f abox-link", "重新勾选", "untick autostart", "放行规则和配对信息都会保留"} {
+	for _, want := range []string{"旧版", "an older version", "v2", url, "取消勾选「开机自启」", "pkill -f abox-link", "重新勾选", "untick autostart", "共享文件夹和配对信息都会保留"} {
 		if !strings.Contains(withAutostart, want) {
 			t.Errorf("autostart notice lacks %q:\n%s", want, withAutostart)
 		}
@@ -105,5 +105,29 @@ func TestStateReportsVersion(t *testing.T) {
 	p := NewPanel(Config{}, NewSupervisor())
 	if got := p.state()["version"]; got != buildinfo.Version {
 		t.Errorf("version = %v, want %q", got, buildinfo.Version)
+	}
+}
+
+func TestDesktopActivationQueuesOnlyOneShow(t *testing.T) {
+	p := NewPanel(Config{}, NewSupervisor())
+	p.activate = make(chan struct{}, 1)
+	server := httptest.NewServer(p.Handler())
+	defer server.Close()
+	for i := 0; i < 2; i++ {
+		if err := requestPanelWindow(server.URL); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(p.activate) != 1 {
+		t.Fatalf("queued %d window activations, want 1", len(p.activate))
+	}
+	<-p.activate
+	r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/window/show", nil)
+	r.Header.Set("Origin", "https://example.invalid")
+	r.Header.Set("X-Abox-Panel", "1")
+	rec := httptest.NewRecorder()
+	p.Handler().ServeHTTP(rec, r)
+	if rec.Code != http.StatusForbidden || len(p.activate) != 0 {
+		t.Fatalf("foreign origin activated window: status %d, queue size %d", rec.Code, len(p.activate))
 	}
 }

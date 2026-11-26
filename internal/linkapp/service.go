@@ -42,7 +42,9 @@ func exePath() (string, error) {
 // run executes a command and folds its output into any error, since the
 // message goes straight to the panel.
 func run(name string, args ...string) error {
-	out, err := exec.Command(name, args...).CombinedOutput()
+	cmd := exec.Command(name, args...)
+	hideCommandWindow(cmd)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		detail := strings.TrimSpace(string(out))
 		if detail == "" {

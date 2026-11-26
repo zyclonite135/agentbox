@@ -27,10 +27,16 @@ echo "==> Сборка клиентов"
 for p in "${PLATFORMS[@]}"; do
   os=${p%/*} arch=${p#*/}
   name="abox-link-$os-$arch"
-  [[ $os == windows ]] && name="$name.exe"
+  flags="-s -w"
+  tags=()
+  if [[ $os == windows ]]; then
+    name="$name.exe"
+    flags+=" -H=windowsgui"
+    tags=(-tags production)
+  fi
   # -s -w 去掉符号表和调试信息：用户要下载它，体积小一截。
   GOOS=$os GOARCH=$arch CGO_ENABLED=0 \
-    go build -trimpath -ldflags '-s -w' -o "$STAGE/$name" ./cmd/abox-link
+    go build -trimpath "${tags[@]}" -ldflags "$flags" -o "$STAGE/$name" ./cmd/abox-link
   printf '    %-32s %s\n' "$name" "$(du -h "$STAGE/$name" | cut -f1)"
 done
 

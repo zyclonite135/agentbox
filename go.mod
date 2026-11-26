@@ -10,6 +10,7 @@ require (
 	github.com/moby/term v0.5.2
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/things-go/go-socks5 v0.1.1
+	github.com/wailsapp/wails/v3 v3.1.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/net v0.60.0
 	golang.org/x/sys v0.48.0
@@ -31,6 +32,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect

@@ -122,7 +122,11 @@ jobs:
       - name: cross-compile abox-link (smoke)
         run: |
           for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
-            GOOS=${target%/*} GOARCH=${target#*/} go build -o /dev/null ./cmd/abox-link
+            if [[ $target == windows/* ]]; then
+              GOOS=windows GOARCH=${target#*/} CGO_ENABLED=0 go build -tags production -ldflags="-H=windowsgui" -o /dev/null ./cmd/abox-link
+            else
+              GOOS=${target%/*} GOARCH=${target#*/} CGO_ENABLED=0 go build -o /dev/null ./cmd/abox-link
+            fi
           done
 
       - name: Independent desktop terminals (real Linux PTY/tmux, no model calls)

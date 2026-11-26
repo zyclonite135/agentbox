@@ -17,13 +17,15 @@ import (
 // interface that lets the user pair, choose folders, and manage the connection
 // without touching a terminal.
 type Panel struct {
-	sup *Supervisor
+	sup      *Supervisor
+	activate chan struct{}
 
-	mu        sync.Mutex // guards cfg, which the handlers read-modify-write
-	actions   sync.Mutex // serializes configuration changes with connection restarts
-	cfg       Config
-	transfers chan struct{}
-	picker    chan struct{}
+	mu         sync.Mutex // guards cfg, which the handlers read-modify-write
+	actions    sync.Mutex // serializes configuration changes with connection restarts
+	cfg        Config
+	transfers  chan struct{}
+	picker     chan struct{}
+	pickFolder func() (string, error)
 }
 
 // NewPanel returns a panel over cfg and sup.
@@ -49,6 +51,15 @@ func (p *Panel) Handler() http.Handler {
 	mux.Handle("GET /", http.FileServer(http.FS(sub)))
 
 	mux.HandleFunc("GET /api/state", p.handleState)
+	if p.activate != nil {
+		mux.HandleFunc("POST /api/window/show", func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case p.activate <- struct{}{}:
+			default:
+			}
+			w.WriteHeader(http.StatusNoContent)
+		})
+	}
 	mux.HandleFunc("GET /api/logs", p.handleLogs)
 	mux.HandleFunc("POST /api/pair", p.handlePair)
 	mux.HandleFunc("POST /api/unpair", p.handleUnpair)
@@ -64,7 +75,15 @@ func (p *Panel) Handler() http.Handler {
 	mux.HandleFunc("POST /api/stop", p.handleStop)
 	mux.HandleFunc("POST /api/autostart", p.handleAutostart)
 
-	return localGuard(mux)
+	handler := localGuard(mux)
+	if p.activate == nil {
+		return handler
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' blob: data:; base-uri 'none'; frame-ancestors 'none'")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		handler.ServeHTTP(w, r)
+	})
 }
 
 // localGuard keeps the panel reachable only from this machine's own browser.

@@ -15,11 +15,12 @@ func main() {
 		fmt.Println(buildinfo.String("abox-link"))
 		return
 	}
-	daemon := flag.Bool("daemon", false, "run the panel without opening a browser")
+	daemon := flag.Bool("daemon", false, "start in the background")
+	browser := flag.Bool("browser", false, "open the panel in the default browser")
 	addr := flag.String("addr", linkapp.DefaultAddr, "panel listen address (loopback only)")
 	flag.Parse()
-	if err := linkapp.RunPanel(linkapp.RunOptions{Addr: *addr, Daemon: *daemon}); err != nil {
-		fmt.Fprintln(os.Stderr, "abox-link:", err)
+	if err := linkapp.RunPanel(linkapp.RunOptions{Addr: *addr, Daemon: *daemon, Browser: *browser}); err != nil {
+		linkapp.ReportStartupError(err, *daemon || *browser)
 		os.Exit(1)
 	}
 }

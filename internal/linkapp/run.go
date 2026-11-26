@@ -30,14 +30,15 @@ type RunOptions struct {
 	// Daemon marks a run started by the OS at boot/login: no browser is opened
 	// and the saved config connects on its own.
 	Daemon bool
+	// Browser opens the standalone panel in the default browser on Windows.
+	Browser bool
 }
 
-// RunPanel starts the control panel and blocks until the process is signalled.
+// RunPanel keeps the control panel alive until the desktop exits or a shutdown signal arrives.
 //
 // If the same version already holds the address, this one hands over to it —
-// double-clicking the app while the autostart service is running should surface
-// the existing console, not fail with a port conflict. A different version must
-// not hand over: its console would look like the new one failed to take effect.
+// double-clicking the app while autostart is running surfaces the existing
+// window or browser panel. A different version reports the conflict.
 func RunPanel(opts RunOptions) error {
 	if opts.Addr == "" {
 		opts.Addr = DefaultAddr
@@ -57,11 +58,17 @@ func RunPanel(opts RunOptions) error {
 			}
 			if version != buildinfo.Version {
 				// No browser: it would cover this window with the other version's console.
-				fmt.Print(replaceNotice(url, version, buildinfo.Version, AutostartStatus().Installed, runtime.GOOS))
-				waitForEnter()
-				return errors.New("未启动：另一个版本正在运行 / not started: another version is running")
+				notice := replaceNotice(url, version, buildinfo.Version, AutostartStatus().Installed, runtime.GOOS)
+				if runtime.GOOS != "windows" {
+					fmt.Print(notice)
+					waitForEnter()
+				}
+				return errors.New("not started: another version is running\n" + notice)
 			}
 			fmt.Printf("abox-link 已经在运行，控制台：%s\n", url)
+			if runtime.GOOS == "windows" && !opts.Browser {
+				return requestPanelWindow(url)
+			}
 			OpenBrowser(url)
 			return nil
 		}
@@ -75,6 +82,9 @@ func RunPanel(opts RunOptions) error {
 	}
 	sup := NewSupervisor()
 	panel := NewPanel(cfg, sup)
+	if runtime.GOOS == "windows" && !opts.Browser {
+		panel.activate = make(chan struct{}, 1)
+	}
 
 	panelContext, cancelPanel := context.WithCancel(context.Background())
 	defer cancelPanel()
@@ -82,14 +92,20 @@ func RunPanel(opts RunOptions) error {
 		Handler:     panel.Handler(),
 		BaseContext: func(net.Listener) context.Context { return panelContext },
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	serveErr := make(chan error, 1)
 	go func() {
-		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintln(os.Stderr, "abox-link: 控制台异常退出:", err)
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serveErr <- err
+			stop()
 		}
 	}()
 
-	url := "http://" + opts.Addr
-	fmt.Printf("abox-link 控制台：%s\n", url)
+	url := "http://" + ln.Addr().String()
+	if panel.activate == nil {
+		fmt.Printf("abox-link 控制台：%s\n", url)
+	}
 	if !cfg.Paired() {
 		sup.Logf("欢迎使用 abox-link。请在 agentbox 里生成配对码，粘贴到上面完成接入。")
 	}
@@ -104,22 +120,47 @@ func RunPanel(opts RunOptions) error {
 		sup.Logf("已接入 %s。点「启动」连接设备。", cfg.Server)
 	}
 
-	if !opts.Daemon {
-		OpenBrowser(url)
+	var windowErr error
+	if panel.activate != nil {
+		windowErr = runDesktopPanel(ctx, url, opts.Daemon, panel)
+	} else {
+		if !opts.Daemon {
+			OpenBrowser(url)
+		}
+		<-ctx.Done()
 	}
-
-	// Wait for Ctrl-C / systemd stop, then close the connection cleanly so the
-	// server drops the link instead of waiting for a keepalive timeout.
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
-	<-sig
-	fmt.Println("\nabox-link: 正在退出…")
-
 	cancelPanel()
 	sup.Stop()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	return srv.Shutdown(ctx)
+	shutdownErr := srv.Shutdown(shutdown)
+	select {
+	case err := <-serveErr:
+		return errors.Join(windowErr, shutdownErr, err)
+	default:
+		return errors.Join(windowErr, shutdownErr)
+	}
+}
+
+func requestPanelWindow(url string) error {
+	req, err := http.NewRequest(http.MethodPost, url+"/api/window/show", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Abox-Panel", "1")
+	client := &http.Client{
+		Timeout:       2 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		return errors.New("The background abox-link panel cannot open a desktop window. Exit it and start this copy again.")
+	}
+	return nil
 }
 
 // runningPanel reports whether the address is held by another abox-link panel
@@ -182,9 +223,9 @@ func replaceNotice(url, running, self string, autostart bool, goos string) strin
 		return b.String()
 	}
 	return fmt.Sprintf("\n这个文件（%s）没有启动：另一个 abox-link（%s）正在运行，占用了 %s。"+
-		"\n放行规则和配对信息都会保留。换成这个文件：\n%s"+
+		"\n共享文件夹和配对信息都会保留。换成这个文件：\n%s"+
 		"\nThis file (%s) did not start: another abox-link (%s) is running on %s."+
-		"\nYour allow rules and pairing are kept. To switch to this file:\n%s",
+		"\nYour shared folders and pairing are kept. To switch to this file:\n%s",
 		self, runningZH, url, numbered(zh), self, runningEN, url, numbered(en))
 }
 

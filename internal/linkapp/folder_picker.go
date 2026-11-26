@@ -24,8 +24,36 @@ func (p *Panel) managerPickFolder(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusTooManyRequests, "文件操作忙，请稍后重试")
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
-	defer cancel()
+	p.mu.Lock()
+	pick, token := p.pickFolder, p.cfg.Token
+	p.mu.Unlock()
+	var value string
+	var err error
+	if pick != nil {
+		value, err = pick()
+	} else {
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
+		defer cancel()
+		value, err = pickSystemFolder(ctx)
+	}
+	if r.Context().Err() != nil {
+		return
+	}
+	if p.Config().Token != token {
+		writeErr(w, http.StatusConflict, "凭证已失效")
+		return
+	}
+	if err != nil || value != "" && !filepath.IsAbs(value) {
+		writeErr(w, http.StatusServiceUnavailable, "无法打开系统文件夹选择器，请输入路径")
+		return
+	}
+	if value != "" {
+		value = filepath.Clean(value)
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"path": value, "name": filepath.Base(value)})
+}
+
+func pickSystemFolder(ctx context.Context) (string, error) {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
@@ -36,6 +64,7 @@ func (p *Panel) managerPickFolder(w http.ResponseWriter, r *http.Request) {
 	default:
 		cmd = exec.CommandContext(ctx, "zenity", "--file-selection", "--directory")
 	}
+	hideCommandWindow(cmd)
 	out, err := cmd.Output()
 	var exit *exec.ExitError
 	if runtime.GOOS == "linux" && errors.As(err, &exit) && exit.ExitCode() == 1 && len(exit.Stderr) == 0 {
@@ -46,12 +75,5 @@ func (p *Panel) managerPickFolder(w http.ResponseWriter, r *http.Request) {
 		decoded, decodeErr := base64.StdEncoding.DecodeString(strings.TrimSpace(value))
 		value, err = string(decoded), decodeErr
 	}
-	if err != nil || value != "" && !filepath.IsAbs(value) {
-		writeErr(w, http.StatusServiceUnavailable, "无法打开系统文件夹选择器，请输入路径")
-		return
-	}
-	if value != "" {
-		value = filepath.Clean(value)
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"path": value, "name": filepath.Base(value)})
+	return value, err
 }

@@ -34,6 +34,13 @@ function localizedAttribute(el, attr, source) {
 
 const $ = (id) => document.getElementById(id);
 
+// Prevent a file dropped from Explorer from replacing the desktop panel.
+for (const event of ["dragover", "drop"]) {
+  document.addEventListener(event, e => {
+    if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+  });
+}
+
 // This panel is embedded in its own binary, so its small icon set is standalone.
 const actionIcons = {
   "left": "M19 12H5m6 6-6-6 6-6",

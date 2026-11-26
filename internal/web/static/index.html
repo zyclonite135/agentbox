@@ -900,7 +900,7 @@
                   <button id="btn-proxy-add" class="btn btn-primary btn-sm" data-icon="plus" data-tip="添加出口代理" data-i18n-text="[&quot;添加&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;添加出口代理&quot;}">添加</button>
                 </div>
               </div>
-              <section id="settings-proxy-list" class="settings-topic" data-settings-topic>
+              <section id="settings-proxy-list" class="settings-topic" data-settings-topic data-settings-topic-icon="network">
                 <h3 class="settings-topic-title" data-i18n="代理列表">代理列表</h3>
                 <div class="settings-block">
                 <div id="proxy-bridge-state" class="px-bridge"></div>
@@ -920,7 +920,7 @@
                 </div>
                 </div>
               </section>
-              <section id="settings-proxy-config" class="settings-topic" data-settings-topic>
+              <section id="settings-proxy-config" class="settings-topic" data-settings-topic data-settings-topic-icon="sliders">
                 <h3 class="settings-topic-title" data-i18n="代理连接设置">代理连接设置</h3>
                 <div class="settings-block">
                 <div class="card">
@@ -971,7 +971,7 @@
                   <p data-i18n-text="[&quot;镜像变更在空间停止再启动后采用；资源上限在容器创建时生效，已有容器保留原值。&quot;]">镜像变更在空间停止再启动后采用；资源上限在容器创建时生效，已有容器保留原值。</p>
                 </div>
               </div>
-              <section id="settings-images" class="settings-topic" data-settings-topic>
+              <section id="settings-images" class="settings-topic" data-settings-topic data-settings-topic-icon="box">
                 <h3 class="settings-topic-title" data-i18n="镜像与更新">镜像与更新</h3>
                 <div class="settings-block">
                 <div class="card">
@@ -1012,7 +1012,7 @@
                 </div>
                 </div>
               </section>
-              <section id="settings-resources" class="settings-topic" data-settings-topic>
+              <section id="settings-resources" class="settings-topic" data-settings-topic data-settings-topic-icon="database">
                 <h3 class="settings-topic-title" data-i18n="资源与容量">资源与容量</h3>
                 <div class="settings-block">
                 <div class="card">
@@ -1096,7 +1096,7 @@
                 </div>
                 </div>
               </section>
-              <section id="settings-chat-limits" class="settings-topic" data-settings-topic>
+              <section id="settings-chat-limits" class="settings-topic" data-settings-topic data-settings-topic-icon="message">
                 <h3 class="settings-topic-title" data-i18n="对话限制">对话限制</h3>
                 <div class="settings-block">
                 <div class="card">
@@ -1492,7 +1492,7 @@
                   <p data-i18n-text="[&quot;控制台的访问凭证与 Agent 的权限边界。&quot;]">控制台的访问凭证与 Agent 的权限边界。</p>
                 </div>
               </div>
-              <section id="settings-user-access" class="settings-topic" data-settings-topic>
+              <section id="settings-user-access" class="settings-topic" data-settings-topic data-settings-topic-icon="users">
                 <h3 class="settings-topic-title" data-i18n="用户与凭证">用户与凭证</h3>
                 <div class="settings-block">
                 <div class="card">
@@ -1536,7 +1536,7 @@
                 </div>
                 </div>
               </section>
-              <section id="settings-agent-access" class="settings-topic" data-settings-topic>
+              <section id="settings-agent-access" class="settings-topic" data-settings-topic data-settings-topic-icon="key">
                 <h3 class="settings-topic-title" data-i18n="权限与网络">权限与网络</h3>
                 <div class="settings-block">
                 <div class="card">
@@ -1578,7 +1578,7 @@
                 </div>
                 </div>
               </section>
-              <section id="settings-transport-limits" class="settings-topic" data-settings-topic>
+              <section id="settings-transport-limits" class="settings-topic" data-settings-topic data-settings-topic-icon="shield">
                 <h3 class="settings-topic-title" data-i18n="上传与监听">上传与监听</h3>
                 <div class="settings-block">
                 <div class="card">
@@ -1623,7 +1623,7 @@
                 <label class="mon-auto settings-toggle"><span class="settings-toggle-label" data-i18n="自动刷新">自动刷新</span><input type="checkbox" id="mon-auto" class="interface-switch" role="switch" checked></label>
               </div>
               <div id="mon-tiles" class="mon-tiles"></div>
-              <div id="settings-containers" class="card mon-card" data-settings-topic="工作空间容器">
+              <div id="settings-containers" class="card mon-card" data-settings-topic="工作空间容器" data-settings-topic-icon="box">
                 <div class="mon-card-head">
                   <h3 data-i18n-text="[&quot;工作空间容器&quot;]">工作空间容器</h3>
                   <span id="mon-sub" class="note"></span>
@@ -1648,7 +1648,7 @@
                   </table>
                 </div>
               </div>
-              <div id="settings-user-storage" class="card mon-card" data-settings-topic="用户存储">
+              <div id="settings-user-storage" class="card mon-card" data-settings-topic="用户存储" data-settings-topic-icon="database">
                 <div class="mon-card-head">
                   <h3 data-i18n-text="[&quot;用户存储&quot;]">用户存储</h3>
                   <span id="mon-storage-sub" class="note"></span>
@@ -1683,7 +1683,7 @@
                 </div>
                 <button id="ua-refresh" type="button" class="btn btn-sm" data-icon="refresh" data-i18n="刷新">刷新</button>
               </div>
-              <div id="settings-active-users" class="card mon-card" data-settings-topic="用户活跃">
+              <div id="settings-active-users" class="card mon-card" data-settings-topic="用户活跃" data-settings-topic-icon="activity">
                 <div class="mon-card-head">
                   <h3 data-i18n="用户活跃">用户活跃</h3>
                 </div>
@@ -1702,7 +1702,7 @@
                   </table>
                 </div>
               </div>
-              <div id="settings-login-events" class="card mon-card" data-settings-topic="登录记录">
+              <div id="settings-login-events" class="card mon-card" data-settings-topic="登录记录" data-settings-topic-icon="history">
                 <div class="mon-card-head ua-events-head">
                   <h3 data-i18n="登录记录">登录记录</h3>
                   <label class="ua-filter"><span data-i18n="筛选用户">筛选用户</span>
@@ -1739,7 +1739,7 @@
                   </details>
                 </div>
               </div>
-              <section id="settings-announcement-editor" class="settings-topic" data-settings-topic>
+              <section id="settings-announcement-editor" class="settings-topic" data-settings-topic data-settings-topic-icon="status.announce">
                 <h3 class="settings-topic-title" data-i18n="通告管理">通告管理</h3>
                 <div class="settings-block">
                 <div class="card">
@@ -1792,7 +1792,7 @@
                 </form>
                 </div>
               </section>
-              <div id="settings-announcement-impact" class="card mon-card" data-settings-topic="现在重启会影响谁">
+              <div id="settings-announcement-impact" class="card mon-card" data-settings-topic="现在重启会影响谁" data-settings-topic-icon="users">
                 <div class="mon-card-head">
                   <h3 data-i18n-text="[&quot;现在重启会影响谁&quot;]">现在重启会影响谁</h3>
                   <button id="ann-refresh" type="button" class="btn btn-sm btn-ghost" data-icon="refresh" data-i18n-text="[&quot;刷新&quot;]">刷新</button>
@@ -1853,7 +1853,7 @@
                   <p data-i18n-text="[&quot;版本信息、软件更新与服务运行状态。&quot;]">版本信息、软件更新与服务运行状态。</p>
                 </div>
               </div>
-              <div id="settings-update-panel" class="update-panel" data-settings-topic="服务端更新">
+              <div id="settings-update-panel" class="update-panel" data-settings-topic="服务端更新" data-settings-topic-icon="download">
                 <div class="update-product">
                   <span class="update-mark" data-mark></span>
                   <div><h3>AGENTBOX</h3><p data-i18n-text="[&quot;服务端 &quot;]">服务端 <span data-update-version>—</span></p><p id="update-build" class="update-meta"></p></div>
@@ -1880,7 +1880,7 @@
                   </div>
                 </div>
               </div>
-              <section id="settings-update-components" class="update-components" data-settings-topic="更新对象与生效范围" aria-labelledby="component-title">
+              <section id="settings-update-components" class="update-components" data-settings-topic="更新对象与生效范围" aria-labelledby="component-title" data-settings-topic-icon="list-check">
                 <div class="component-head"><h3 id="component-title" data-i18n="更新对象与生效范围">更新对象与生效范围</h3><button id="component-refresh" type="button" class="btn btn-sm" data-icon="refresh" data-i18n="刷新本地版本信息">刷新本地版本信息</button></div>
                 <p id="component-read-status" class="note" role="status"></p>
                 <table class="component-table">
@@ -1892,7 +1892,7 @@
                   </tbody>
                 </table>
               </section>
-              <div id="settings-runtime-info" class="card" data-settings-topic="服务运行状态">
+              <div id="settings-runtime-info" class="card" data-settings-topic="服务运行状态" data-settings-topic-icon="heart-pulse">
                 <h3 data-i18n="服务运行状态">服务运行状态</h3>
                 <dl id="about-kv" class="kv"></dl>
               </div>

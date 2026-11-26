@@ -1,4 +1,5 @@
 import { setAttr, setText } from "../../i18n.js";
+import { svgIcon, type IconSlot } from "../../icons.js";
 
 /** Present the existing settings and table rows without changing their handlers. */
 export function initSettingsLayout(content: HTMLElement, signal: AbortSignal) {
@@ -9,24 +10,50 @@ export function initSettingsLayout(content: HTMLElement, signal: AbortSignal) {
     const jumps = document.createElement("nav");
     jumps.className = "settings-jumps";
     setAttr(jumps, "aria-label", "本节导航");
+    const row = document.createElement("div");
+    row.className = "settings-jumps-row";
+    jumps.append(row);
     for (const topic of topics) {
       const title = topic.querySelector<HTMLElement>("h3");
       const source = topic.dataset.settingsTopic || title?.dataset.i18n;
       if (!source) continue;
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "btn btn-sm btn-ghost";
-      setText(button, source);
+      const icon = topic.dataset.settingsTopicIcon as IconSlot | undefined;
+      if (icon) button.append(svgIcon(icon, 16));
+      const caption = document.createElement("span");
+      setText(caption, source);
+      button.append(caption);
+      if (topic.id) button.setAttribute("aria-controls", topic.id);
       button.addEventListener("click", () => {
         const destination = title ?? topic;
         destination.tabIndex = -1;
         destination.focus({preventScroll:true});
         content.scrollTop += topic.getBoundingClientRect().top - content.getBoundingClientRect().top;
       }, {signal});
-      jumps.append(button);
+      row.append(button);
     }
     intro.after(jumps);
-    signal.addEventListener("abort", () => jumps.remove(), {once:true});
+
+    const updateEdges = () => {
+      const viewport = jumps.getBoundingClientRect();
+      const track = row.getBoundingClientRect();
+      jumps.toggleAttribute("data-overflow-left", track.left < viewport.left - 1);
+      jumps.toggleAttribute("data-overflow-right", track.right > viewport.right + 1);
+    };
+    const resize = new ResizeObserver(updateEdges);
+    resize.observe(jumps);
+    resize.observe(row);
+    jumps.addEventListener("scroll", updateEdges, {passive:true, signal});
+    jumps.addEventListener("focusin", ({target}) => {
+      if (target instanceof HTMLButtonElement && target.matches(":focus-visible")) {
+        target.scrollIntoView({block:"nearest", inline:"nearest"});
+      }
+    }, {signal});
+    signal.addEventListener("abort", () => {
+      resize.disconnect();
+      jumps.remove();
+    }, {once:true});
   }
 
   const tables = content.querySelectorAll<HTMLTableElement>(".mon-table, .price-table, .component-table");

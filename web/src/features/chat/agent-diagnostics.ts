@@ -193,6 +193,11 @@ export function agentDiagnostic(value: unknown, raw: unknown, tone: Tone) {
     details.inert = true;
     const content = document.createElement("div");
     content.className = "agent-diagnostic-clip";
+    const scroll = document.createElement("div");
+    scroll.className = "agent-diagnostic-scroll";
+    scroll.tabIndex = 0;
+    scroll.setAttribute("role", "region");
+    setAttr(scroll, "aria-label", "代理诊断详情");
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "agent-diagnostic-toggle";
@@ -203,7 +208,7 @@ export function agentDiagnostic(value: unknown, raw: unknown, tone: Tone) {
     toggle.append(svgIcon("chevron", 14));
     toggle.addEventListener("click", () => {
       const expanded = details.classList.toggle("open");
-      if (!expanded && details.contains(document.activeElement)) toggle.focus();
+      if (!expanded && details.contains(document.activeElement)) toggle.focus({ preventScroll: true });
       toggle.setAttribute("aria-expanded", String(expanded));
       details.inert = !expanded;
     });
@@ -218,13 +223,14 @@ export function agentDiagnostic(value: unknown, raw: unknown, tone: Tone) {
       value.textContent = detail;
       identifiers.append(term, value);
     }
-    if (identifiers.childElementCount) content.append(identifiers);
+    if (identifiers.childElementCount) scroll.append(identifiers);
     for (const detail of new Set([diagnostic.raw, diagnostic.extra])) {
       if (!detail) continue;
       const original = document.createElement("pre");
       original.textContent = detail;
-      content.append(original);
+      scroll.append(original);
     }
+    content.append(scroll);
     details.append(content);
     body.append(details);
   }

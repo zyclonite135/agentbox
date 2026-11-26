@@ -535,13 +535,14 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  const previousLanguage = await page.evaluate(async () => (await import('/_v/{{BUILD}}/js/i18n.js')).i18n.preference);
  const missingEnvironment = "Missing environment variable: " + String.fromCharCode(96) + "CODEX_LB_API_KEY" + String.fromCharCode(96) + ".";
  const quota = 'API Error: 429 {"type":"error","error":{"type":"rate_limit_error","code":"insufficient_quota"},"request_id":"req_quota"}';
- const unknown = '<img src=x onerror=alert(1)> ' + 'long-diagnostic'.repeat(40);
+ const unknown = '<img src=x onerror=alert(1)> ' + '\nlong diagnostic'.repeat(60);
+ const extraDiagnostic = 'Extra detail\n'.repeat(60).trimEnd();
  setHistory([
   {kind:'user', ts, text:'Diagnostic fixtures'},
   {kind:'event', ts, event:{type:'warning', message:'Model metadata for "gpt-fixture" not found. Defaulting to fallback metadata; this can degrade performance and cause issues.'}},
   {kind:'event', ts, event:{type:'error', message:missingEnvironment}},
   {kind:'event', ts, event:{type:'result', subtype:'error_during_execution', result:'Execution failed.', errors:[quota]}},
-  {kind:'event', ts, event:{type:'turn.failed', error:{message:unknown}}},
+  {kind:'event', ts, event:{type:'turn.failed', error:{message:unknown,additionalDetails:extraDiagnostic}}},
   {kind:'event', ts, event:{type:'turn.failed', error:{message:{invalid:true}}}},
  ]);
  await reload();
@@ -591,6 +592,18 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  assert.notEqual(closing.during.arrow,closing.before.arrow);
  assert.notEqual(closing.during.arrow,closing.after.arrow);
  assert.equal(closing.after.arrow,opening.before.arrow);
+ const settledAfterReversal=await quotaToggle.evaluate(async button=>{
+  const panel=document.getElementById(button.getAttribute('aria-controls'));
+  button.click();
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  const observedExpansion=panel.getAnimations().some(animation=>animation.transitionProperty==='grid-template-rows');
+  button.click();
+  button.click();
+  button.click();
+  await Promise.allSettled([...panel.getAnimations(),...button.querySelector('svg').getAnimations()].map(animation=>animation.finished));
+  return {observedExpansion,expanded:button.getAttribute('aria-expanded'),height:panel.getBoundingClientRect().height,inert:panel.inert};
+ });
+ assert.deepEqual(settledAfterReversal,{observedExpansion:true,expanded:'false',height:0,inert:true});
  await page.emulateMedia({reducedMotion:'reduce'});
  await quotaToggle.press('Enter');
  assert.equal(await quotaToggle.getAttribute('aria-expanded'),'true');
@@ -610,9 +623,17 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
   return title.right<=button.left && button.right<=bounds.right &&
    button.top>=bounds.top && button.bottom<=bounds.bottom;
  }),true,'mobile card must leave space for the arrow');
- assert.equal(await diagnostics.nth(3).locator('pre').textContent(),unknown);
+ assert.deepEqual(await diagnostics.nth(3).locator('pre').allTextContents(),[unknown,extraDiagnostic]);
  assert.equal(await diagnostics.nth(3).locator('img').count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'diagnostic details overflow the phone layout');
+ const longDetails=diagnostics.nth(3).getByRole('region',{name:'Подробности'});
+ assert.equal(await longDetails.evaluate(el=>el.clientHeight<=256 && el.scrollHeight>el.clientHeight),true,'long diagnostics use one capped scroll region');
+ await page.keyboard.press('Tab');
+ assert.equal(await longDetails.evaluate(el=>document.activeElement===el),true);
+ await page.keyboard.press('PageDown');
+ await page.waitForFunction(()=>document.activeElement?.matches('.agent-diagnostic-scroll') && document.activeElement.scrollTop>0);
+ await toggleFor(3).evaluate(button=>button.click());
+ assert.equal(await toggleFor(3).evaluate(button=>document.activeElement===button && button.getAttribute('aria-expanded')==='false'),true,'closing the details must return focus to the toggle');
  await page.setViewportSize({width:1280,height:900});
  const retry = 'exceeded retry limit, last status: 429 Too Many Requests, request id: req_fixture';
  send({type:'user_message', text:'Live diagnostic', turn:turn('diagnostic-live'), ts});

@@ -204,6 +204,11 @@ export function agentDiagnostic(value, raw, tone) {
         details.inert = true;
         const content = document.createElement("div");
         content.className = "agent-diagnostic-clip";
+        const scroll = document.createElement("div");
+        scroll.className = "agent-diagnostic-scroll";
+        scroll.tabIndex = 0;
+        scroll.setAttribute("role", "region");
+        setAttr(scroll, "aria-label", "代理诊断详情");
         const toggle = document.createElement("button");
         toggle.type = "button";
         toggle.className = "agent-diagnostic-toggle";
@@ -215,7 +220,7 @@ export function agentDiagnostic(value, raw, tone) {
         toggle.addEventListener("click", () => {
             const expanded = details.classList.toggle("open");
             if (!expanded && details.contains(document.activeElement))
-                toggle.focus();
+                toggle.focus({ preventScroll: true });
             toggle.setAttribute("aria-expanded", String(expanded));
             details.inert = !expanded;
         });
@@ -232,14 +237,15 @@ export function agentDiagnostic(value, raw, tone) {
             identifiers.append(term, value);
         }
         if (identifiers.childElementCount)
-            content.append(identifiers);
+            scroll.append(identifiers);
         for (const detail of new Set([diagnostic.raw, diagnostic.extra])) {
             if (!detail)
                 continue;
             const original = document.createElement("pre");
             original.textContent = detail;
-            content.append(original);
+            scroll.append(original);
         }
+        content.append(scroll);
         details.append(content);
         body.append(details);
     }

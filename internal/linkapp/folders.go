@@ -11,6 +11,8 @@ import (
 	"agentbox/internal/devicelink"
 )
 
+const downloadTempPrefix = ".abox-link-download-"
+
 type localFolder struct {
 	devicelink.Folder
 	Path string `json:"path"`
@@ -71,6 +73,9 @@ func openFolderEntry(root *os.Root, name string, directory bool) (*os.File, erro
 			return nil, err
 		}
 		defer root.Close()
+	}
+	if strings.HasPrefix(leaf, downloadTempPrefix) {
+		return nil, os.ErrNotExist
 	}
 	info, err := root.Lstat(leaf)
 	if err != nil || directory && !info.IsDir() || !directory && !info.Mode().IsRegular() {
@@ -171,7 +176,7 @@ func listLocalFolder(f *os.File, offset int) (devicelink.FolderResponse, error) 
 	for _, entry := range entries {
 		info, err := entry.Info()
 		if err == nil && (info.IsDir() || info.Mode().IsRegular()) && entry.Name() != "." &&
-			devicelink.ValidFolderPath(entry.Name()) && filepath.IsLocal(entry.Name()) {
+			!strings.HasPrefix(entry.Name(), downloadTempPrefix) && devicelink.ValidFolderPath(entry.Name()) && filepath.IsLocal(entry.Name()) {
 			result.Entries = append(result.Entries, devicelink.FolderEntry{Name: entry.Name(), Dir: info.IsDir(), Size: info.Size()})
 		}
 	}

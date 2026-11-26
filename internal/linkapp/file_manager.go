@@ -100,7 +100,7 @@ func (p *Panel) managerLocal(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []managerEntry{}
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".abox-link-download-") || !managerPath(entry.Name()) {
+		if strings.HasPrefix(entry.Name(), downloadTempPrefix) || !managerPath(entry.Name()) {
 			continue
 		}
 		info, err := entry.Info()
@@ -435,7 +435,7 @@ func sendManagerFile(ctx context.Context, cfg Config, root *os.Root, req manager
 
 func (p *Panel) receiveManagerFile(ctx context.Context, cfg Config, root *os.Root, req managerCopy, endpoint string, report func(managerCopyEvent)) error {
 	dir, name := path.Split(req.Destination)
-	if !filepath.IsLocal(filepath.FromSlash(req.Destination)) {
+	if strings.HasPrefix(name, downloadTempPrefix) {
 		return os.ErrInvalid
 	}
 	target, err := root.OpenRoot(".")
@@ -457,7 +457,7 @@ func (p *Panel) receiveManagerFile(ctx context.Context, cfg Config, root *os.Roo
 		return err
 	}
 	defer resp.Body.Close()
-	temp := ".abox-link-download-" + rand.Text()
+	temp := downloadTempPrefix + rand.Text()
 	f, err := target.OpenFile(temp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err

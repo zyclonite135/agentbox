@@ -52,7 +52,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
     remote: { roots: [], root: "", parts: [], entries: [], selected: new Set(), descending: false },
   };
   let accountKey = "", folderKey = "", ready = false, processing = false, dragged = null, pickerBusy = false;
-  let previewURL, previewRequest;
+  let previewURL, previewRequest, activeDialog;
   const jobs = [];
   const sides = ["local", "remote"];
   const dialog = $("fm-dialog");
@@ -102,6 +102,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
     pane.loadingRoots = true;
     pane.error = "";
     renderRows("remote");
+    renderSelection("local");
     try {
       const roots = await (await send("workspaces", { signal: controller.signal })).json();
       if (controller.signal.aborted || accountKey !== currentAccount) return;
@@ -111,12 +112,14 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
       pane.root = next;
       pane.loadingRoots = false;
       renderRoots("remote");
-      await list("remote", changed ? [] : pane.parts);
+      if (changed) navigate("remote", []);
+      else await list("remote", pane.parts, true);
     } catch (error) {
       if (controller.signal.aborted || accountKey !== currentAccount) return;
       pane.loadingRoots = false;
       pane.error = error.message;
       renderRows("remote");
+      renderSelection("local");
     }
   }
 
@@ -127,14 +130,16 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
     };
   }
 
-  async function list(side, parts = state[side].parts) {
+  async function list(side, parts = state[side].parts, preserveSelection = false) {
     const pane = state[side];
     pane.request?.abort();
     const controller = new AbortController();
     pane.request = controller;
     pane.parts = parts;
-    pane.entries = [];
-    pane.selected.clear();
+    if (!preserveSelection) {
+      pane.entries = [];
+      pane.selected.clear();
+    }
     pane.error = "";
     pane.loading = !!pane.root;
     renderRows(side);
@@ -142,7 +147,11 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
     if (!pane.root) return;
     try {
       const result = await (await send(side, { query: entryQuery(side, pathOf(parts)), signal: controller.signal })).json();
-      if (!controller.signal.aborted) pane.entries = result;
+      if (!controller.signal.aborted) {
+        pane.entries = result;
+        const files = new Set(result.filter(entry => !entry.directory).map(entry => entry.name));
+        for (const name of pane.selected) if (!files.has(name)) pane.selected.delete(name);
+      }
     } catch (error) {
       if (!controller.signal.aborted) pane.error = error.message;
     } finally {
@@ -155,6 +164,8 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
   }
 
   function navigate(side, parts) {
+    if (previewRequest?.side === side) previewRequest.controller.abort();
+    if (dragged?.side === side) clearDrag();
     at(side, "filter").value = "";
     void list(side, parts);
   }
@@ -215,7 +226,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
       tr("已选择 {count} 个文件", { count: pane.selected.size }) :
       tr("{count} 个项目", { count: rows.length });
     const other = state[otherSide(side)];
-    at(side, "copy").disabled = !pane.selected.size || !other.root || other.loading || !!other.error;
+    at(side, "copy").disabled = !pane.selected.size || !other.root || other.loading || other.loadingRoots || !!other.error || pane.loading || pane.loadingRoots || !!pane.error;
   }
 
   function fileRow(side, entry) {
@@ -275,7 +286,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
   }
 
   function ask({ title, text = "", input, actions }) {
-    if (dialog.open) return Promise.resolve({ action: "", value: "" });
+    if (activeDialog) return Promise.resolve({ action: "", value: "" });
     const field = $("fm-dialog-input");
     $("fm-dialog-title").textContent = tr(title);
     $("fm-dialog-text").textContent = text;
@@ -294,9 +305,24 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
     dialog.returnValue = "";
     dialog.showModal();
     if (input !== undefined) { field.focus(); field.select(); }
-    return new Promise(resolve => dialog.addEventListener("close", () => {
+    activeDialog = new Promise(resolve => dialog.addEventListener("close", () => {
+      activeDialog = undefined;
       resolve({ action: dialog.returnValue, value: field.value.trim() });
     }, { once: true }));
+    return activeDialog;
+  }
+
+  async function waitForDialog(signal) {
+    while (activeDialog && !signal.aborted) {
+      const pending = activeDialog;
+      await new Promise(resolve => {
+        signal.addEventListener("abort", resolve, { once: true });
+        pending.then(() => {
+          signal.removeEventListener("abort", resolve);
+          resolve();
+        });
+      });
+    }
   }
 
   const dismiss = { label: "取消", value: "", cancel: true };
@@ -305,7 +331,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
   async function modifyRemote(action, params, workspace = state.remote.root) {
     try {
       await send("action", { body: { workspace, action, ...params } });
-      if (workspace === state.remote.root) await list("remote");
+      if (workspace === state.remote.root) await list("remote", state.remote.parts, true);
     } catch (error) { toast(errorMessage(error.message), true); }
   }
 
@@ -334,9 +360,9 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
   }
 
   async function preview(side, name) {
-    previewRequest?.abort();
+    previewRequest?.controller.abort();
     const controller = new AbortController();
-    previewRequest = controller;
+    previewRequest = { side, controller };
     try {
       const res = await send(side, { query: { ...entryQuery(side, fileAt(state[side].parts, name)), preview: "1" }, signal: controller.signal });
       const image = await res.blob();
@@ -352,7 +378,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
     }
   }
   $("fm-preview").addEventListener("close", () => {
-    previewRequest?.abort();
+    previewRequest?.controller.abort();
     $("fm-preview-image").removeAttribute("src");
     if (previewURL) URL.revokeObjectURL(previewURL);
     previewURL = undefined;
@@ -360,7 +386,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
 
   function enqueue(side, names) {
     const { local, remote } = state;
-    if (!local.root || !remote.root || local.loading || remote.loading || local.error || remote.error) return;
+    if (!local.root || !remote.root || local.loading || remote.loading || remote.loadingRoots || local.error || remote.error) return;
     const direction = side === "local" ? "upload" : "download";
     for (let i = 0; jobs.length + names.length > 400 && i < jobs.length;) {
       if (["running", "waiting"].includes(jobs[i].status)) i++;
@@ -473,7 +499,10 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
         renderQueue();
         try {
           let completion = await transfer(job, job.req, controller.signal);
-          if (completion.conflict && !controller.signal.aborted) {
+          if (completion.conflict) {
+            // Let the current file action finish before asking about this transfer.
+            await waitForDialog(controller.signal);
+            if (controller.signal.aborted) { job.status = "cancelled"; continue; }
             const { action } = await ask({ title: "目标已存在", text: job.name, actions: [
               { label: "跳过", value: "", cancel: true },
               { label: "保留两个文件", value: "keep" },
@@ -496,7 +525,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
           const pane = state[side];
           const root = side === "local" ? job.req.folder : job.req.workspace;
           const parent = job.req.destination.split("/").slice(0, -1);
-          if (completion.done && pane.root === root && pathOf(pane.parts) === pathOf(parent)) await list(side);
+          if (completion.done && pane.root === root && pathOf(pane.parts) === pathOf(parent)) await list(side, pane.parts, true);
         } catch (error) {
           job.status = controller.signal.aborted ? "cancelled" : "error";
           job.error = error.message;
@@ -526,7 +555,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
       pane.root = event.target.value;
       navigate(side, []);
     });
-    at(side, "refresh").addEventListener("click", () => void (side === "remote" ? readRoots() : list(side)));
+    at(side, "refresh").addEventListener("click", () => void (side === "remote" ? readRoots() : list(side, state.local.parts, true)));
     at(side, "back").addEventListener("click", () => navigate(side, pane.parts.slice(0, -1)));
     at(side, "filter").addEventListener("input", () => renderRows(side));
     at(side, "sort").addEventListener("click", () => { pane.descending = !pane.descending; renderRows(side); });
@@ -599,9 +628,10 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
     }
     for (const job of jobs) job.controller?.abort();
     jobs.length = 0;
+    clearDrag();
     if (dialog.open) dialog.close();
     if ($("fm-preview").open) $("fm-preview").close();
-    previewRequest?.abort();
+    previewRequest?.controller.abort();
     renderQueue();
   }
 

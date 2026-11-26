@@ -28,13 +28,27 @@ export async function linkI18nSmoke(page) {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   let state = { version:"fixture", paired:false, running:false, user:"", server:"", auto_connect:false, insecure:false, folders:[], status:{state:"stopped"}, autostart:{supported:true,installed:false} };
-  let holdFolder, folderRequested;
+  let holdFolder, folderRequested, previewResponse, transferResponse;
   await page.route("**/api/**", async route => {
     try {
       const req=route.request(), path=new URL(req.url()).pathname;
       assert.equal(req.headers()["x-abox-panel"],"1");
       if(path==="/api/logs") return route.fulfill({json:{latest:0,lines:[]}});
-      if(path==="/api/file-manager/workspaces" || path==="/api/file-manager/local") return route.fulfill({json:[]});
+      if (path === "/api/file-manager/workspaces") return route.fulfill({json:[{id:"workspace",name:"Отчёты"}]});
+      if (path === "/api/file-manager/remote") return route.fulfill({json:[{name:"report.md",directory:false,size:12}]});
+      if (path === "/api/file-manager/local") {
+        const query = new URL(req.url()).searchParams;
+        if (query.get("preview") === "1") {
+          await previewResponse;
+          await route.fulfill({contentType:"image/png",body:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRhoAAAAASUVORK5CYII=","base64")}).catch(() => {});
+          return;
+        }
+        return route.fulfill({json:query.get("path")==="." ? [{name:"Входящие",directory:true},{name:"sample.png",directory:false,size:68}] : []});
+      }
+      if (path === "/api/file-manager/transfer") {
+        const result = await transferResponse;
+        return route.fulfill({contentType:"application/x-ndjson",body:JSON.stringify(result)+"\n"});
+      }
       if(path==="/api/pair"){
         assert.deepEqual(req.postDataJSON(),{code:"ABOX1-fixture",insecure:false});
         state={...state,paired:true,user:"fixture",server:"https://example.invalid"};
@@ -83,6 +97,43 @@ export async function linkI18nSmoke(page) {
     await row.filter({hasText:"Документы <script>"}).waitFor();
     assert.equal(await name.inputValue(),"Следующая папка");
     assert.equal(await row.locator("script").count(),0);
+    await page.locator("#panel-body > summary").click();
+    let releasePreview;
+    previewResponse = new Promise(resolve => { releasePreview = resolve; });
+    const previewURL = req => new URL(req.url()).searchParams.get("preview") === "1";
+    const previewStarted = page.waitForRequest(previewURL);
+    const previewAborted = page.waitForEvent("requestfailed", previewURL);
+    await page.getByRole("button",{name:"sample.png",exact:true}).click();
+    await previewStarted;
+    try {
+      await page.getByRole("button",{name:"Входящие",exact:true}).click();
+      await previewAborted;
+    } finally { releasePreview(); }
+    assert.equal(await page.locator("#fm-preview[open]").count(),0);
+    await page.locator("#fm-local-back").click();
+    await page.getByRole("checkbox",{name:"Выбрать sample.png",exact:true}).check();
+    const reportChoice = page.getByRole("checkbox",{name:"Выбрать report.md",exact:true});
+    await reportChoice.check();
+    let releaseTransfer;
+    transferResponse = new Promise(resolve => { releaseTransfer = resolve; });
+    const transferStarted = page.waitForRequest("**/api/file-manager/transfer");
+    await page.locator("#fm-local-copy").click();
+    await transferStarted;
+    await page.locator("#fm-mkdir").click();
+    const transferReply = page.waitForResponse("**/api/file-manager/transfer");
+    releaseTransfer({error:"目标已存在",conflict:true});
+    await (await transferReply).finished();
+    await page.getByRole("heading",{name:"Новая папка",exact:true}).waitFor();
+    await page.locator("#fm-dialog").getByRole("button",{name:"Отмена",exact:true}).click();
+    await page.getByRole("heading",{name:"Файл с таким именем уже есть"}).waitFor();
+    await page.getByRole("button",{name:"Пропустить",exact:true}).click();
+    await page.locator(".fm-job-status[data-state=skipped]").waitFor();
+    transferResponse = {done:true};
+    await page.locator("#fm-local-copy").click();
+    await page.locator(".fm-job-status[data-state=done]").waitFor();
+    await page.waitForFunction(() => !document.querySelector("#fm-remote-copy").disabled);
+    assert.equal(await reportChoice.isChecked(),true);
+    await page.locator("#panel-body > summary").click();
     for(const width of [320,390,1280]){
       await page.setViewportSize({width,height:900});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

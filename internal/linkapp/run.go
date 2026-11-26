@@ -68,6 +68,7 @@ func RunPanel(opts RunOptions) error {
 		return fmt.Errorf("无法监听 %s：%w", opts.Addr, err)
 	}
 
+	defer ln.Close()
 	cfg, err := LoadConfig()
 	if err != nil {
 		return err
@@ -75,7 +76,12 @@ func RunPanel(opts RunOptions) error {
 	sup := NewSupervisor()
 	panel := NewPanel(cfg, sup)
 
-	srv := &http.Server{Handler: panel.Handler()}
+	panelContext, cancelPanel := context.WithCancel(context.Background())
+	defer cancelPanel()
+	srv := &http.Server{
+		Handler:     panel.Handler(),
+		BaseContext: func(net.Listener) context.Context { return panelContext },
+	}
 	go func() {
 		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintln(os.Stderr, "abox-link: 控制台异常退出:", err)
@@ -109,6 +115,7 @@ func RunPanel(opts RunOptions) error {
 	<-sig
 	fmt.Println("\nabox-link: 正在退出…")
 
+	cancelPanel()
 	sup.Stop()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

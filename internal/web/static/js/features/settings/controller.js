@@ -4,6 +4,7 @@ import { initSettingsMaintenance } from "./maintenance.js";
 import { i18n, setAttr, setAttrRender, setText, setTextRender, t as i18nText } from "../../i18n.js";
 import { initSettingsLayout } from "./layout.js";
 import { initSecurityLayout } from "./security-layout.js";
+import { createSettingsHelp } from "./mobile-layout.js";
 import { ruSettingsNav } from "../../locales/ru-static.js";
 import { initImageUpdates, fillImageUpdateSettings, startImageUpdates, stopImageUpdates } from "./image-updates.js";
 import { loadSystem, stopSystem, startMonitor, stopMonitor } from "./operations.js";
@@ -69,7 +70,8 @@ export const SET_SECS = ["accounts", "proxies", "container", "models", "decision
 export const MODEL_TABS = ["accounts", "pricing", "system"];
 export function createSettingsController() {
     const owner = S.token, role = S.role, lifetime = new AbortController();
-    const refreshSecurityLayout = role === "admin" ? initSecurityLayout($("sec-security"), lifetime.signal) : undefined;
+    const addSettingsHelp = createSettingsHelp($("set-content"), lifetime.signal);
+    const refreshSecurityLayout = role === "admin" ? initSecurityLayout($("sec-security"), lifetime.signal, addSettingsHelp) : undefined;
     const scope = new SettingsRequests(httpApi, () => S.token === owner && S.role === role);
     const requests = scope;
     const busyButtons = new Set();
@@ -977,7 +979,7 @@ export function createSettingsController() {
         for (const heading of document.querySelectorAll(".interface-preferences .interface-group-title")) {
             heading.setAttribute("aria-level", personal ? "2" : "3");
         }
-        initSettingsLayout($("set-content"), lifetime.signal);
+        initSettingsLayout($("set-content"), lifetime.signal, addSettingsHelp);
         setText($("set-title"), personal ? "个人设置" : "系统设置");
         setText($("set-description"), personal ? "更改会在此浏览器中即时生效。" : "账号池、服务端配置与此浏览器的个人偏好。需要重启的项会单独标出。");
         $("set-savebar").hidden = true;

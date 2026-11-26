@@ -1,8 +1,35 @@
 import { setAttr, setText } from "../../i18n.js";
 import { svgIcon, type IconSlot } from "../../icons.js";
+import { revealSettingsFold, type AddSettingsHelp } from "./mobile-layout.js";
+import { initMobileSettingsSections } from "./mobile-sections.js";
+
+function observeSettingsStrip(viewport: HTMLElement, items: HTMLElement[], signal: AbortSignal) {
+  const [first] = items;
+  const last = items.at(-1);
+  if (!first || !last) return;
+  const updateEdges = () => {
+    const bounds = viewport.getBoundingClientRect();
+    viewport.toggleAttribute("data-overflow-left", first.getBoundingClientRect().left < bounds.left - 1);
+    viewport.toggleAttribute("data-overflow-right", last.getBoundingClientRect().right > bounds.right + 1);
+  };
+  const observer = new ResizeObserver(updateEdges);
+  observer.observe(viewport);
+  for (const item of items) observer.observe(item);
+  viewport.addEventListener("scroll", updateEdges, { passive: true, signal });
+  viewport.addEventListener("focusin", ({ target }) => {
+    if (target instanceof HTMLButtonElement && target.matches(":focus-visible")) {
+      target.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, { signal });
+  signal.addEventListener("abort", () => {
+    observer.disconnect();
+    viewport.removeAttribute("data-overflow-left");
+    viewport.removeAttribute("data-overflow-right");
+  }, { once: true });
+}
 
 /** Present the existing settings and table rows without changing their handlers. */
-export function initSettingsLayout(content: HTMLElement, signal: AbortSignal) {
+export function initSettingsLayout(content: HTMLElement, signal: AbortSignal, addHelp: AddSettingsHelp) {
   for (const section of content.querySelectorAll<HTMLElement>(":scope > .set-section")) {
     const topics = [...section.querySelectorAll<HTMLElement>(":scope > [data-settings-topic]")];
     const intro = section.querySelector(":scope > .sec-intro");
@@ -26,38 +53,22 @@ export function initSettingsLayout(content: HTMLElement, signal: AbortSignal) {
       button.append(caption);
       if (topic.id) button.setAttribute("aria-controls", topic.id);
       button.addEventListener("click", () => {
-        const fold = topic.querySelector<HTMLButtonElement>(":scope > .security-fold-row > .security-fold");
-        const mobileFold = fold?.getClientRects().length ? fold : undefined;
-        if (mobileFold?.getAttribute("aria-expanded") === "false") mobileFold.click();
+        const mobileFold = revealSettingsFold(topic);
         const destination = mobileFold ?? title ?? topic;
         if (!mobileFold) destination.tabIndex = -1;
         destination.focus({preventScroll:true});
-        content.scrollTop += topic.getBoundingClientRect().top - content.getBoundingClientRect().top;
+        content.scrollTop += (mobileFold ?? topic).getBoundingClientRect().top - content.getBoundingClientRect().top;
       }, {signal});
       row.append(button);
     }
     intro.after(jumps);
-
-    const updateEdges = () => {
-      const viewport = jumps.getBoundingClientRect();
-      const track = row.getBoundingClientRect();
-      jumps.toggleAttribute("data-overflow-left", track.left < viewport.left - 1);
-      jumps.toggleAttribute("data-overflow-right", track.right > viewport.right + 1);
-    };
-    const resize = new ResizeObserver(updateEdges);
-    resize.observe(jumps);
-    resize.observe(row);
-    jumps.addEventListener("scroll", updateEdges, {passive:true, signal});
-    jumps.addEventListener("focusin", ({target}) => {
-      if (target instanceof HTMLButtonElement && target.matches(":focus-visible")) {
-        target.scrollIntoView({block:"nearest", inline:"nearest"});
-      }
-    }, {signal});
-    signal.addEventListener("abort", () => {
-      resize.disconnect();
-      jumps.remove();
-    }, {once:true});
+    observeSettingsStrip(jumps, [row], signal);
+    signal.addEventListener("abort", () => jumps.remove(), { once: true });
   }
+
+  const modelTabs = content.querySelector<HTMLElement>(".mdl-tabs");
+  if (modelTabs) observeSettingsStrip(modelTabs, [...modelTabs.querySelectorAll("button")], signal);
+  initMobileSettingsSections(content, signal, addHelp);
 
   const tables = content.querySelectorAll<HTMLTableElement>(".mon-table, .price-table, .component-table");
   function labelRows(table: HTMLTableElement) {

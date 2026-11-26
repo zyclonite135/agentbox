@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-i18n>abox-link 内网隧道</title>
+  <title data-i18n>abox-link 文件共享</title>
   <link rel="icon" href="/img/logo.svg">
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -13,7 +13,7 @@
   <div class="brand">
     <img class="brand-mark" src="/img/logo.svg" width="20" height="20" alt="">
     <strong>ABOX-LINK</strong>
-    <span class="brand-sub" data-i18n>内网隧道</span>
+    <span class="brand-sub" data-i18n>文件共享</span>
     <span class="brand-ver" id="hdr-version"></span>
   </div>
   <div class="top-tools">
@@ -35,7 +35,7 @@
     <img class="pair-mascot" src="/img/mascot.svg" width="104" height="90" alt="">
     <div class="pair-body">
       <h2 data-i18n>接入你的 agentbox</h2>
-      <p data-i18n>打开浏览器里的 agentbox → 侧栏「内网隧道」 → 点「生成配对码」，把那串字符粘到下面。不需要在这里输密码。</p>
+      <p data-i18n>打开浏览器里的 agentbox → 侧栏「连接设备」 → 点「生成配对码」，把那串字符粘到下面。不需要在这里输密码。</p>
       <textarea id="pair-code" rows="3" spellcheck="false"
                 placeholder="ABOX1-…" aria-label="配对码" data-i18n-aria-label="配对码"></textarea>
       <label class="check">
@@ -60,12 +60,12 @@
       <span class="node">
         <span class="node-mark"></span>
         <span class="term-label" data-i18n>本机</span>
-        <span class="node-rules" id="wire-rules"></span>
+
       </span>
       <span class="leg leg-b"></span>
       <span class="term term-b">
         <span class="lamp"></span>
-        <span class="term-label" data-i18n>内网</span>
+        <span class="term-label" data-i18n>共享文件</span>
       </span>
     </div>
     <div class="link-foot">
@@ -73,7 +73,7 @@
         <div class="st-title" id="st-title" data-i18n>未连接</div>
         <div class="st-sub" id="st-sub"></div>
       </div>
-      <button class="primary" id="btn-toggle" data-icon="play" data-i18n>启动</button>
+      <button class="primary" id="btn-toggle" data-icon="play" data-i18n>连接</button>
     </div>
   </section>
 
@@ -86,44 +86,13 @@
           <h2 data-i18n>本机文件夹</h2>
           <span class="head-line"></span>
         </div>
-        <p data-i18n>连接后可在 AgentBox 的文件页只读浏览这些文件夹。</p>
+        <p data-i18n>连接后可在 AgentBox 的「文件 → 从我的电脑」中只读浏览这些文件夹。</p>
         <div id="local-folder-list" class="rules"></div>
         <form id="local-folder-form" class="rules">
           <label><span data-i18n>显示名称</span><input type="text" id="local-folder-name" required maxlength="128"></label>
           <label><span data-i18n>本机文件夹的绝对路径</span><input type="text" id="local-folder-path" required spellcheck="false" placeholder="C:\AgentBox\Exchange"></label>
           <div><button id="local-folder-add" class="ghost" type="submit" data-icon="plus" data-i18n>添加文件夹</button></div>
         </form>
-      </section>
-
-      <section class="card">
-        <div class="head">
-          <h2 data-i18n>放行规则</h2>
-          <span class="head-line"></span>
-        </div>
-        <p>
-          <span data-i18n>容器只能访问这里列出的目标，其余一律拒绝。</span>
-          <span data-i18n>可填网段</span> <code>192.168.1.0/24</code><span data-i18n>、主机名</span> <code>db.corp.local</code>
-          <span data-i18n>或带端口的地址</span> <code>db.corp.local:5432</code><span data-i18n>。</span>
-        </p>
-        <div id="allow-list" class="rules"
-             data-empty="还没有规则 — 容器现在到不了任何内网地址。" data-i18n-data-empty="还没有规则 — 容器现在到不了任何内网地址。"></div>
-        <button class="ghost add" id="btn-add-allow" data-icon="plus" data-i18n>添加规则</button>
-        <label class="check">
-          <input type="checkbox" id="opt-self-ssh">
-          <span><span data-i18n>允许 agentbox 通过 SSH 连接本机</span> <span class="hint" data-i18n>放行 self.abox-link:22，容器用这个名字连本机的 SSH 服务，不需要知道本机 IP；本机要先开启 SSH 服务</span></span>
-        </label>
-      </section>
-
-      <section class="card">
-        <div class="head">
-          <h2 data-i18n>端口映射</h2>
-          <span class="head-tag" data-i18n>可选</span>
-          <span class="head-line"></span>
-        </div>
-        <p data-i18n>兼容代理模式下，给不支持 SOCKS 的程序使用；透明访问下可直接连接放行目标。也可在服务端开一个固定端口，直通某个内网地址。映射的目标自动放行。</p>
-        <div id="map-list" class="rules"
-             data-empty="未配置端口映射。透明模式下，直接访问放行目标即可。" data-i18n-data-empty="未配置端口映射。透明模式下，直接访问放行目标即可。"></div>
-        <button class="ghost add" id="btn-add-map" data-icon="plus" data-i18n>添加映射</button>
       </section>
 
     </div>
@@ -144,13 +113,8 @@
           <span class="head-line"></span>
         </div>
         <label class="check">
-          <input type="checkbox" id="opt-transparent">
-          <span><span data-i18n>透明内网访问（默认，推荐）</span> <span class="hint" data-i18n>直接使用放行的 IPv4 地址与域名，无需 Agent 配置代理；需服务端支持</span></span>
-        </label>
-        <p class="hint" data-i18n>取消上方勾选可使用兼容代理模式（保留，暂不推荐）：需要显式使用 SOCKS 代理或配置端口映射，Agent 可能因漏用代理而连接失败。两种模式都受本机白名单限制。</p>
-        <label class="check">
           <input type="checkbox" id="opt-auto">
-          <span data-i18n>启动本程序时自动连接隧道</span>
+          <span data-i18n>启动时自动连接 AgentBox</span>
         </label>
         <label class="check">
           <input type="checkbox" id="opt-boot">
@@ -162,22 +126,13 @@
         </label>
         <div class="unpair">
           <button class="ghost danger" id="btn-unpair" data-icon="unlink" data-i18n>解除绑定</button>
-          <span class="hint" data-i18n>保留放行规则，只清除服务器与登录凭证</span>
+          <span class="hint" data-i18n>清除登录凭证与共享设置</span>
         </div>
       </section>
 
     </div>
   </div>
 </main>
-
-<!-- 有未保存改动时浮出 -->
-<div class="savebar hidden" id="savebar">
-  <span id="save-msg" data-i18n>改动还没生效</span>
-  <div class="row">
-    <button class="ghost" id="btn-revert" data-icon="undo" data-i18n>放弃</button>
-    <button class="primary" id="btn-save" data-icon="save" data-i18n>保存并应用</button>
-  </div>
-</div>
 
 <div class="toast hidden" id="toast"></div>
 

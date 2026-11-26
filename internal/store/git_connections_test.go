@@ -98,16 +98,16 @@ func TestGitConnectionNetworkCannotBeSilentlyChanged(t *testing.T) {
 	if err = s.CreateUser(User{Name: "alice", Role: RoleUser, PassHash: "fixture"}); err != nil {
 		t.Fatal(err)
 	}
-	c := GitConnection{ID: "private", Owner: "alice", Secret: []byte("ciphertext"), Network: gitaccess.NetworkPolicy{Route: "tunnel"}}
+	c := GitConnection{ID: "private", Owner: "alice", Secret: []byte("ciphertext"), Network: gitaccess.NetworkPolicy{CAPEM: "original CA"}}
 	if _, err = s.SaveGitConnection(c, 0); err != nil {
 		t.Fatal(err)
 	}
-	c.Network.Route = "direct"
+	c.Network.CAPEM = "replacement CA"
 	if _, err = s.SaveGitConnection(c, 1); err != ErrGitConflict {
 		t.Fatalf("network changed silently: %v", err)
 	}
 	original, err := s.GitConnection("alice", c.ID)
-	if err != nil || original.Network.Route != "tunnel" {
+	if err != nil || original.Network.CAPEM != "original CA" {
 		t.Fatal("immutable network policy lost")
 	}
 	if string(original.AssociatedData()) == string(c.AssociatedData()) {

@@ -1,4 +1,4 @@
-package tunnel
+package devicelink
 
 import (
 	"encoding/binary"
@@ -14,7 +14,7 @@ import (
 
 const (
 	StreamFolders    byte = 2
-	FoldersHeader         = "X-Abox-Link-Folders"
+	FoldersHeader         = "X-Abox-Shared-Folders"
 	MaxFolders            = 16
 	FolderPageSize        = 100
 	maxFolderMessage      = 128 << 10

@@ -130,7 +130,7 @@ func (s *Server) handleGitConnections(w http.ResponseWriter, r *http.Request) {
 		}
 		base, err = gitaccess.SSHBaseURL(req.BaseURL, req.Username)
 	} else {
-		base, err = gitaccess.ConnectionBaseURL(req.BaseURL, req.Network)
+		base, err = gitaccess.BaseURL(req.BaseURL)
 	}
 	if err != nil {
 		writeErr(w, 400, err.Error())

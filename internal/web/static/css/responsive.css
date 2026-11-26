@@ -85,7 +85,7 @@
   .topbar { min-height: 52px; padding: 6px 10px; gap: 6px; }
   .menu-btn { width: 40px; height: 40px; background: transparent; border-color: transparent; }
   .mobile-section { margin-left: auto; min-width: 0; max-width: 52%; }
-  #view-settings > .set-head, #view-git > .set-head, #view-tunnel > .set-head { display: none; }
+  #view-settings > .set-head, #view-git > .set-head, #view-device-link > .set-head { display: none; }
   /* 标题由顶栏显示，时区由 responsive.ts 挪进顶栏右侧：这一行整个不要，空间留给列表 */
   .set-head.usage-head { display: none; }
   .topbar .usage-zone { flex: none; min-width: 0; padding: 0 6px 0 0; }
@@ -160,7 +160,7 @@
   .files-list { padding-inline: 12px; }
   .skills-left { flex-wrap: wrap; gap: 6px; }
   .skills-actions { gap: 4px; margin-left: auto; }
-  .tun-body { padding: 16px; }
+  .dev-body { padding: 16px; }
   .user-row .u-actions { gap: 4px; }
   .px-head-actions { width: auto; }
 }

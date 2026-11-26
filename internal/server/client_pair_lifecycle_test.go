@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"agentbox/internal/config"
+	"agentbox/internal/devicelink"
 	"agentbox/internal/store"
-	"agentbox/internal/tunnel"
 )
 
 func fixtureTokenCount(t *testing.T, s *Server) int {
@@ -37,7 +37,7 @@ func fixtureTokenCount(t *testing.T, s *Server) int {
 func pairingFixture(t *testing.T) (*Server, http.Handler) {
 	t.Helper()
 	s, _, handler := clientTestServer(t)
-	if err := s.cfg.ApplySettings(config.SettingsPatch{Tunnel: &config.TunnelConfig{Enabled: true}}); err != nil {
+	if err := s.cfg.ApplySettings(config.SettingsPatch{DeviceLink: &config.DeviceLinkConfig{Enabled: true}}); err != nil {
 		t.Fatal(err)
 	}
 	s.pairs = newPairStore()
@@ -54,7 +54,7 @@ func pairRoutes(channel string) (string, string) {
 	if channel == "desktop" {
 		return "/api/clients/pair", "/api/clients/pair/redeem"
 	}
-	return "/api/tunnel/pair", "/api/tunnel/pair/redeem"
+	return "/api/device-link/pair", "/api/device-link/pair/redeem"
 }
 
 func issueFixturePair(t *testing.T, handler http.Handler, channel string) string {
@@ -67,8 +67,8 @@ func issueFixturePair(t *testing.T, handler http.Handler, channel string) string
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &response) != nil || response.Code == "" {
 		t.Fatal("pair issue", w.Code)
 	}
-	if channel == "tunnel" {
-		decoded, err := tunnel.DecodePairCode(response.Code)
+	if channel == "device-link" {
+		decoded, err := devicelink.DecodePairCode(response.Code)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +78,7 @@ func issueFixturePair(t *testing.T, handler http.Handler, channel string) string
 }
 
 func TestClientPairingCannotOutlivePasswordOrAccountIdentity(t *testing.T) {
-	for _, channel := range []string{"desktop", "tunnel"} {
+	for _, channel := range []string{"desktop", "device-link"} {
 		for _, change := range []string{"self_password", "admin_password", "delete_and_recreate", "recreate_same_hash"} {
 			t.Run(channel+"/"+change, func(t *testing.T) {
 				s, handler := pairingFixture(t)
@@ -132,7 +132,7 @@ func TestClientPairingCannotOutlivePasswordOrAccountIdentity(t *testing.T) {
 }
 
 func TestPairingConcurrentRedemptionIssuesOnlyOneToken(t *testing.T) {
-	for _, channel := range []string{"desktop", "tunnel"} {
+	for _, channel := range []string{"desktop", "device-link"} {
 		t.Run(channel, func(t *testing.T) {
 			s, handler := pairingFixture(t)
 			code := issueFixturePair(t, handler, channel)
@@ -180,7 +180,7 @@ func TestPairingConcurrentRedemptionIssuesOnlyOneToken(t *testing.T) {
 }
 
 func TestPairingIssueRejectsStaleAuthenticatedRequest(t *testing.T) {
-	for _, channel := range []string{"desktop", "tunnel"} {
+	for _, channel := range []string{"desktop", "device-link"} {
 		for _, change := range []string{"password", "recreated"} {
 			t.Run(channel+"/"+change, func(t *testing.T) {
 				s, _ := pairingFixture(t)
@@ -207,7 +207,7 @@ func TestPairingIssueRejectsStaleAuthenticatedRequest(t *testing.T) {
 				if channel == "desktop" {
 					s.handleClientPair(response, request)
 				} else {
-					s.handleTunnelPair(response, request)
+					s.handleDeviceLinkPair(response, request)
 				}
 				if response.Code != 401 {
 					t.Fatal("stale request acquired replacement authentication", response.Code)

@@ -41,7 +41,7 @@
 | `internal/archivex` | 上传压缩包解压（防 zip-slip/符号链接/解压炸弹）与工作区 zip 下载。 |
 | `internal/theme` | 自定义界面主题清单：令牌白名单、安全取值语法校验、全站/个人主题文件存储。 |
 | `internal/iconset` | 全站图标覆盖（`data/icons.json`）：位置 ID → Tabler/Lucide 图标引用，按随二进制分发的图标库校验并取出形状。 |
-| `internal/tunnel` | yamux 隧道协议、白名单、端口映射。 |
+| `internal/devicelink` | 设备配对、yamux 文件协议。 |
 | `internal/linkapp` | abox-link 客户端实现：配置、面板、守护/自启、重连监督器；`static/` 是面板前端，随 `cmd/abox-link` 独立 `go:embed`。 |
 | `internal/web` | 嵌入前端静态资源（`static/js` 是 TS 编译产物）；`AGENTBOX_WEB_DIR` 可改为磁盘热加载。 |
 | `web/src` | 主控制台前端 TypeScript 源码，`npm run build` 编译到 `internal/web/static/js`。 |
@@ -208,7 +208,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' --connect-timeout 10 --max-time 20 "$P
 
 - 创建：`POST /api/sessions` 在 `data/users/<user>/sessions/<id>/` 下创建 `workspace` 与 `home`，并 `chown` 到容器用户 `1000:1000`。
 - 启动：`startSession` 是幂等路径，REST 启动、聊天 WS、终端 WS 都会走它。流程：同步账号池 OAuth 轮换凭证 → `agent.SeedHomeTemplate` 铺 home 模板 → `agent.SeedCredentials` 播种 home → 可选播种内网提示 → 确保用户共享目录 → `dockerx.EnsureRunning` 复用/重建容器 → 更新 SQLite。
-- home 模板：会话 home 每次都是全新空目录，skill / 用户级 MCP / rc 文件本来每开一个会话就得重装一遍，模板就是补这个。两层，后者盖前者：服务器级 `data/home-template/`（全体用户）、用户级 `data/users/<user>/home-template/`（该用户所有会话，「技能」页签写的就是它）。**两层先合并再落盘**，否则用户层里较旧的文件会输给服务器层。合并结果与会话副本之间逐文件按 mtime「谁新用谁」（同 credsync 的收敛规则）：容器里改过的留着，模板更新的推下去；符号链接原样重建、不跟随，可以把大块内容指向 `/shared`。必须排在 `SeedCredentials` 之前，模板里万一混进凭证文件也压不过账号池。模板失败只记日志，不挡会话启动。隧道开启时最底下还有一层内置模板（`internal/agent/builtin/`，`workspace.templateDirs`）：改动其中任何文件都要调大 `agent.BuiltinTemplateTime` 并按 `TestBuiltinTemplateDigest` 的提示更新摘要，否则已有空间收不到新版本。`abox-remote` 的回归是 `policy.abox-remote`（本地 sh 代替 SSH；有 pwsh 时同时测 PowerShell 运行时）。
+- home 模板：会话 home 每次都是全新空目录，skill / 用户级 MCP / rc 文件本来每开一个会话就得重装一遍，模板就是补这个。两层，后者盖前者：服务器级 `data/home-template/`（全体用户）、用户级 `data/users/<user>/home-template/`（该用户所有会话，「技能」页签写的就是它）。**两层先合并再落盘**，否则用户层里较旧的文件会输给服务器层。合并结果与会话副本之间逐文件按 mtime「谁新用谁」（同 credsync 的收敛规则）：容器里改过的留着，模板更新的推下去；符号链接原样重建、不跟随，可以把大块内容指向 `/shared`。必须排在 `SeedCredentials` 之前，模板里万一混进凭证文件也压不过账号池。模板失败只记日志，不挡会话启动。
 - 官方市场（`internal/server/market.go`）：`anthropics/claude-plugins-official` 浅克隆到 `data/marketplace/repo`（12h 过期，整仓重克隆而非增量；拉不动就沿用旧副本），它既是目录数据源也直接提供一方插件的内容。目录条目的 `source` 有四种写法（仓库内相对路径 / git-subdir / url / github），`parsePluginSource` 归一化，路径与协议都当不可信输入校验。**市场的单位是插件不是技能**：`discoverSkillDirs` 按「显式 skills 声明 → skills/<名字>/ → 插件根就是技能」三级找，一个都没有就回 422 并让用户改用终端装整包。git 抓取由 `marketMu` 串行化，`GIT_TERMINAL_PROMPT=0` 防私有仓库卡在密码提示上。
 - 技能页（`internal/server/skills.go` + `web/src/skills.ts`）：管理 `.claude/skills`，范围 `session`（会话 home）与 `template`（用户模板）。列表里的 `source` 靠探测两层模板里有没有同名目录得出，顺序与 SeedHomeTemplate 的分层一致。装／复制统一走 `replaceSkillDir`：整目录替换并把 mtime 戳成当下，保证刚进模板的技能一定比各会话里的旧副本新，下次启动推得下去。技能名同时是目录名，`skillNameRe` 卡死路径穿越。详情接口连整个技能目录的扁平清单（`entries`，含子目录，父在子前，上限 2000 条）一起返回，前端 `buildTree` 拼成左侧文件树；点开单个文件走 `GET …/skills/{name}/file?path=`，路径通过 `s.openDataDir` / `safefs.Root.OpenFile` 固定目录句柄并拒绝符号链接（技能目录在会话 home 里，容器内随手就能造一个指向宿主机文件的链接）。
 - **账号 env 绝不烘进容器**（`dockerx.baseContainerEnv`）：容器 `Config.Env` 在 create 那一刻定死，之后只能靠 exec 往上加、减不掉。账号从中转站切回订阅登录时 `clearClaudeRelay` 只改得动 `config.json`，旧容器里那份 `ANTHROPIC_AUTH_TOKEN` 还在，而 claude CLI 认 env 里的 Bearer 令牌优先于 OAuth 凭证——订阅登录形同虚设，CLI 卡在重试里直到被杀（回合报「进程退出码 137」，stderr 只剩一句 connectors are disabled 的告警）。所以账号 env 一律走 `server.execEnv` 每次 exec 注入，加和减都即时生效。`EnsureRunning` 里的 `hasBakedEnv` 负责认出老版本烘过 env 的容器并重建（比键不比值，镜像升级改 `NODE_VERSION` 的值不算脏）。
@@ -247,7 +247,6 @@ curl -sS -o /dev/null -w '%{http_code}\n' --connect-timeout 10 --max-time 20 "$P
 data/
   state.db
   keepalive-points.json -> 缓存保活的各槽位最新点，重启后接着保活（server/keepalive_store.go）
-  builtin-template/ -> 内置模板层（abox-remote 与其技能，embed 自 internal/agent/builtin/），每次启动重写，不备份
   home-template/   -> 叠加到每个会话 home（skill / MCP / rc 文件）
   users/<user>/
     home-template/ -> 只叠加到该用户的会话，盖住上面那层
@@ -871,23 +870,10 @@ data/
 - `container.egress_exempt_users`：名单内用户的空间 `ensureEgress` 直接返回、`proxyEnvList` 按开放模式处理。`ApplySettings` 整块替换 `container`，所以补丁里该字段为 nil 时保留旧名单、非 nil（含空列表）才替换——给 `ContainerLimits` 加字段时同样要考虑旧前端保存会不会把它冲掉。该结构体含切片，不能再做 map 键或用 `==` 比较。
 - 本地无 Docker 时，可用 `unshare -rn` 建两个网络命名空间（一侧当宿主机、一侧当工作空间），在 Alpine 的 iptables 根文件系统里跑 `EgressScript` 做真实验证；生产镜像是 alpine + iptables（nft 后端）。
 
-### 内网隧道
+### 设备连接与文件共享
 
-- `tunnel.transparent` 未指定时默认 true，JSON 必须保留显式 false（不能 omitempty），保证兼容模式保存后不会重载成透明模式；客户端同样默认 true，CLI 用 `--transparent=false` 选择兼容。总开关 disabled 时不启动辅助网络。
-- `tunnel.transparent` 启用工作空间透明 IPv4/TCP：`internal/netaccess` 管理规则、虚拟 DNS 与辅助进程，`internal/server/netaccess.go` 管理按用户策略和按空间认证的控制端口，`internal/dockerx/netaccess.go` 管理无用户目录挂载的网络辅助容器。仅辅助容器有 NET_ADMIN，Agent 仍为 UID 1000。
-- 客户端 `--transparent` / 面板开关通过能力协商上报规范化放行规则。透明授权仍由客户端白名单最终检查；账号 HTTP 桥接必须按实际工作空间归属选择隧道，不能仅按共享账号分流。
-- `self.abox-link:<端口>`（`tunnel.SelfHost`）是 abox-link 本机的保留名：服务端当普通域名分配虚拟地址，客户端 `resolveAndCheck` 只认带同一端口的 self 规则并改拨 `127.0.0.1`，不查 DNS、不被网段规则命中；`splitRule`/`ParseWhitelist` 拒绝不带端口的 self 规则。客户端在 `X-Abox-Link-Features: self-target` 上报能力，状态接口返回 `client_self_target`。设计见 `docs/architecture/remote-host.md`。
-- `data/users/<user>/network.json` 保留历史捕获目标与不复用的域名虚拟 IP。掉线、规则撤销、服务重启不能删除捕获规则后静默直连。透明模式退出前停止空间，让网络命名空间重建；不要热清空规则。
-- 透明模式不依赖说明文件或专用代理 env；旧客户端仍保留兼容代理。配置、部署和验收见 `docs/architecture/transparent-network.md`、`docs/networking.md`。真实合成容器测试用 `scripts/test-transparent-network.py`。
-
-- 管理端开启 `tunnel.enabled` 后，`applyTunnel` 热启动/停止/重绑 SOCKS5 代理；绑定失败只记错误，不打垮主服务。
-- abox-link 通过 `GET /api/tunnel` 拨入，服务端以 yamux client 维持连接；每个用户一条隧道、一份稳定 SOCKS secret。
-- 隧道本身不设置全局 `HTTP_PROXY`（账号出口代理另有该变量）；兼容模式在 exec env 注入 `AGENTBOX_INTRANET_PROXY` / `AGENTBOX_INTRANET_MAPS`，由 agent 按需使用。服务端与客户端均启用透明模式时，不依赖且不注入这组专用变量。
-- exec env 只到达 exec 出来的那个进程。终端附着的是常驻 tmux，已有会话的 shell 是更早的
-  exec fork 出来的，所以 `termCommand` 在 attach 前用 `tmux set-environment -g` 把当前
-  env 镜像进 tmux 全局环境（隧道变量缺失时 `-gu` 清除）——否则「会话先开、隧道后连」时
-  终端里的 agent 永远看不到代理变量。运行中的窗格改不了，须重连后新开 tmux 窗口；在旧 Shell 内仅重启 agent 仍会继承旧环境。
-- 端口映射按来源 IP 鉴权：只有属主用户自己的容器（和宿主机）能连映射端口。
+- abox-link 通过一次性配对码取得设备令牌；GET /api/device-link 仅建立文件连接。只有用户明确添加的目录可被浏览，选定文件由用户发起传输。
+- 聊天、Git 和工作空间的出网策略独立于设备连接。internal/netaccess 只保留受限出网防火墙。
 
 ### 登录与活跃
 
@@ -907,13 +893,13 @@ data/
 
 ### 扩展（Extensions）
 
-- 设计、已定决策与 P1 实施记录见 `docs/architecture/extensions-spi.md`。界面叫「扩展」；「插件」专指 Claude Code 插件市场（`market.go`），不要混用。内网隧道刻意保持内嵌，不是扩展。
+- 设计、已定决策与 P1 实施记录见 `docs/architecture/extensions-spi.md`。界面叫「扩展」；「插件」专指 Claude Code 插件市场（`market.go`），不要混用。设备连接保持内嵌，不是扩展。
 - SPI 核心（`extspi.Handler` / `Host`）不认识任何具体功能：钩子统一登记在 `extspi.Hooks()`（所需权限、分组、依赖的基础设施、可用的绑定方式），清单校验、启用检查、`requires` 与网关启动条件都从登记表读。宿主 `instance.go` 是与钩子无关的生命周期和通知队列（`notice`），模型钩子的分发、中断与流状态都在 `model.go`。
 - 第三方代码不进服务端进程，不用 Go `plugin`。`runtime=builtin` 只给 `agentbox.*` 官方扩展；container 运行时与市场在 P3/P4，清单校验目前直接拒绝。
 - 网络这一跳归宿主：扩展只拿授权数据（文字增量、加盐指纹），只能放行/拒绝/中断，错误码必须在清单 `errors` 里声明；协议错误由 `modelgw` 写，扩展不能拼 SSE。拒绝不带 `Retry-After`（Codex 会等冷却后重发）。不做自动续跑（已定）。
 - 模型网关（`internal/server/modelgateway.go`，配置 `model_gateway`）是 `model.request` / `model.stream` 钩子的基础设施，不是扩展框架的一部分：只有已启用、且批准了模型钩子权限的扩展存在时才监听（`Host.Uses`），状态与独占连接开关在「系统设置 → IP 代理 → 模型网关」（`settingsView.ModelGateway` / `SettingsPatch.ModelGateway`）；扩展详情页只通过 `requires` 显示依赖状态。旧配置的 `extensions.gateway` 在 Load 时迁到 `model_gateway`。
 - 只改道 Claude 与 Codex 的 API Key / 中转账号（`gatewayEligible`；Codex 由 `credentials.CodexUpstream` 从账号池判断并解析真实上游），Claude 订阅与 ChatGPT 登录不改道（已定）。`execEnv` 末尾 `modelGatewayEnv` 给两种 Agent 的 `NO_PROXY` 补网关主机，只给 Claude 改写 `ANTHROPIC_BASE_URL`；`modelGatewayEnvNames` 在 `tmuxEnvSync` 的清除列表里，解绑后新窗口不残留网关地址。Codex 的 base_url 在空间 `.codex/config.toml`：`credentials.codexSessionConfig` 在 `codexConnectionConfig` 之后换成网关地址（内置 `openai` provider 换成自定义 `agentbox`），写入点是 workspace 连接钩子（种子与 `SeedDefaultModel` 之后、运行中每次准入）、凭证播发、`applyExtensions` 后台对齐；credsync 只同步 `auth.json`。账号池文件绝不能写进按空间生成的网关地址。
-- 网关路径 `/x/<空间>/<MAC>/<原路径>`，MAC 由 `auth_token` 派生（HMAC 域串仍是 `agentbox-extension-gateway`，改了会让运行中 CLI 持有的地址失效）；每个请求重查 `sessionAccount`，上游按当前账号解析，出口与 `acctClient` 同规则（绑定代理不可用 → 502，不回落直连）。默认 `172.17.0.1:1083`，与隧道 1080、代理桥 1081、透明网络控制 1082 错开，`validateModelGateway` 拒绝冲突。网关起来后不随停用关闭：老 CLI 还拿着地址，此时只转发不检查。`model_gateway.dedicated_connections` 让每次上游请求独占 HTTP/1.1 连接（`modelgw.DedicatedTransport`），传输缓存键含此开关。错误码前缀 `model_gateway_`。
+- 网关路径 `/x/<空间>/<MAC>/<原路径>`，MAC 由 `auth_token` 派生（HMAC 域串仍是 `agentbox-extension-gateway`，改了会让运行中 CLI 持有的地址失效）；每个请求重查 `sessionAccount`，上游按当前账号解析，出口与 `acctClient` 同规则（绑定代理不可用 → 502，不回落直连）。默认 `172.17.0.1:1083`，与代理桥 1081 错开，`validateModelGateway` 拒绝冲突。网关起来后不随停用关闭：老 CLI 还拿着地址，此时只转发不检查。`model_gateway.dedicated_connections` 让每次上游请求独占 HTTP/1.1 连接（`modelgw.DedicatedTransport`），传输缓存键含此开关。错误码前缀 `model_gateway_`。
 - 作用范围 `bindings`：`none` / `all` / `selected`（`accounts` 与 `users` 命中其一），旧值 `accounts` 在 Load、`SetExtension`、`Normalize` 处改写成 `selected`。清单 `bindings` 声明可用维度，且必须被它每个钩子的 `HookSpec.Bindings` 支持（模型钩子只能按账号）。删账号在同一次 mutate 里剪掉绑定，删用户由 `users.go` 调 `PruneExtensionUser`。
 - 事件钩子：`workspace.lifecycle` 由 `workspace.Service.SetLifecycleHook` 报告（只报真实状态变化：冷启动才算 started，停止前须在运行；隐藏的委派跑腿空间不报，钩子在空间锁内调用、不能阻塞），`chat.turn.ended` 由 `chat.Runtime.TurnEnded` 在用量 flush 之后报告（委派跑腿回合不报）；服务端在 `extension_events.go` 转成 `Host.Emit`，宿主按订阅、权限与绑定投递，`eventNotice` 进实例队列，满了丢弃并写日志，没有失效策略。启用扩展只要求至少批准一个钩子的权限。`agentbox.webhook` 是官方内置、允许出站的扩展，URL 常含机器人密钥，日志与错误里不能出现 URL（`url.Error` 只保留原因）。
 - 失效策略默认放行（已定），必须在扩展页可见；`fail_closed` 时网关没起来也照样改写，让请求失败而不是绕过检查。中断/拒绝记录 P1 只在内存（最近 200 条）。
@@ -928,7 +914,7 @@ data/
   抬这一行修——它们没法进豁免清单。宿主上的 go 比这行旧时，`go build` 会按
   `GOTOOLCHAIN=auto` 自动下载对应工具链，所以生产机上不必手动升级 `/usr/local/go`，
   但机器得能连 proxy.golang.org。
-- 现有测试集中在 `internal/agent`、`internal/linkapp`、`internal/server`、`internal/store`、`internal/tunnel`；`dockerx`、`config`、`gitx`、`archivex`、`safefs` 也有测试。文件安全改动须跑链接替换、归档与播种回归。
+- 现有测试集中在 `internal/agent`、`internal/linkapp`、`internal/server`、`internal/store`、`internal/devicelink`；`dockerx`、`config`、`gitx`、`archivex`、`safefs` 也有测试。文件安全改动须跑链接替换、归档与播种回归。
 - 配置变更是“副本上修改 → 校验 → 原子写盘 → 替换内存状态”的模式；不要绕过 `Config.mutate` 直接改字段。
 - SQLite 变更走 `internal/store/migrations.go` 的连续版本迁移与 migrations/*.sql，事务内更新 user_version；先拒绝高版本，再迁移，不能再靠忽略 duplicate column 错误补列。旧未版本化库由基线迁移检查列后补齐。
 - 前端不要用原生 `alert/confirm/prompt`：用 `util.js` 的 `askConfirm`/`askPrompt`

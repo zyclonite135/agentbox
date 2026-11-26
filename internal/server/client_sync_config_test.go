@@ -10,7 +10,7 @@ import (
 
 func TestDesktopSyncCapabilityRequiresExplicitAdminOptIn(t *testing.T) {
 	s, _, handler := clientTestServer(t)
-	s.tunnels = newTunnelHub()
+	s.devices = newDeviceHub()
 	if err := s.store.CreateToken("client-fixture-root", "root"); err != nil {
 		t.Fatal(err)
 	}

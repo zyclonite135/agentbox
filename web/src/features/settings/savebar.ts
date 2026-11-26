@@ -26,7 +26,7 @@ export interface SaveGroup {
   fields: string[];
   /** 生成这一组的补丁；表单校验不通过时返回 null（控件自己会提示） */
   patch: () => SettingsPatch | null;
-  /** 保存成功后的附加提示（需重启、隧道启动失败等） */
+  /** 保存成功后的附加提示（需重启等） */
   done?: (saved: Settings) => void;
 }
 

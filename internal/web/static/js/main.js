@@ -23,7 +23,7 @@ import "./changes.js";
 import "./preview.js";
 import "./usage.js";
 import "./proxies.js";
-import "./tunnel.js";
+import "./device-link.js";
 import "./ping.js";
 /* 品牌图形：吉祥物「盒仔」与 logo 主形各留一份模板，盖章到各挂载点
  * （登录页 / 侧栏字标 / 工作台空状态），避免大段 SVG 在 HTML 里重复。

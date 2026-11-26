@@ -65,7 +65,9 @@ func (s *Server) handleThemes(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleSiteThemePut(w http.ResponseWriter, r *http.Request) { s.putTheme(w, r, "site", "") }
+func (s *Server) handleSiteThemePut(w http.ResponseWriter, r *http.Request) {
+	s.putTheme(w, r, "site", "")
+}
 func (s *Server) handleUserThemePut(w http.ResponseWriter, r *http.Request) {
 	s.putTheme(w, r, "user", reqUser(r).Name)
 }

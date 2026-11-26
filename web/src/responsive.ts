@@ -226,7 +226,7 @@ fitVisualViewport();
  * 拉毫无反应，像是卡住了。这种情况下由这里补一个同样手感的拉动：内容跟手位移、越拉越沉，
  * 松手弹回。内容超出一屏时交给浏览器原生效果（shell.css 的 overscroll-behavior: contain）；
  * 起点在输入框、或在一个自己能竖向滚动的子元素里时不接管。区域列表与 shell.css 保持一致。 */
-const PULL_REGIONS = ".chat-log, .chat-hero, .tp-list, .empty, .set-content, .ext-body, .tun-body, .files-list, "
+const PULL_REGIONS = ".chat-log, .chat-hero, .tp-list, .empty, .set-content, .ext-body, .dev-body, .files-list, "
   + ".changes-list, .changes-diff, .skills-list, .skills-detail, #mcp-content";
 /* 阻尼曲线照 iOS 原生回弹：位移 = h·(1 − 1/(d·0.55/h + 1))，h 是区域高度。拉 100px 走约 50px、
  * 拉 300px 走约 130px，越拉越沉但没有硬顶，和内容超出一屏时的原生回弹手感一致。

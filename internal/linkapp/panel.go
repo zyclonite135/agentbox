@@ -14,13 +14,13 @@ import (
 )
 
 // Panel is the local control console: a small HTTP server on the loopback
-// interface that lets the user pair, edit rules, and start or stop the tunnel
+// interface that lets the user pair, choose folders, and manage the connection
 // without touching a terminal.
 type Panel struct {
 	sup *Supervisor
 
 	mu      sync.Mutex // guards cfg, which the handlers read-modify-write
-	actions sync.Mutex // serializes configuration changes with tunnel restarts
+	actions sync.Mutex // serializes configuration changes with connection restarts
 	cfg     Config
 }
 
@@ -114,14 +114,13 @@ func (p *Panel) handleState(w http.ResponseWriter, r *http.Request) {
 func (p *Panel) state() map[string]any {
 	cfg := p.Config()
 	return map[string]any{
-		"version":      buildinfo.Version,
-		"paired":       cfg.Paired(),
-		"transparent":  cfg.Transparent,
-		"server":       cfg.Server,
-		"user":         cfg.User,
-		"insecure":     cfg.Insecure,
-		"allow":        emptySlice(cfg.Allow),
-		"maps":         emptySlice(cfg.Maps),
+		"version": buildinfo.Version,
+		"paired":  cfg.Paired(),
+
+		"server":   cfg.Server,
+		"user":     cfg.User,
+		"insecure": cfg.Insecure,
+
 		"folders":      cfg.Folders,
 		"auto_connect": cfg.AutoConnect,
 		"running":      p.sup.Running(),
@@ -195,53 +194,36 @@ func (p *Panel) handleUnpair(w http.ResponseWriter, r *http.Request) {
 	p.cfg = cfg
 	p.mu.Unlock()
 
-	p.sup.Logf("已解除与服务器的绑定，放行规则保留")
+	p.sup.Logf("已解除设备配对")
 	writeJSON(w, http.StatusOK, p.state())
 }
 
 func (p *Panel) handleConfig(w http.ResponseWriter, r *http.Request) {
-	p.actions.Lock()
-	defer p.actions.Unlock()
 	var req struct {
-		Transparent bool     `json:"transparent"`
-		Allow       []string `json:"allow"`
-		Maps        []string `json:"maps"`
-		AutoConnect bool     `json:"auto_connect"`
-		Insecure    bool     `json:"insecure"`
+		AutoConnect *bool `json:"auto_connect"`
+		Insecure    *bool `json:"insecure"`
 	}
 	if !decodeBody(w, r, &req) {
 		return
 	}
-
-	p.mu.Lock()
-	cfg := p.cfg
-	cfg.Transparent = req.Transparent
-	cfg.Allow = cleanList(req.Allow)
-	cfg.Maps = cleanList(req.Maps)
-	cfg.AutoConnect = req.AutoConnect
-	cfg.Insecure = req.Insecure
-	// Validate before persisting so a typo cannot leave the app unable to start
-	// on next launch. Empty rules are allowed here (not yet ready to connect);
-	// Start is what insists on having at least one.
-	if len(cfg.Allow) > 0 || len(cfg.Maps) > 0 {
-		if _, _, err := cfg.Validate(); err != nil {
-			p.mu.Unlock()
-			writeErr(w, http.StatusBadRequest, err.Error())
-			return
-		}
+	p.actions.Lock()
+	defer p.actions.Unlock()
+	cfg := p.Config()
+	reconnect := req.Insecure != nil && *req.Insecure != cfg.Insecure && p.sup.Running()
+	if req.AutoConnect != nil {
+		cfg.AutoConnect = *req.AutoConnect
+	}
+	if req.Insecure != nil {
+		cfg.Insecure = *req.Insecure
 	}
 	if err := SaveConfig(cfg); err != nil {
-		p.mu.Unlock()
 		writeErr(w, http.StatusInternalServerError, "保存配置失败："+err.Error())
 		return
 	}
+	p.mu.Lock()
 	p.cfg = cfg
 	p.mu.Unlock()
-
-	// Rules only take effect on a fresh connection, so apply them now rather
-	// than leaving the panel showing settings the live tunnel is not using.
-	if p.sup.Running() {
-		p.sup.Logf("配置已更新，正在按新规则重连…")
+	if reconnect {
 		p.sup.Stop()
 		if err := p.sup.Start(cfg); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
@@ -306,24 +288,4 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 
 func writeErr(w http.ResponseWriter, code int, msg string) {
 	writeJSON(w, code, map[string]string{"error": msg})
-}
-
-// cleanList trims entries and drops blanks, so the UI can send whatever the
-// textarea contained.
-func cleanList(in []string) []string {
-	out := []string{}
-	for _, s := range in {
-		if s = strings.TrimSpace(s); s != "" {
-			out = append(out, s)
-		}
-	}
-	return out
-}
-
-// emptySlice keeps nil slices out of the JSON, so the UI never sees null.
-func emptySlice(in []string) []string {
-	if in == nil {
-		return []string{}
-	}
-	return in
 }

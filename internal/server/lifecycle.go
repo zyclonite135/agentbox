@@ -140,8 +140,8 @@ func (s *Server) Close(ctx context.Context) error {
 			for r := range resources {
 				r.close()
 			}
-			if s.tunnels != nil {
-				s.tunnels.closeAll()
+			if s.devices != nil {
+				s.devices.closeAll()
 			}
 			l.wg.Wait()
 			// The turns Close interrupted have noted their caches by now.

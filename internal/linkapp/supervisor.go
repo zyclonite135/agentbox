@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/yamux"
 
-	"agentbox/internal/tunnel"
+	"agentbox/internal/devicelink"
 )
 
 // State is what the panel's status light shows.
@@ -27,37 +28,27 @@ const (
 
 // Status is the supervisor snapshot the panel renders.
 type Status struct {
-	Transparent bool        `json:"transparent"`
-	FoldersOnly bool        `json:"folders_only,omitempty"`
-	State       State       `json:"state"`
-	Detail      string      `json:"detail"`
-	Since       int64       `json:"since"` // unix millis the current session came online, 0 if not online
-	Maps        []MapStatus `json:"maps"`
-	// PingMS is the tunnel round-trip latency in milliseconds (one decimal), or
+	State  State  `json:"state"`
+	Detail string `json:"detail"`
+	Since  int64  `json:"since"` // unix millis the current session came online, 0 if not online
+
+	// PingMS is the connection round-trip latency in milliseconds (one decimal), or
 	// -1 when offline or not yet sampled.
 	PingMS float64 `json:"ping_ms"`
 }
 
-// Supervisor owns the tunnel's lifecycle: one connection attempt loop that can
+// Supervisor owns the connection lifecycle: one connection attempt loop that can
 // be started and stopped from the panel, with its state and log observable
 // while it runs.
 type Supervisor struct {
-	transparent bool
-	foldersOnly bool
-	// Relogin, when set, is called after the server rejects the stored token
-	// and returns a fresh one. The headless CLI sets it (it holds a password);
-	// the panel leaves it nil, because pairing deliberately keeps no password —
-	// there the user re-pairs instead.
-	Relogin func() (string, error)
-
 	log *logRing
 
-	mu      sync.Mutex
-	state   State
-	detail  string
-	since   time.Time
-	maps    []MapStatus
-	ping    time.Duration // last measured tunnel round-trip
+	mu     sync.Mutex
+	state  State
+	detail string
+	since  time.Time
+
+	ping    time.Duration // last measured connection round-trip
 	pingOK  bool          // a sample has landed for the current online session
 	running bool
 	cancel  context.CancelFunc
@@ -75,18 +66,11 @@ func (s *Supervisor) Logf(format string, args ...any) { s.log.Printf(format, arg
 // Logs returns log lines newer than seq, plus the newest sequence number.
 func (s *Supervisor) Logs(seq int64) ([]LogLine, int64) { return s.log.Since(seq) }
 
-// MirrorTo echoes every log line to fn as well as into the ring buffer.
-func (s *Supervisor) MirrorTo(fn func(string)) {
-	s.log.mu.Lock()
-	defer s.log.mu.Unlock()
-	s.log.mirror = fn
-}
-
 // Status returns the current snapshot.
 func (s *Supervisor) Status() Status {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st := Status{Transparent: s.transparent, FoldersOnly: s.foldersOnly, State: s.state, Detail: s.detail, Maps: s.maps, PingMS: -1}
+	st := Status{State: s.state, Detail: s.detail, PingMS: -1}
 	if s.state == StateOnline && !s.since.IsZero() {
 		st.Since = s.since.UnixMilli()
 		if s.pingOK {
@@ -109,27 +93,19 @@ func (s *Supervisor) Start(cfg Config) error {
 	if !cfg.Paired() {
 		return errors.New("尚未接入服务器，请先粘贴配对码")
 	}
-	wl, maps, err := cfg.Validate()
-	if err != nil {
-		return err
-	}
-
 	s.mu.Lock()
 	if s.running {
 		s.mu.Unlock()
-		return errors.New("隧道已经在运行")
+		return errors.New("文件连接已经在运行")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	s.running, s.cancel, s.done = true, cancel, done
-	s.foldersOnly = cfg.foldersOnly()
-	s.transparent = cfg.Transparent && !s.foldersOnly
-	s.state, s.detail, s.maps = StateConnecting, "正在连接…", nil
+	s.state, s.detail = StateConnecting, "正在连接…"
 	s.mu.Unlock()
 
-	s.log.Printf("启动隧道：%s（用户 %s，%d 条放行规则，%d 个端口映射）",
-		cfg.Server, cfg.User, len(wl), len(maps))
-	go s.run(ctx, cfg, wl, maps, done)
+	s.log.Printf("正在连接 %s（用户 %s）", cfg.Server, cfg.User)
+	go s.run(ctx, cfg, done)
 	return nil
 }
 
@@ -141,29 +117,29 @@ func (s *Supervisor) Stop() {
 	if cancel == nil {
 		return
 	}
-	s.log.Printf("正在停止隧道…")
+	s.log.Printf("正在停止文件连接…")
 	cancel()
 	if done != nil {
 		<-done
 	}
 }
 
-func (s *Supervisor) run(ctx context.Context, cfg Config, wl tunnel.Whitelist, maps []tunnel.MapSpec, done chan struct{}) {
+func (s *Supervisor) run(ctx context.Context, cfg Config, done chan struct{}) {
 	defer close(done)
 	defer func() {
 		s.mu.Lock()
 		s.running, s.cancel, s.done = false, nil, nil
-		s.since, s.maps, s.pingOK = time.Time{}, nil, false
+		s.since, s.pingOK = time.Time{}, false
 		// An auth failure is the reason we stopped — keep it on screen instead
 		// of overwriting it with a bland "stopped".
 		if s.state != StateAuthFailed {
 			s.state, s.detail = StateStopped, ""
 		}
 		s.mu.Unlock()
-		s.log.Printf("隧道已停止")
+		s.log.Printf("文件连接已停止")
 	}()
 
-	link := &tunnel.Link{Whitelist: wl, Logf: s.log.Printf, Folders: folderHandler(cfg.Folders)}
+	folders := folderHandler(cfg.Folders)
 	backoff := time.Second
 
 	for {
@@ -173,31 +149,17 @@ func (s *Supervisor) run(ctx context.Context, cfg Config, wl tunnel.Whitelist, m
 		s.setState(StateConnecting, "正在连接 "+cfg.Server+" …")
 
 		start := time.Now()
-		err := s.serveOnce(ctx, link, cfg, maps)
+		err := s.serveOnce(ctx, cfg, folders)
 		if ctx.Err() != nil {
 			return
 		}
 		if err != nil {
-			s.log.Printf("隧道断开：%v", err)
+			s.log.Printf("文件连接断开：%v", err)
 		}
 
 		if errors.Is(err, ErrAuthRejected) {
-			// The token is dead; retrying it is pointless. Get a new one if we
-			// can, otherwise stop and say what the user has to do.
-			if s.Relogin == nil {
-				s.setState(StateAuthFailed, "登录凭证已失效（多半是改过密码），请在 agentbox 里重新生成配对码")
-				s.log.Printf("令牌已被服务器拒绝，停止重连——请重新配对")
-				return
-			}
-			newToken, lerr := s.Relogin()
-			if lerr != nil {
-				s.log.Printf("重新登录失败：%v", lerr)
-			} else {
-				cfg.Token = newToken
-				backoff = time.Second
-				s.log.Printf("已重新登录为 %s", cfg.User)
-				continue
-			}
+			s.setState(StateAuthFailed, "登录凭证已失效，请重新配对")
+			return
 		}
 
 		// A connection that stayed up a while earned a fresh backoff budget.
@@ -216,28 +178,20 @@ func (s *Supervisor) run(ctx context.Context, cfg Config, wl tunnel.Whitelist, m
 	}
 }
 
-// serveOnce holds one tunnel connection open until it drops or ctx is done.
-func (s *Supervisor) serveOnce(ctx context.Context, link *tunnel.Link, cfg Config, maps []tunnel.MapSpec) error {
-	sess, mapStatus, err := dialTunnel(ctx, cfg, maps)
+// serveOnce holds one device connection open until it drops or ctx is done.
+func (s *Supervisor) serveOnce(ctx context.Context, cfg Config, folders func(io.ReadWriter)) error {
+	sess, err := dialDevice(ctx, cfg)
 	if err != nil {
 		return err
 	}
 	defer sess.Close()
 
-	for _, m := range mapStatus {
-		if m.OK {
-			s.log.Printf("端口映射 %s：服务端已生效", m.Port)
-		} else {
-			s.log.Printf("端口映射 %s：服务端绑定失败：%s", m.Port, m.Detail)
-		}
-	}
-
 	s.mu.Lock()
-	s.state, s.detail, s.since, s.maps, s.pingOK = StateOnline, "", time.Now(), mapStatus, false
+	s.state, s.detail, s.since, s.pingOK = StateOnline, "", time.Now(), false
 	s.mu.Unlock()
-	s.log.Printf("隧道已建立")
+	s.log.Printf("文件连接已建立")
 
-	// Sample tunnel latency alongside the live session; the loop dies when the
+	// Sample connection latency alongside the live session; the loop dies when the
 	// session drops (Ping errors) or the connection winds down (ctx cancel).
 	pingCtx, cancelPing := context.WithCancel(ctx)
 	defer cancelPing()
@@ -246,10 +200,10 @@ func (s *Supervisor) serveOnce(ctx context.Context, link *tunnel.Link, cfg Confi
 	// Stopping the panel must unblock Serve, which is parked in AcceptStream.
 	stop := context.AfterFunc(ctx, func() { _ = sess.Close() })
 	defer stop()
-	return link.Serve(sess)
+	return devicelink.Serve(sess, folders)
 }
 
-// pingLoop measures the tunnel round-trip over the live yamux session and
+// pingLoop measures the connection round-trip over the live yamux session and
 // records it for the panel. It samples immediately, then every 10s, and returns
 // once the session goes away or ctx is cancelled.
 func (s *Supervisor) pingLoop(ctx context.Context, sess *yamux.Session) {
@@ -276,7 +230,6 @@ func (s *Supervisor) setState(st State, detail string) {
 	defer s.mu.Unlock()
 	s.state, s.detail = st, detail
 	if st != StateOnline {
-		s.transparent = false
-		s.since, s.maps, s.pingOK = time.Time{}, nil, false
+		s.since, s.pingOK = time.Time{}, false
 	}
 }

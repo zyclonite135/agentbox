@@ -790,17 +790,7 @@ export interface ContainerLimits {
   egress_exempt_users?: string[];
 }
 
-/** config.TunnelConfig：反向隧道（容器经用户机器出网）配置。 */
-export interface TunnelConfig {
- transparent?: boolean;
- network_bind?: string;
- network_image?: string;
-  enabled: boolean;
-  /** SOCKS5 代理监听的 host:port，需容器可达 */
-  proxy_bind?: string;
-  /** 注入给容器的代理地址主机名，默认取 proxy_bind 的 host */
-  proxy_host?: string;
-}
+export interface DeviceLinkConfig { enabled: boolean; }
 
 /** GET/PUT /api/settings（server.settingsView）。 */
 export interface ImageUpdateSettings { enabled: boolean; channel: "stable" | "latest"; time: string; update_codex: boolean }
@@ -844,12 +834,7 @@ export interface Settings {
   models: Record<string, ModelOption[]>;
   default_models: Record<string, string>;
   terminal_tips: TerminalTips;
-  tunnel: TunnelConfig;
-  /** SOCKS 代理是否真的在监听 */
-  tunnel_active: boolean;
-  /** 最近一次隧道启停失败的原因 */
-  tunnel_error?: string;
-  /** 账号出口代理的本地 HTTP 桥接监听配置 */
+  device_link: DeviceLinkConfig;
   proxy_bridge: ProxyBridgeConfig;
   /** 旧服务端没有 */
   model_gateway?: ModelGatewayView;
@@ -1260,50 +1245,9 @@ export interface UploadResult {
   orig?: string;
 }
 
-/* ---------------- 内网反向隧道 ---------------- */
-
-/** 一条端口映射（容器侧监听地址 → 用户机器上的目标）。 */
-export interface TunnelMap {
-  listen: string;
-  target: string;
-}
-
-/** GET /api/tunnel/status：调用者自己的隧道状态。 */
-export interface TunnelStatus {
- transparent?: boolean;
- client_transparent?: boolean;
- /** 客户端能把 self.abox-link 拨到它自己的回环地址 */
- client_self_target?: boolean;
- network_error?: string;
- rules?: string[];
- workspaces?: {session: string; name: string; ready: boolean; error?: string}[];
-  enabled: boolean;
-  /** SOCKS5 代理是否在监听 */
-  proxy_up: boolean;
-  connected: boolean;
-  /** enabled 时才有：容器该用的代理地址 */
-  proxy?: string;
-  /** 接入时间(ms) */
-  since?: number;
-  /** 客户端来源地址 */
-  remote?: string;
-  maps: TunnelMap[];
-  /** 仅管理员可见 */
-  online_users?: string[];
-}
-
-/** GET /api/tunnel/clients：可下载的 abox-link 客户端。 */
-export interface TunnelClient {
-  name: string;
-  size: number;
-}
-
-/** POST /api/tunnel/pair：一次性配对码。 */
-export interface TunnelPair {
-  code: string;
-  /** 有效期秒数 */
-  expires_in: number;
-}
+export interface DeviceLinkStatus { enabled: boolean; connected: boolean; online_users?: string[]; }
+export interface DeviceLinkClient { name: string; size: number; }
+export interface DeviceLinkPair { code: string; expires_in: number; }
 
 /* ---------------- 对话线程 ---------------- */
 
@@ -1707,7 +1651,7 @@ export interface GitAsyncStart {request_id:string; async:true;}
 /** GET /git/operations/{id}：执行中带实时进度；结束后带原处理器的状态码与 JSON 响应体 */
 export interface GitOperationResult {state:"running"|"done"; operation:GitLiveOperation; status?:number; response?:unknown;}
 
-export interface GitNetworkPolicy {route?:""|"direct"|"tunnel";ca_pem?:string;}
+export interface GitNetworkPolicy {ca_pem?:string;}
 export interface GitOAuthApp {network?:GitNetworkPolicy;id:string;label:string;provider:"github"|"gitlab";base_url:string;enabled:boolean;client_id?:string;redirect_url?:string;revision?:number;}
 
 export interface GitBranch {name:string;head:string;upstream:string;current:boolean;remote:boolean;}

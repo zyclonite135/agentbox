@@ -52,7 +52,7 @@ func clientTerminalCommand(sess store.Session, project store.ClientProject, term
 			fmt.Fprintf(&sync, "%s set-environment -g %s \"$%s\"; ", tmux, key, key)
 		}
 	}
-	for _, key := range append(append([]string{}, tunnelEnvNames...), proxyEnvNames...) {
+	for _, key := range proxyEnvNames {
 		if !have[key] {
 			fmt.Fprintf(&sync, "%s set-environment -gu %s; ", tmux, key)
 		}

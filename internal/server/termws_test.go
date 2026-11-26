@@ -16,29 +16,20 @@ import (
 func TestTmuxEnvSyncMirrorsAndUnsets(t *testing.T) {
 	got := tmuxEnvSync([]string{
 		"ANTHROPIC_BASE_URL=https://example.com",
-		envIntranetProxy + "=socks5h://u:p@172.17.0.1:1080",
+		"HTTP_PROXY" + "=http://u:p@172.17.0.1:1081",
 	})
 	for _, want := range []string{
 		"tmux set-environment -g ANTHROPIC_BASE_URL 'https://example.com'; ",
-		"tmux set-environment -g " + envIntranetProxy + " 'socks5h://u:p@172.17.0.1:1080'; ",
-		// Not injected this time (no port maps) -> must be cleared, not kept.
-		"tmux set-environment -gu " + envIntranetMaps + "; ",
+		"tmux set-environment -g " + "HTTP_PROXY" + " 'http://u:p@172.17.0.1:1081'; ",
+		// Not injected this time (no HTTPS proxy) -> must be cleared, not kept.
+		"tmux set-environment -gu " + "HTTPS_PROXY" + "; ",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, "-gu "+envIntranetProxy) {
+	if strings.Contains(got, "-gu "+"HTTP_PROXY") {
 		t.Errorf("proxy was provided, must not be unset:\n%s", got)
-	}
-}
-
-func TestTmuxEnvSyncUnsetsAllTunnelVarsWhenLinkDown(t *testing.T) {
-	got := tmuxEnvSync(nil)
-	for _, name := range tunnelEnvNames {
-		if !strings.Contains(got, "tmux set-environment -gu "+name+"; ") {
-			t.Errorf("%s not unset with no env:\n%s", name, got)
-		}
 	}
 }
 
@@ -141,7 +132,7 @@ func TestTruncReasonFitsControlFrame(t *testing.T) {
 }
 
 func TestTermCommandKeepsFallbackAndAttach(t *testing.T) {
-	cmd := termCommand([]string{envIntranetProxy + "=socks5h://x"})
+	cmd := termCommand([]string{"HTTP_PROXY" + "=http://x"})
 	if !strings.HasPrefix(cmd, "command -v tmux >/dev/null || exec /bin/bash\n") {
 		t.Errorf("pre-tmux image fallback lost:\n%s", cmd)
 	}

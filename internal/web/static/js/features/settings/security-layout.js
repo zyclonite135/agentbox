@@ -19,13 +19,13 @@ export function initSecurityLayout(section, signal, addHelp) {
         addHelp(host, () => host.firstElementChild?.textContent?.trim() || t("了解更多"), () => host.dataset.securityHelp.split(" ").flatMap(id => settingsHelpText(document.getElementById(id))));
     }
     const list = section.querySelector("#user-list");
-    const tunnel = section.querySelector("#set-tunnel-on");
+    const deviceLink = section.querySelector("#set-device-link-on");
     const limit = section.querySelector("#set-upload");
-    const [userSummary, tunnelSummary, uploadSummary] = peers.map(fold => fold.summary);
+    const [userSummary, deviceSummary, uploadSummary] = peers.map(fold => fold.summary);
     const refresh = () => {
         const count = list.querySelectorAll(".user-row:not([aria-hidden])").length;
         setText(userSummary, "用户数 · {p0}", { p0: String(count) });
-        setText(tunnelSummary, tunnel.checked ? "隧道已开启" : "隧道已关闭");
+        setText(deviceSummary, deviceLink.checked ? "设备连接已启用" : "设备连接已停用");
         setText(uploadSummary, limit.value ? "上传上限 · {p0} MB" : "上传与监听", { p0: limit.value });
     };
     refresh();

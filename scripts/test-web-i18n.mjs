@@ -28,11 +28,7 @@ async function checkSettingsLayout(page,base,language) {
    const jump=section.getByRole('button',{name:'Разрешения и сеть',exact:true});
    await jump.click();
    assert.equal(await section.locator('#settings-agent-access > h3').evaluate(el=>el===document.activeElement),true);
-   const disclosure=section.locator('.settings-details').first();
-   assert.equal(await disclosure.evaluate(el=>el.open),false);
-   await disclosure.locator('summary').click();
-   assert.equal(await disclosure.evaluate(el=>el.open),true);
-   const toggle=section.locator('#set-tunnel-on');
+   const toggle=section.locator('#set-device-link-on');
    const previous=await toggle.isChecked();
    await toggle.press('Space');
    assert.equal(await toggle.isChecked(),!previous);
@@ -121,7 +117,7 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
     timezone=patch.timezone??timezone;
     savedTerminalTips=patch.terminal_tips??savedTerminalTips;
    }
-   body={listen:'127.0.0.1:8180',agent_image:'fixture',permission_mode:'default',max_upload_mb:20,idle_timeout_min:30,timezone,container:{memory_mb:512,cpus:1,pids_limit:128,network:'none'},resources:{max_running:0,max_running_per_user:0,min_free_bytes:0},models:{claude:[],codex:[]},default_models:{claude:'fixture',codex:'fixture'},terminal_tips:savedTerminalTips,tunnel:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},pricing:{}};
+   body={listen:'127.0.0.1:8180',agent_image:'fixture',permission_mode:'default',max_upload_mb:20,idle_timeout_min:30,timezone,container:{memory_mb:512,cpus:1,pids_limit:128,network:'none'},resources:{max_running:0,max_running_per_user:0,min_free_bytes:0},models:{claude:[],codex:[]},default_models:{claude:'fixture',codex:'fixture'},terminal_tips:savedTerminalTips,device_link:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},pricing:{}};
   }
   else if(path.endsWith('/models'))body={models:[],discovery:'available'};
   else if(path==='/api/pricing')body={
@@ -131,7 +127,7 @@ export async function webI18nSmoke(browser,{settingsOnly=false}={}) {
   else if(path.endsWith('/files'))body=[];
   else if(path.endsWith('/chat/threads'))body={threads:[],active:null};
   else if(path.endsWith('/history'))body={entries:[],thread:null,costs:{}};
-  else if(path==='/api/git/connections'||path==='/api/users'||path==='/api/tunnel/clients')body=[];
+  else if(path==='/api/git/connections'||path==='/api/users'||path==='/api/device-link/clients')body=[];
   else if(path==='/api/me/git')body={user:'保存',name:'取消',email:'fixture@example.invalid'};
   else if(path==='/api/me/git/default')body={connection_id:''};
   else if(path==='/api/proxies')body={proxies:[],bridge_up:false,bridge_host:'127.0.0.1'};

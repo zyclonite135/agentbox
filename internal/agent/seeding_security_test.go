@@ -21,9 +21,6 @@ func TestSeedingRejectsSymlinkedProviderDirectory(t *testing.T) {
 			if err := SeedCredentials(kind, home, pool, os.Getuid(), os.Getgid()); err == nil {
 				t.Fatal("credential seed followed link")
 			}
-			if err := SeedIntranetHint(kind, home, os.Getuid(), os.Getgid()); err == nil {
-				t.Fatal("hint seed followed link")
-			}
 			if entries, err := os.ReadDir(outside); err != nil || len(entries) != 0 {
 				t.Fatalf("outside modified: %v %v", entries, err)
 			}

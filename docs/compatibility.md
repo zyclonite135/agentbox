@@ -18,7 +18,7 @@ AGENTBOX_CLI_TEST_IMAGE=agentbox-agent:claude-2.1.280-codex-0.145.0 \
 | Claude Code | 2.1.280 | Linux arm64 固定镜像无凭证版本命令；合成会话启动/文件/Git 验证通过 |
 | Codex CLI | 0.145.0 | Linux arm64 固定镜像版本命令；终端 rollout 解析按此版本公开结构及合成样本验证；未做本阶段在线推理 |
 | claude-hud | 0.5.1 | vendored 文件与上游提交逐字节比对 |
-| abox-link | 与服务端相同发布版本 | 先升级服务端；配对依赖 `/api/tunnel/pair/redeem` |
+| abox-link | 与服务端相同发布版本 | 先升级服务端；配对依赖 `/api/device-link/pair/redeem` |
 
 `images/agent/versions.env` 和 Dockerfile 的默认值必须一致。`scripts/build-image.sh` 默认固定 CLI 版本和基础镜像 digest；APT 包仍从 Debian 当前仓库获取，因此它是固定关键运行时的构建配方，不是完全可重现的系统镜像。安全补丁通过有意更新基线、测试和发布引入。
 

@@ -1,10 +1,4 @@
-// Package linkapp turns abox-link from a flags-and-a-terminal tool into a
-// piece of software: it keeps the link's settings in a file, supervises the
-// tunnel so it can be started and stopped on demand, and serves a small local
-// control panel on the loopback interface for configuring all of it.
-//
-// The panel is the default experience (run the binary with no flags); the
-// original one-shot CLI mode stays available for headless and scripted use.
+// Package linkapp pairs a computer with AgentBox and serves explicitly shared folders.
 package linkapp
 
 import (
@@ -13,69 +7,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"agentbox/internal/netaccess"
-	"agentbox/internal/tunnel"
 )
 
 // Config is everything the panel persists between runs. The password is
 // deliberately absent: pairing exchanges it once for a token, and only the
 // token is stored.
 type Config struct {
-	Transparent bool          `json:"transparent"`
-	Server      string        `json:"server"`       // agentbox base URL
-	User        string        `json:"user"`         // agentbox username
-	Token       string        `json:"token"`        // session token from pairing/login
-	Insecure    bool          `json:"insecure"`     // skip TLS verification
-	Allow       []string      `json:"allow"`        // whitelist rules (CIDR / host / host:port)
-	Maps        []string      `json:"maps"`         // port maps, "PORT=HOST:PORT"
-	AutoConnect bool          `json:"auto_connect"` // dial the tunnel as soon as the app starts
+	Server      string        `json:"server"`
+	User        string        `json:"user"`
+	Token       string        `json:"token"`
+	Insecure    bool          `json:"insecure"`
+	AutoConnect bool          `json:"auto_connect"`
 	Folders     []localFolder `json:"folders"`
 }
 
 // Paired reports whether the config carries usable server credentials.
 func (c Config) Paired() bool {
 	return c.Server != "" && c.User != "" && c.Token != ""
-}
-
-// An empty but configured catalog still needs a connection to clear the
-// previous catalog on the server after the last folder is removed.
-func (c Config) foldersOnly() bool {
-	return c.Folders != nil && len(c.Allow) == 0 && len(c.Maps) == 0
-}
-
-// Validate checks the parts the user edits in the panel, returning a message
-// meant to be shown verbatim in the UI. It also reports the parsed forms so
-// callers do not parse twice.
-func (c Config) Validate() (tunnel.Whitelist, []tunnel.MapSpec, error) {
-	allow := append([]string(nil), c.Allow...)
-	if c.Transparent {
-		var err error
-		allow, err = netaccess.NormalizeRules(allow)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	var maps []tunnel.MapSpec
-	for _, m := range c.Maps {
-		spec, err := tunnel.ParseMapSpec(m)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps = append(maps, spec)
-		allow = append(allow, spec.Target) // a mapped target is implicitly allowed
-	}
-	if len(allow) == 0 {
-		if c.foldersOnly() {
-			return nil, maps, nil
-		}
-		return nil, nil, fmt.Errorf("请先添加本机文件夹、放行规则或端口映射")
-	}
-	wl, err := tunnel.ParseWhitelist(allow)
-	if err != nil {
-		return nil, nil, err
-	}
-	return wl, maps, nil
 }
 
 // ConfigDir is where the panel keeps its state, overridable for tests and for
@@ -96,7 +44,7 @@ func configPath() string { return filepath.Join(ConfigDir(), "config.json") }
 // LoadConfig reads the stored config; a missing file yields a zero Config and
 // no error, which the panel renders as the first-run pairing screen.
 func LoadConfig() (Config, error) {
-	c := Config{Transparent: true}
+	var c Config
 	raw, err := os.ReadFile(configPath())
 	if err != nil {
 		if os.IsNotExist(err) {

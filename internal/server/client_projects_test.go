@@ -122,7 +122,7 @@ func TestClientProjectsRejectLinksBadPathsAndRevokedTerminal(t *testing.T) {
 	}
 }
 
-func TestClientPairingIndependentOfTunnelAndSingleUse(t *testing.T) {
+func TestClientPairingIndependentOfDeviceLinkAndSingleUse(t *testing.T) {
 	s, _, handler := clientTestServer(t)
 	s.pairs = newPairStore()
 	w := clientRequest(handler, "alice", "POST", "/api/clients/pair", "")
@@ -134,7 +134,7 @@ func TestClientPairingIndependentOfTunnelAndSingleUse(t *testing.T) {
 	}
 	json.Unmarshal(w.Body.Bytes(), &pair)
 	if _, ok := s.pairs.redeem(pair.Code); ok {
-		t.Fatal("desktop code usable as tunnel code")
+		t.Fatal("desktop code usable as device code")
 	}
 	w = clientRequest(handler, "", "POST", "/api/clients/pair/redeem", `{"code":"`+pair.Code+`"}`)
 	if w.Code != 200 {
@@ -152,8 +152,8 @@ func TestClientPairingIndependentOfTunnelAndSingleUse(t *testing.T) {
 	if w.Code != 401 {
 		t.Fatal("replayed pairing", w.Code)
 	}
-	if w = clientRequest(handler, "alice", "POST", "/api/tunnel/pair", ""); w.Code != 403 {
-		t.Fatal("desktop pairing enabled tunnel")
+	if w = clientRequest(handler, "alice", "POST", "/api/device-link/pair", ""); w.Code != 403 {
+		t.Fatal("desktop pairing enabled device sharing")
 	}
 }
 

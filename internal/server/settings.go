@@ -40,11 +40,10 @@ type settingsView struct {
 	DefaultModels         map[string]string               `json:"default_models"`
 	TerminalTips          config.TerminalTips             `json:"terminal_tips"`
 	CacheKeepalive        config.CacheKeepaliveConfig     `json:"cache_keepalive"`
-	Tunnel                config.TunnelConfig             `json:"tunnel"`
-	TunnelActive          bool                            `json:"tunnel_active"`          // SOCKS 代理是否真的监听中
-	TunnelError           string                          `json:"tunnel_error,omitempty"` // 最近一次启停失败的原因
-	ProxyBridge           config.ProxyBridgeConfig        `json:"proxy_bridge"`
-	ModelGateway          modelGatewayView                `json:"model_gateway"`
+	DeviceLink            config.DeviceLinkConfig         `json:"device_link"`
+
+	ProxyBridge  config.ProxyBridgeConfig `json:"proxy_bridge"`
+	ModelGateway modelGatewayView         `json:"model_gateway"`
 	// Pricing 是「按 token 折算费用」的价目表，键是模型 id 或 agent 名。
 	// 只发给管理员——设置页本来就是 admin 才进得来。
 	Pricing         map[string]config.ModelPrice `json:"pricing"`
@@ -72,12 +71,12 @@ func (s *Server) settingsView() settingsView {
 		DefaultModels:         s.cfg.GetDefaultModels(),
 		TerminalTips:          s.cfg.GetTerminalTips(),
 		CacheKeepalive:        s.cfg.GetCacheKeepalive(),
-		Tunnel:                s.cfg.GetTunnel(),
-		TunnelActive:          s.tunnels.proxyUp.Load(),
-		ProxyBridge:           s.cfg.GetProxyBridge(),
-		ModelGateway:          s.modelGatewayView(),
-		Pricing:               s.cfg.GetPricing(),
-		RestartRequired:       s.cfg.GetListen() != s.bootListen,
+		DeviceLink:            s.cfg.GetDeviceLink(),
+
+		ProxyBridge:     s.cfg.GetProxyBridge(),
+		ModelGateway:    s.modelGatewayView(),
+		Pricing:         s.cfg.GetPricing(),
+		RestartRequired: s.cfg.GetListen() != s.bootListen,
 	}
 }
 
@@ -90,14 +89,6 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&patch); err != nil {
 		writeErr(w, http.StatusBadRequest, "请求体格式错误")
 		return
-	}
-	if patch.Tunnel != nil && s.cfg.GetTunnel().Transparent && !patch.Tunnel.Transparent {
-		for _, sess := range s.store.All() {
-			if sess.Status == store.StatusRunning {
-				writeErr(w, 409, "切换回兼容代理模式前，请先停止运行中的工作空间")
-				return
-			}
-		}
 	}
 	if patch.Decision != nil && patch.Decision.Plugins != nil && patch.Decision.Plugins.Jev != nil {
 		if err := s.validateAccountAccess(patch.Decision.Plugins.Jev.Access); err != nil {
@@ -125,16 +116,8 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := s.settingsView()
-	if patch.Tunnel != nil {
-		// 隧道开关热生效：配置已落盘，这里同步启停 SOCKS 代理；绑定失败不算
-		// 保存失败，把原因回给前端展示。
-		if err := s.applyTunnel(); err != nil {
-			view.TunnelError = err.Error()
-		}
-		if err := s.applyNetwork(); err != nil {
-			view.TunnelError = err.Error()
-		}
-		view.TunnelActive = s.tunnels.proxyUp.Load()
+	if patch.DeviceLink != nil && !s.cfg.GetDeviceLink().Enabled && s.devices != nil {
+		s.devices.closeAll()
 	}
 	if patch.CacheKeepalive != nil {
 		s.reconcileAllKeepalive()

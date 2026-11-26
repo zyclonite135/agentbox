@@ -93,7 +93,6 @@ sudo python3 "$PACKAGE/deploy/release.py" migrate \
 - 全局 S 不再持有聊天 socket、重连代际、设置缓存和列表轮询定时器。其他功能保留兼容入口，后续按需继续提取，不进行框架重写。
 - 嵌套 ES Modules 仍通过 `/_v/<hash>/` 相对导入；TS 与 JS 一起提交。
 
-旧 abox-link 的 `/api/tunnel` WebSocket、yamux、令牌鉴权及配对接口未改变。原有无头客户端可继续连接；依赖配对接口的新客户端仍须先升级服务端。D 阶段跑现有 linkapp/tunnel 回归，未逐个运行历史发布的客户端二进制，不把兼容协议推断当作全版本实测。
 
 ## 本地验证
 

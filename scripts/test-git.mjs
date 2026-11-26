@@ -58,7 +58,7 @@ export async function smoke(page) {
    if(route.request().method()==='POST') {
     const value=route.request().postDataJSON();
     if(value.auth_type==='ssh'){
-     assert.equal(value.network.route,'tunnel');assert.equal(value.username,'git');assert.equal(value.private_key,'synthetic-private-key');assert.equal(value.host_key,'ssh-ed25519 synthetic-host-key');
+     assert.equal(value.network.route,undefined);assert.equal(value.username,'git');assert.equal(value.private_key,'synthetic-private-key');assert.equal(value.host_key,'ssh-ed25519 synthetic-host-key');
      const {private_key,passphrase,host_key,token,...metadata}=value;
      const connection={...metadata,id:'ssh-fixture',owner:'fixture',revision:1,enabled:true,auth_type:'ssh',host_fingerprint:'SHA256:fixture'};connections.push(connection);await route.fulfill({json:connection});return;
     }
@@ -157,7 +157,7 @@ export async function smoke(page) {
   }
   else if(path.endsWith('/history')) body={entries:[],thread:null,costs:{}};
   else if(path.endsWith('/models')) body={models:[],default_reasoning:{support:'unknown'},discovery:'stopped'};
-  else if(path==='/api/tunnel/status') body={enabled:false};
+  else if(path==='/api/device-link/status') body={enabled:false};
   else if(path.includes('/git/')) throw new Error('unexpected Git operation: '+path);
   await route.fulfill({json:body});
  });
@@ -280,8 +280,6 @@ export async function smoke(page) {
   await editor.locator('[name=base_url]').fill('ssh://git.example.com');
   await editor.locator('[name=private_key]').fill('synthetic-private-key');
   await editor.locator('[name=host_key]').fill('ssh-ed25519 synthetic-host-key');
-  await editor.locator('label').filter({has:page.locator('select[name=route]')}).locator('.select-trigger').click();
-  await page.getByRole('option',{name:'我的内网隧道',exact:true}).click();
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({animations:'disabled',path:'output/playwright/git-ssh-editor-mobile.png'});
   await editor.locator('[type=submit]').click();await editor.waitFor({state:'detached'});

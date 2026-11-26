@@ -11,18 +11,12 @@ import (
 	"errors"
 )
 
-// NetworkPolicy is immutable with an existing connection. A changed trust root
-// or route requires a new connection/application, avoiding silent credential
-// redirection. Empty route preserves direct access for older installations.
+// NetworkPolicy keeps the configured trust root immutable for a connection.
 type NetworkPolicy struct {
-	Route string `json:"route,omitempty"`
 	CAPEM string `json:"ca_pem,omitempty"`
 }
 
 func (p NetworkPolicy) Validate() error {
-	if p.Route != "" && p.Route != "direct" && p.Route != "tunnel" {
-		return errors.New("Git 网络路由只能选择 direct 或 tunnel")
-	}
 	if len(p.CAPEM) > 32<<10 {
 		return errors.New("公司 CA 证书不能超过 32 KiB")
 	}
@@ -83,4 +77,4 @@ func (p NetworkPolicy) Identity() string {
 	hash := sha256.Sum256(raw)
 	return hex.EncodeToString(hash[:])
 }
-func (p NetworkPolicy) Configured() bool { return p.Route != "" || p.CAPEM != "" }
+func (p NetworkPolicy) Configured() bool { return p.CAPEM != "" }

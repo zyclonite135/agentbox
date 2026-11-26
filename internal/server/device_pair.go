@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"agentbox/internal/devicelink"
 	"agentbox/internal/store"
-	"agentbox/internal/tunnel"
 )
 
 // Pairing removes the worst part of setting up a link: typing a server URL,
@@ -139,9 +139,9 @@ func randomPairCode() string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// handleTunnelPair issues a pairing code for the calling user.
-func (s *Server) handleTunnelPair(w http.ResponseWriter, r *http.Request) {
-	if !s.cfg.GetTunnel().Enabled {
+// handleDeviceLinkPair issues a pairing code for the calling user.
+func (s *Server) handleDeviceLinkPair(w http.ResponseWriter, r *http.Request) {
+	if !s.cfg.GetDeviceLink().Enabled {
 		writeErr(w, http.StatusForbidden, "内网隧道功能未启用")
 		return
 	}
@@ -166,7 +166,7 @@ func (s *Server) handleTunnelPair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"code":       tunnel.EncodePairCode(origin, code),
+		"code":       devicelink.EncodePairCode(origin, code),
 		"expires_in": int(pairCodeTTL.Seconds()),
 	})
 }
@@ -195,11 +195,11 @@ func pairOrigin(claimed string, r *http.Request) string {
 	return scheme + "://" + host
 }
 
-// handleTunnelPairRedeem exchanges a pairing code for a session token. It is
+// handleDeviceLinkPairRedeem exchanges a pairing code for a session token. It is
 // deliberately unauthenticated — the code *is* the credential, which is why it
 // is single-use and expires.
-func (s *Server) handleTunnelPairRedeem(w http.ResponseWriter, r *http.Request) {
-	if !s.cfg.GetTunnel().Enabled {
+func (s *Server) handleDeviceLinkPairRedeem(w http.ResponseWriter, r *http.Request) {
+	if !s.cfg.GetDeviceLink().Enabled {
 		writeErr(w, http.StatusForbidden, "内网隧道功能未启用")
 		return
 	}

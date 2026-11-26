@@ -49,7 +49,7 @@ func TestPasswordLoginIsRecordedOnlyWhenItSucceeds(t *testing.T) {
 }
 
 func TestPairingRedemptionIsRecordedAsItsOwnMethod(t *testing.T) {
-	for channel, method := range map[string]string{"desktop": store.LoginDesktop, "tunnel": store.LoginLink} {
+	for channel, method := range map[string]string{"desktop": store.LoginDesktop, "device-link": store.LoginLink} {
 		t.Run(channel, func(t *testing.T) {
 			s, handler := pairingFixture(t)
 			_, redeem := pairRoutes(channel)

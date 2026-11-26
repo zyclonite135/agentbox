@@ -853,8 +853,8 @@
 #sec-security :is(.security-disclosure:not(.card),.security-disclosure-body,.security-user-field,.security-user-identity) { display:contents; }
 #sec-security .field > .security-caption > label { font-size:12.5px; color:var(--muted); }
 #sec-security .field-row .field:not(:has(.hint,.field-hint)) > .security-caption:first-child { margin-top:auto; }
-#sec-security .security-tunnel-master { order:1; }
-#sec-security .security-tunnel-tail { order:2; }
+
+
 .settings-help-popup {
   position:fixed; inset:max(12px, env(safe-area-inset-top)) 12px auto;
   margin-inline:auto; max-height:min(60dvh, 28em); width:min(420px, calc(100% - 24px));
@@ -906,7 +906,7 @@
   #sec-security :is(.security-disclosure:not(.card),.security-disclosure-body,.security-user-field) { display:grid; min-width:0; gap:8px; }
   #sec-security .security-disclosure { border-top:1px solid var(--line); }
   #sec-security .security-disclosure .settings-fold { padding-inline:0; color:var(--accent); }
-  #sec-security .security-tunnel-tail, #sec-security .security-tunnel-master { order:0; }
+
   #sec-security .security-caption { display:flex; gap:4px; align-items:center; min-width:0; }
   #sec-security .security-caption > :first-child { flex:1; min-width:0; overflow-wrap:anywhere; }
   #view-settings .settings-help-trigger, #sec-security .security-user-more {

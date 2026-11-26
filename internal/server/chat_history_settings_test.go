@@ -12,7 +12,7 @@ import (
 
 func TestChatHistoryTimeoutSettingsAPI(t *testing.T) {
 	s := pricingTestServer(t)
-	s.tunnels = newTunnelHub()
+	s.devices = newDeviceHub()
 	response := pricingRequest(s.handlePutSettings, http.MethodPut, map[string]int64{"chat_history_timeout_sec": 240, "max_upload_mb": 128})
 	if response.Code != http.StatusOK {
 		t.Fatal(response.Code, response.Body.String())

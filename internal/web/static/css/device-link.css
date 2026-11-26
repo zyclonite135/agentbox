@@ -1,0 +1,63 @@
+/* Device pairing page. */
+
+.dev-body {
+  flex: 1; min-height: 0;
+  overflow-y: auto;
+  width: 100%;
+  padding: 18px 28px 40px;
+}
+
+.dev-status {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: calc(10px * var(--radius-scale));
+  background: var(--panel-2);
+  margin-bottom: 12px;
+}
+.t-dot.big { width: 11px; height: 11px; }
+.dev-st-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dev-st-text b { font-size: 14px; }
+.dev-st-sub { font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; }
+.dev-body > .field-hint { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); }
+.dev-hint { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.dev-hint p { margin: 0; }
+.dev-guide h3 { margin: 0; font-size: 13.5px; }
+.dev-guide ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 14px; }
+.dev-guide li { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.dev-guide li b { color: var(--text); }
+.dev-guide code {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: calc(5px * var(--radius-scale)); padding: 1px 5px;
+}
+.dev-dl { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.dev-dl-btn { text-decoration: none; }
+.dev-pair-result {
+  display: flex; align-items: center; gap: 8px;
+  margin: 8px 0 0;
+  padding: 6px 8px 6px 14px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: calc(8px * var(--radius-scale));
+}
+.dev-cmd {
+  flex: 1; min-width: 0; margin: 0; padding: 6px 0;
+  font-size: 12px; line-height: 1.7;
+  overflow-x: auto; white-space: pre;
+  user-select: all;
+}
+.dev-pair-copy { flex: none; width: 36px; height: 36px; min-height: 0; padding: 0; }
+.dev-cmd-foot {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px;
+  margin-top: 8px;
+}
+.dev-cmd-foot > .btn { flex: none; }
+
+@media (max-width: 760px) {
+  .dev-body { padding: 14px 16px 28px; }
+  .dev-pair-copy { width: 36px; height: 36px; }
+}
+
+/* Card gap owns vertical spacing; browser paragraph margins must not stack
+   with it. Empty live results and workspace lists should not reserve a row. */
+.dev-body > .card { gap: 10px; }
+.dev-body > .card p { margin: 0; line-height: 1.6; }
+.dev-body > .card .card-desc { margin: 0; }

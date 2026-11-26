@@ -7,7 +7,7 @@
  *   workspace-power {detail} — 侧栏启动或停止指定空间
  *   open-settings            — 侧栏点击系统设置
  *   open-usage               — 侧栏点击使用记录
- *   open-tunnel              — 侧栏点击内网隧道
+ *   open-device-link              — 侧栏点击连接设备
  *   app-ready                — 登录验证及初始数据加载完成，恢复 URL 页面
  *   navigation-changed       — 页面/分区/标签变化，将最终状态写入 URL
  *   workspace-created        — 创建流程完成；首任务引导在当前登录内记录项目目录
@@ -26,7 +26,7 @@ export const emit = (type: string, detail?: unknown) =>
   bus.dispatchEvent(new CustomEvent(type, { detail }));
 
 /** 主区当前视图 */
-export type View = "work" | "settings" | "usage" | "tunnel" | "git" | "extensions";
+export type View = "work" | "settings" | "usage" | "device-link" | "git" | "extensions";
 /** 工作台当前标签页 */
 export type Tab = "chat" | "term" | "files" | "changes" | "skills" | "mcp" | "browser";
 /** 文件浏览范围（shared = 共享目录，同用户所有会话可见） */

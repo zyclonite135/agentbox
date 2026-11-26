@@ -20,7 +20,7 @@ import (
 )
 
 // DefaultAddr is where the panel listens. Loopback only — the console can
-// start and stop a tunnel into the user's intranet, so it must never be
+// share the folders selected by the user, so it must never be
 // reachable from the network.
 const DefaultAddr = "127.0.0.1:7801"
 
@@ -43,6 +43,10 @@ func RunPanel(opts RunOptions) error {
 		opts.Addr = DefaultAddr
 	}
 
+	host, _, err := net.SplitHostPort(opts.Addr)
+	if ip := net.ParseIP(host); err != nil || (host != "localhost" && (ip == nil || !ip.IsLoopback())) {
+		return errors.New("abox-link requires a loopback listen address")
+	}
 	ln, err := net.Listen("tcp", opts.Addr)
 	if err != nil {
 		if version, running := runningPanel(opts.Addr); running {
@@ -85,20 +89,20 @@ func RunPanel(opts RunOptions) error {
 	}
 
 	// The saved config decides whether we come up connected; the service install
-	// relies on this to restore the tunnel after a reboot without any clicking.
+	// relies on this to restore the device connection after a reboot without any clicking.
 	if cfg.Paired() && cfg.AutoConnect {
 		if err := sup.Start(cfg); err != nil {
 			sup.Logf("自动连接未能启动：%v", err)
 		}
 	} else if cfg.Paired() {
-		sup.Logf("已接入 %s。点「启动」连接隧道。", cfg.Server)
+		sup.Logf("已接入 %s。点「启动」连接设备。", cfg.Server)
 	}
 
 	if !opts.Daemon {
 		OpenBrowser(url)
 	}
 
-	// Wait for Ctrl-C / systemd stop, then take the tunnel down cleanly so the
+	// Wait for Ctrl-C / systemd stop, then close the connection cleanly so the
 	// server drops the link instead of waiting for a keepalive timeout.
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
@@ -128,7 +132,7 @@ func runningPanel(addr string) (version string, running bool) {
 	if resp.StatusCode != http.StatusOK {
 		return "", false
 	}
-	// A long allow list makes this larger than it looks; a cut-off body would
+	// A full folder catalog makes this larger than it looks; a cut-off body would
 	// read as "not ours" and turn a running panel into a port conflict.
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	var probe struct {

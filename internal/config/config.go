@@ -130,26 +130,13 @@ type ContainerLimits struct {
 	// restricted egress (typically the administrator, who manages the host from
 	// a workspace). Nil in a settings patch means "keep the current list".
 	EgressExemptUsers []string `json:"egress_exempt_users,omitempty"`
+	EgressImage       string   `json:"egress_image,omitempty"`
 }
 
-// TunnelConfig controls the reverse-tunnel feature: a local "abox-link" client
-// dials in over WebSocket and the server exposes a shared SOCKS5 proxy on the
-// docker bridge gateway so containers can reach the user's LAN/intranet through
-// their own machine. ProxyBind is where the server listens (must be reachable
-// from containers, e.g. the bridge gateway); ProxyHost is what gets advertised
-// to containers in the injected proxy URL (defaults to ProxyBind's host).
-type TunnelConfig struct {
-	Transparent  bool   `json:"transparent"`
-	NetworkBind  string `json:"network_bind,omitempty"`
-	NetworkImage string `json:"network_image,omitempty"`
-	Enabled      bool   `json:"enabled"`
-	ProxyBind    string `json:"proxy_bind,omitempty"` // host:port the SOCKS5 proxy binds, default defaultTunnelBind
-	ProxyHost    string `json:"proxy_host,omitempty"` // host containers use to reach it, default = host of ProxyBind
+// DeviceLinkConfig controls pairing and shared folders.
+type DeviceLinkConfig struct {
+	Enabled bool `json:"enabled"`
 }
-
-// defaultTunnelBind is the docker bridge gateway — the one host address every
-// container on the default bridge can reach.
-const defaultTunnelBind = "172.17.0.1:1080"
 
 // ProxyBridgeConfig controls the local HTTP CONNECT proxy that fronts the
 // account proxy pool. Containers are handed HTTP_PROXY/HTTPS_PROXY pointing at
@@ -173,8 +160,7 @@ type ProxyBridgeConfig struct {
 	DynamicPorts string `json:"dynamic_ports,omitempty"`
 }
 
-// defaultProxyBridgeBind sits on the same gateway as the tunnel proxy, one port
-// over.
+// defaultProxyBridgeBind is the Docker bridge address for the account proxy.
 const defaultProxyBridgeBind = "172.17.0.1:1081"
 
 // ModelOption is one selectable model in the chat composer. The list is
@@ -359,7 +345,7 @@ type Config struct {
 	MaxParallelChats      int64                    `json:"max_parallel_chats"` // 一个空间同时运行的对话线程数；0 为默认
 	TimeZone              string                   `json:"timezone"`           // IANA 时区；用于界面时间与用量筛选
 	Container             ContainerLimits          `json:"container"`
-	Tunnel                TunnelConfig             `json:"tunnel"`
+	DeviceLink            DeviceLinkConfig         `json:"device_link"`
 	ProxyBridge           ProxyBridgeConfig        `json:"proxy_bridge"`
 	ModelGateway          ModelGatewayConfig       `json:"model_gateway"`
 	UsageTelemetry        UsageTelemetryConfig     `json:"usage_telemetry"`
@@ -389,7 +375,7 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	cfg := &Config{
-		Tunnel:                TunnelConfig{Transparent: true},
+
 		Listen:                "127.0.0.1:8080",
 		AgentImage:            "agentbox-agent:latest",
 		PermissionMode:        "bypassPermissions",
@@ -465,9 +451,6 @@ func Load(path string) (*Config, error) {
 		cfg.CacheDir = resolve(cfg.CacheDir)
 	}
 
-	if (cfg.Tunnel.Enabled || cfg.Tunnel.Transparent) && cfg.Tunnel.ProxyBind == "" {
-		cfg.Tunnel.ProxyBind = defaultTunnelBind
-	}
 	if cfg.ProxyBridge.Bind == "" {
 		cfg.ProxyBridge.Bind = defaultProxyBridgeBind
 	}
@@ -571,31 +554,6 @@ func (c *Config) validateLocked() error {
 	}
 	if err := c.validateEgress(); err != nil {
 		return err
-	}
-	if c.Tunnel.Enabled && c.Tunnel.Transparent {
-		if c.Tunnel.ProxyBind == "" {
-			return fmt.Errorf("tunnel.proxy_bind is required for transparent networking")
-		}
-		if c.Tunnel.NetworkBind != "" {
-			if _, _, err := net.SplitHostPort(c.Tunnel.NetworkBind); err != nil {
-				return fmt.Errorf("invalid tunnel.network_bind: %w", err)
-			}
-		}
-		if c.Container.Network == "host" || c.Container.Network == "none" || strings.HasPrefix(c.Container.Network, "container:") {
-			return fmt.Errorf("transparent networking requires an isolated Docker bridge network")
-		}
-	}
-	if c.Tunnel.Enabled || c.Tunnel.Transparent {
-		host, _, err := net.SplitHostPort(c.Tunnel.ProxyBind)
-		if err != nil {
-			return fmt.Errorf("tunnel.proxy_bind %q invalid (want host:port): %w", c.Tunnel.ProxyBind, err)
-		}
-		// When binding to a wildcard/empty host, the advertised host can't be
-		// derived from the bind address, so it must be given explicitly —
-		// otherwise the injected proxy URL would point at 0.0.0.0.
-		if c.Tunnel.ProxyHost == "" && (host == "" || net.ParseIP(host).IsUnspecified()) {
-			return fmt.Errorf("tunnel.proxy_host is required when proxy_bind host is empty or a wildcard (%q)", c.Tunnel.ProxyBind)
-		}
 	}
 	if _, _, err := net.SplitHostPort(c.ProxyBridge.Bind); err != nil {
 		return fmt.Errorf("proxy_bridge.bind %q invalid (want host:port): %w", c.ProxyBridge.Bind, err)
@@ -744,7 +702,7 @@ type persistConfig struct {
 	MaxParallelChats      int64                    `json:"max_parallel_chats"`
 	TimeZone              string                   `json:"timezone"`
 	Container             ContainerLimits          `json:"container"`
-	Tunnel                TunnelConfig             `json:"tunnel"`
+	DeviceLink            DeviceLinkConfig         `json:"device_link"`
 	ProxyBridge           ProxyBridgeConfig        `json:"proxy_bridge"`
 	ModelGateway          ModelGatewayConfig       `json:"model_gateway,omitzero"`
 	UsageTelemetry        UsageTelemetryConfig     `json:"usage_telemetry,omitzero"`
@@ -786,7 +744,7 @@ func (c *Config) saveLocked() error {
 		MaxParallelChats:      c.MaxParallelChats,
 		TimeZone:              c.TimeZone,
 		Container:             c.Container,
-		Tunnel:                c.Tunnel,
+		DeviceLink:            c.DeviceLink,
 		ProxyBridge:           c.ProxyBridge,
 		ModelGateway:          c.ModelGateway,
 		UsageTelemetry:        c.UsageTelemetry,
@@ -969,26 +927,10 @@ func (c *Config) GetContainer() ContainerLimits {
 	return c.Container
 }
 
-// GetTunnel returns the reverse-tunnel config. ProxyHost is filled in from
-// ProxyBind's host when left blank, so callers get a ready-to-use advertise
-// address.
-func (c *Config) GetTunnel() TunnelConfig {
+func (c *Config) GetDeviceLink() DeviceLinkConfig {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	t := c.Tunnel
-	if t.ProxyHost == "" && t.ProxyBind != "" {
-		if host, _, err := net.SplitHostPort(t.ProxyBind); err == nil {
-			t.ProxyHost = host
-		}
-	}
-	if t.NetworkBind == "" {
-		host, _, _ := net.SplitHostPort(t.ProxyBind)
-		t.NetworkBind = net.JoinHostPort(host, "1082")
-	}
-	if t.NetworkImage == "" {
-		t.NetworkImage = "agentbox-network:latest"
-	}
-	return t
+	return c.DeviceLink
 }
 
 // GetProxyBridge returns the local proxy-bridge config with Host filled in from
@@ -1174,7 +1116,7 @@ func (c *Config) mutate(fn func(*Config) error) error {
 		MaxParallelChats:      c.MaxParallelChats,
 		TimeZone:              c.TimeZone,
 		Container:             c.Container,
-		Tunnel:                c.Tunnel,
+		DeviceLink:            c.DeviceLink,
 		ProxyBridge:           c.ProxyBridge,
 		ModelGateway:          c.ModelGateway,
 		UsageTelemetry:        c.UsageTelemetry,
@@ -1232,7 +1174,7 @@ func (c *Config) mutate(fn func(*Config) error) error {
 	c.Resources = work.Resources
 	c.ToolStorage = work.ToolStorage
 	c.StoragePolicy = work.StoragePolicy.Clone()
-	c.Tunnel = work.Tunnel
+	c.DeviceLink = work.DeviceLink
 	c.ProxyBridge = work.ProxyBridge
 	c.ModelGateway = work.ModelGateway
 	c.UsageTelemetry = work.UsageTelemetry
@@ -1271,7 +1213,7 @@ type SettingsPatch struct {
 	Container             *ContainerLimits         `json:"container"`
 	Models                map[string][]ModelOption `json:"models"`
 	DefaultModels         map[string]string        `json:"default_models"`
-	Tunnel                *TunnelConfig            `json:"tunnel"`
+	DeviceLink            *DeviceLinkConfig        `json:"device_link"`
 	ProxyBridge           *ProxyBridgeConfig       `json:"proxy_bridge"`
 	ModelGateway          *ModelGatewayPatch       `json:"model_gateway"`
 	TerminalTips          *TerminalTips            `json:"terminal_tips"`
@@ -1328,8 +1270,11 @@ func (c *Config) ApplySettings(p SettingsPatch) error {
 			w.TimeZone = strings.TrimSpace(*p.TimeZone)
 		}
 		if p.Container != nil {
-			exempt := w.Container.EgressExemptUsers
+			exempt, egressImage := w.Container.EgressExemptUsers, w.Container.EgressImage
 			w.Container = *p.Container
+			if w.Container.EgressImage == "" {
+				w.Container.EgressImage = egressImage
+			}
 			if p.Container.EgressExemptUsers == nil {
 				// Clients that predate the field must not wipe the list on save.
 				w.Container.EgressExemptUsers = exempt
@@ -1346,11 +1291,8 @@ func (c *Config) ApplySettings(p SettingsPatch) error {
 				w.DefaultModels[agent] = strings.TrimSpace(model)
 			}
 		}
-		if p.Tunnel != nil {
-			w.Tunnel = *p.Tunnel
-			if (w.Tunnel.Enabled || w.Tunnel.Transparent) && w.Tunnel.ProxyBind == "" {
-				w.Tunnel.ProxyBind = defaultTunnelBind // same default as Load
-			}
+		if p.DeviceLink != nil {
+			w.DeviceLink = *p.DeviceLink
 		}
 		if p.ProxyBridge != nil {
 			w.ProxyBridge = *p.ProxyBridge

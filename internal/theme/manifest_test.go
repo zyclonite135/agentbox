@@ -47,8 +47,8 @@ func TestParseRejectsUnsafeValues(t *testing.T) {
 	for _, value := range []string{
 		`"url(https://evil.example/x)"`,
 		`"URL(x)"`,
-		`"u\\72l(x)"`,              // CSS escape
-		`"image-set(\"x\" 1x)"`,    // quotes
+		`"u\\72l(x)"`,             // CSS escape
+		`"image-set(\"x\" 1x)"`,   // quotes
 		`"red; background: blue"`, // declaration break-out
 		`"red} body{color:red"`,
 		`"red /* c */"`,
@@ -79,7 +79,7 @@ func TestParseRejectsUnsafeValues(t *testing.T) {
 		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","common":{"--radius-pill":"1em"}}`:         "--radius-pill",
 		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","common":{"--sans":"Comic Sans; x"}}`:      "--sans",
 		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","common":{"--sans":"\"a\\\"b\""}}`:         "--sans",
-		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","common":{"--sans":"微软雅黑"}}`:              "--sans",
+		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","common":{"--sans":"微软雅黑"}}`:               "--sans",
 		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","light":{"--app-canvas":"url(x)"}}`:        "--app-canvas",
 		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","light":{"--app-canvas":"element(#app)"}}`: "--app-canvas",
 	} {
@@ -92,19 +92,19 @@ func TestParseRejectsUnsafeValues(t *testing.T) {
 func TestParseRejectsStructure(t *testing.T) {
 	for raw, code := range map[string]string{
 		`not json`: "bad_json",
-		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber"} {}`:                         "bad_json",
-		`{"agentbox_theme":2,"id":"x","name":"X","base":"amber"}`:                            "format",
-		`{"id":"x","name":"X","base":"amber"}`:                                               "format",
-		`{"agentbox_theme":1,"id":"X Y","name":"X","base":"amber"}`:                          "id",
-		`{"agentbox_theme":1,"id":"-x","name":"X","base":"amber"}`:                           "id",
-		`{"agentbox_theme":1,"id":"x","name":"","base":"amber"}`:                             "name",
-		`{"agentbox_theme":1,"id":"x","name":"a\u0007","base":"amber"}`:                      "name",
-		`{"agentbox_theme":1,"id":"x","name":"X","base":"neon"}`:                             "base",
-		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","css":"body{}"}`:             "unknown_field",
-		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","dark":{"--claude":"red"}}`:  "unknown_token",
-		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","dark":{"--dur":"0ms"}}`:     "unknown_token",
-		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","dark":{"color":"red"}}`:     "unknown_token",
-		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","dark":{"--bg":1}}`:          "bad_type",
+		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber"} {}`:                            "bad_json",
+		`{"agentbox_theme":2,"id":"x","name":"X","base":"amber"}`:                               "format",
+		`{"id":"x","name":"X","base":"amber"}`:                                                  "format",
+		`{"agentbox_theme":1,"id":"X Y","name":"X","base":"amber"}`:                             "id",
+		`{"agentbox_theme":1,"id":"-x","name":"X","base":"amber"}`:                              "id",
+		`{"agentbox_theme":1,"id":"x","name":"","base":"amber"}`:                                "name",
+		`{"agentbox_theme":1,"id":"x","name":"a\u0007","base":"amber"}`:                         "name",
+		`{"agentbox_theme":1,"id":"x","name":"X","base":"neon"}`:                                "base",
+		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","css":"body{}"}`:                "unknown_field",
+		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","dark":{"--claude":"red"}}`:     "unknown_token",
+		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","dark":{"--dur":"0ms"}}`:        "unknown_token",
+		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","dark":{"color":"red"}}`:        "unknown_token",
+		`{"agentbox_theme":1,"id":"x","name":"X","base":"amber","dark":{"--bg":1}}`:             "bad_type",
 		`{"agentbox_theme":1,"id":"x","name":"` + strings.Repeat("名", 41) + `","base":"amber"}`: "name",
 	} {
 		if ve := parseErr(t, raw); ve.Code != code {

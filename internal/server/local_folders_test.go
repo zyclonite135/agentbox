@@ -14,8 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"agentbox/internal/config"
+	"agentbox/internal/devicelink"
 	"agentbox/internal/store"
-	"agentbox/internal/tunnel"
 	"github.com/hashicorp/yamux"
 )
 
@@ -33,40 +34,37 @@ func TestLocalFolderBrowserAndImport(t *testing.T) {
 		t.Fatal(err)
 	}
 	const folderID = "test-folder-00001"
-	shares := []tunnel.Folder{{ID: folderID, Name: "Exchange"}}
-	for i := 1; i < tunnel.MaxFolders; i++ {
-		shares = append(shares, tunnel.Folder{ID: fmt.Sprintf("test-folder-extra-%02d", i), Name: strings.Repeat("&", 128)})
+	shares := []devicelink.Folder{{ID: folderID, Name: "Exchange"}}
+	for i := 1; i < devicelink.MaxFolders; i++ {
+		shares = append(shares, devicelink.Folder{ID: fmt.Sprintf("test-folder-extra-%02d", i), Name: strings.Repeat("&", 128)})
 	}
 	if err := s.saveLinkFolders(user, shares); err != nil {
 		t.Fatal(err)
 	}
-	s.tunnels = newTunnelHub()
+	s.devices = newDeviceHub()
+	s.cfg.DeviceLink = config.DeviceLinkConfig{Enabled: true}
 	left, right := net.Pipe()
 	server, _ := yamux.Client(left, nil)
 	link, _ := yamux.Server(right, nil)
 	defer link.Close()
-	_, unregister := s.tunnels.register(user.Name, server, "test")
+	unregister := s.devices.register(user.Name, server, deviceInfo{folders: shares, token: token})
 	defer unregister()
-	info := s.tunnels.info[user.Name]
-	info.folders, info.folderToken = shares, token
-	s.tunnels.info[user.Name] = info
-	worker := tunnel.Link{Folders: func(stream io.ReadWriter) {
-		var req tunnel.FolderRequest
-		if tunnel.ReadFolderMessage(stream, &req) != nil {
+	go devicelink.Serve(link, func(stream io.ReadWriter) {
+		var req devicelink.FolderRequest
+		if devicelink.ReadFolderMessage(stream, &req) != nil {
 			return
 		}
 		if !req.Read {
-			tunnel.WriteFolderMessage(stream, tunnel.FolderResponse{Entries: []tunnel.FolderEntry{{Name: "report.txt", Size: 6}}})
+			devicelink.WriteFolderMessage(stream, devicelink.FolderResponse{Entries: []devicelink.FolderEntry{{Name: "report.txt", Size: 6}}})
 			return
 		}
-		tunnel.WriteFolderMessage(stream, tunnel.FolderResponse{Size: 6})
+		devicelink.WriteFolderMessage(stream, devicelink.FolderResponse{Size: 6})
 		if req.Path == "cut.txt" {
 			io.WriteString(stream, "cut")
 		} else {
 			io.WriteString(stream, "report")
 		}
-	}}
-	go worker.Serve(link)
+	})
 	request := func(method, address, body string, owner store.User) *http.Request {
 		req := httptest.NewRequest(method, address, strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer "+token)

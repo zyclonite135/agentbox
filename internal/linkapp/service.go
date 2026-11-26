@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Autostart registers the app with the OS session manager so the tunnel comes
+// Autostart registers the app with the OS session manager so the device connection comes
 // back by itself after a reboot — the difference between "a program I remember
 // to run" and "a service that is just on".
 //

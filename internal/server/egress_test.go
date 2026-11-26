@@ -178,7 +178,6 @@ func TestListenDynamicStaysInRange(t *testing.T) {
 func TestEgressPolicyCoversAdvertisedEndpoints(t *testing.T) {
 	s := &Server{cfg: &config.Config{
 		Container: config.ContainerLimits{Network: "bridge", Egress: config.EgressRestricted},
-		Tunnel:    config.TunnelConfig{Enabled: true, Transparent: true, ProxyBind: "172.17.0.1:1080"},
 	}}
 	p, err := s.egressPolicy(t.Context())
 	if err != nil {
@@ -188,7 +187,7 @@ func TestEgressPolicyCoversAdvertisedEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "-d 172.17.0.1/32 -p tcp -m multiport --dports 1080,1081,1082,1083,1084,30000:30999 -j RETURN"
+	want := "-d 172.17.0.1/32 -p tcp -m multiport --dports 1081,1083,1084,30000:30999 -j RETURN"
 	if !strings.Contains(v4, want) {
 		t.Fatalf("rules missing %q:\n%s", want, v4)
 	}

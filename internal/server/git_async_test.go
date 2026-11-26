@@ -134,11 +134,11 @@ func TestGitAsyncOperationCancel(t *testing.T) {
 }
 
 func TestGitLabRepositoryURLAddsGitSuffix(t *testing.T) {
-	gitlab := store.GitConnection{Provider: "gitlab", AuthType: "pat", BaseURL: "http://git.lan/gitlab"}
+	gitlab := store.GitConnection{Provider: "gitlab", AuthType: "pat", BaseURL: "https://git.lan/gitlab"}
 	for raw, want := range map[string]string{
-		"http://git.lan/gitlab/team/sub/project":     "http://git.lan/gitlab/team/sub/project.git",
-		"http://git.lan/gitlab/team/sub/project/":    "http://git.lan/gitlab/team/sub/project.git",
-		"http://git.lan/gitlab/team/sub/project.git": "http://git.lan/gitlab/team/sub/project.git",
+		"https://git.lan/gitlab/team/sub/project":     "https://git.lan/gitlab/team/sub/project.git",
+		"https://git.lan/gitlab/team/sub/project/":    "https://git.lan/gitlab/team/sub/project.git",
+		"https://git.lan/gitlab/team/sub/project.git": "https://git.lan/gitlab/team/sub/project.git",
 	} {
 		if got, err := gitRepositoryURL(raw, gitlab); err != nil || got != want {
 			t.Errorf("%s: %q %v", raw, got, err)

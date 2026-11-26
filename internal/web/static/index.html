@@ -73,7 +73,7 @@
 <link rel="stylesheet" href="/_v/{{BUILD}}/css/git-management.css">
 <link rel="stylesheet" href="/_v/{{BUILD}}/css/usage.css">
 <link rel="stylesheet" href="/_v/{{BUILD}}/css/date-range.css">
-<link rel="stylesheet" href="/_v/{{BUILD}}/css/tunnel.css">
+<link rel="stylesheet" href="/_v/{{BUILD}}/css/device-link.css">
 <link rel="stylesheet" href="/_v/{{BUILD}}/css/extensions.css">
 <link rel="stylesheet" href="/_v/{{BUILD}}/css/dialogs.css">
 <link rel="stylesheet" href="/_v/{{BUILD}}/css/delegation.css">
@@ -278,9 +278,9 @@
             <button id="btn-extensions" aria-label="扩展" data-tip="扩展：按需启用的可选功能，如循环保护、Webhook 通知" class="side-item side-tool hidden" data-i18n-attrs="{&quot;aria-label&quot;:&quot;扩展&quot;,&quot;data-tip&quot;:&quot;扩展：按需启用的可选功能，如循环保护、Webhook 通知&quot;}"><span class="glyph">
               <svg width="17" height="17" data-icon="nav.extensions" aria-hidden="true"></svg>
             </span><span class="side-item-label" data-i18n-text="[&quot;扩展&quot;]">扩展</span></button>
-            <button id="btn-tunnel" aria-label="内网隧道" data-tip="内网隧道" class="side-item side-tool hidden" data-i18n-attrs="{&quot;aria-label&quot;:&quot;内网隧道&quot;,&quot;data-tip&quot;:&quot;内网隧道&quot;}"><span class="glyph">
-              <svg width="17" height="17" data-icon="nav.tunnel" aria-hidden="true"></svg>
-            </span><span class="side-item-label" data-i18n-text="[&quot;内网隧道&quot;]">内网隧道</span><span id="tunnel-state" class="tunnel-state mono"><span id="tunnel-dot" class="t-dot"></span><span id="tunnel-text" data-i18n-text="[&quot;离线&quot;]">离线</span></span></button>
+            <button id="btn-device-link" aria-label="连接设备" data-tip="连接设备" class="side-item side-tool hidden" data-i18n-attrs="{&quot;aria-label&quot;:&quot;连接设备&quot;,&quot;data-tip&quot;:&quot;连接设备&quot;}"><span class="glyph">
+              <svg width="17" height="17" data-icon="nav.deviceLink" aria-hidden="true"></svg>
+            </span><span class="side-item-label" data-i18n-text="[&quot;连接设备&quot;]">连接设备</span><span id="device-link-state" class="device-link-state mono"><span id="device-link-dot" class="t-dot"></span><span id="device-link-text" data-i18n-text="[&quot;离线&quot;]">离线</span></span></button>
             <button id="btn-settings" aria-label="系统设置" data-tip="系统设置" class="side-item side-tool" data-i18n-attrs="{&quot;aria-label&quot;:&quot;系统设置&quot;,&quot;data-tip&quot;:&quot;系统设置&quot;}"><span class="glyph">
               <svg width="17" height="17" data-icon="nav.settings" aria-hidden="true"></svg>
             </span><span class="side-item-label" data-i18n-text="[&quot;系统设置&quot;]">系统设置</span></button>
@@ -459,11 +459,6 @@
               </button>
               <!-- 同一空间的其他对话还在运行时出现：几个在跑，点开对话列表（chat-threads.ts） -->
               <button id="thread-running" type="button" class="thread-running hidden"><span id="thread-running-text"></span></button>
-              <button id="chat-network" type="button" class="chat-network hidden" aria-label="内网状态，查看连接详情" data-i18n-attrs="{&quot;aria-label&quot;:&quot;内网状态，查看连接详情&quot;}">
-                <span class="chat-network-dot" aria-hidden="true"></span>
-                <span data-i18n-text="[&quot;内网&quot;]">内网</span><span id="chat-network-status" class="chat-network-status" data-i18n-text="[&quot;离线&quot;]">离线</span>
-                <svg class="chat-network-arrow" width="12" height="12" data-icon="chevron-right" aria-hidden="true"></svg>
-              </button>
               <button id="btn-thread-new" class="btn thread-new" data-tip="在当前工作空间中新建对话，原对话保留在历史中" data-icon="plus" data-i18n-text="[&quot;新建对话&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;在当前工作空间中新建对话，原对话保留在历史中&quot;}">新建对话</button>
             </div>
             <!-- 对话通道连接状态：仅在非正常连接时出现，避免占用常态空间 -->
@@ -1579,31 +1574,9 @@
                   </div>
                 </div>
                 <div class="card">
-                  <div class="security-caption" data-security-help="security-tunnel-description security-tunnel-overview security-tunnel-modes"><h3 data-i18n-text="[&quot;内网反向隧道&quot;]">内网反向隧道</h3></div>
-                  <p id="security-tunnel-description" class="card-desc security-inline-help" data-i18n="通过 abox-link 访问允许的内网服务。">通过 abox-link 访问允许的内网服务。</p>
-                  <details id="security-tunnel-overview" class="learn-more settings-details security-inline-help">
-                    <summary data-i18n="了解更多">了解更多</summary>
-                    <p data-i18n-text="[&quot;本机运行 abox-link 后，工作空间可以访问你放行的内网服务。保存后立即生效。&quot;]">本机运行 abox-link 后，工作空间可以访问你放行的内网服务。保存后立即生效。</p>
-                  </details>
-                  <details id="security-tunnel-modes" class="learn-more security-inline-help"><summary data-i18n-text="[&quot;了解更多&quot;]">了解更多</summary><p data-i18n-text="[&quot;两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。&quot;]">两种模式都走同一条隧道，按用户隔离，并由本机白名单控制。</p><p data-i18n-text="[&quot;：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。&quot;]"><b data-i18n-text="[&quot;透明模式（默认，推荐）&quot;]">透明模式（默认，推荐）</b>：对话与终端直接使用内网 IP 或域名，不需要给 Agent 配代理，支持 IPv4 / TCP。首次启用需先准备网络辅助镜像。</p><p data-i18n-text="[&quot;：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。&quot;]"><b data-i18n-text="[&quot;兼容代理模式（不推荐）&quot;]">兼容代理模式（不推荐）</b>：取消下方勾选后使用。Agent 要显式使用 SOCKS 代理，不支持代理的程序要配置端口映射，容易漏用，只给旧客户端或特殊场景。</p></details>
-                  <div class="settings-toggle security-tunnel-master"><div class="security-caption" data-security-help="security-tunnel-overview tunnel-note"><label for="set-tunnel-on" class="settings-toggle-label"><span data-i18n="启用隧道">启用隧道</span> <span class="tag live" data-i18n-text="[&quot;即时生效&quot;]">即时生效</span></label></div><input class="interface-switch" role="switch" type="checkbox" id="set-tunnel-on"></div>
-                  <div class="security-disclosure security-tunnel-advanced" data-security-disclosure="隧道参数">
-                  <div class="security-disclosure-body" id="security-tunnel-panel">
-                  <div class="settings-toggle"><div class="security-caption" data-security-help="security-tunnel-modes"><label for="set-tunnel-transparent" class="settings-toggle-label" data-i18n="使用透明模式（默认，推荐）">使用透明模式（默认，推荐）</label></div><input class="interface-switch" role="switch" type="checkbox" id="set-tunnel-transparent"></div>
-                  <div class="field-row"><div class="field"><div class="security-caption" data-security-help="set-network-bind"><label for="set-network-bind" data-i18n-text="[&quot;网络控制监听地址&quot;]">网络控制监听地址</label></div><input id="set-network-bind" class="mono" placeholder="默认网桥地址:1082" data-i18n-attrs="{&quot;placeholder&quot;:&quot;默认网桥地址:1082&quot;}"></div><div class="field"><div class="security-caption" data-security-help="set-network-image security-tunnel-modes"><label for="set-network-image" data-i18n-text="[&quot;网络辅助镜像&quot;]">网络辅助镜像</label></div><input id="set-network-image" class="mono" placeholder="agentbox-network:latest"></div></div>
-                  <div class="field-row security-tunnel-tail">
-                    <div class="field"><div class="security-caption" data-security-help="tunnel-note"><label for="set-tunnel-bind" data-i18n-text="[&quot;SOCKS 监听地址（须容器可达）&quot;]">SOCKS 监听地址（须容器可达）</label></div>
-                      <input id="set-tunnel-bind" type="text" class="mono" placeholder="172.17.0.1:1080">
-                    </div>
-                    <div class="field"><div class="security-caption" data-security-help="security-tunnel-host-help"><label for="set-tunnel-host" data-i18n-text="[&quot;注入容器的代理主机（可选）&quot;]">注入容器的代理主机（可选）</label></div>
-                      <input id="set-tunnel-host" type="text" class="mono" placeholder="默认取监听地址的主机" data-i18n-attrs="{&quot;placeholder&quot;:&quot;默认取监听地址的主机&quot;}">
-                    </div>
-                  </div>
-                  <div class="card-foot security-tunnel-tail security-inline-help">
-                    <span id="tunnel-note" class="note" data-i18n-text="[&quot;默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达&quot;]">默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达</span>
-                  </div>
-                  </div>
-                  </div>
+                  <div class="security-caption" data-security-help="device-link-help"><h3 data-i18n="设备连接">设备连接</h3></div>
+                  <p id="device-link-help" class="card-desc security-inline-help" data-i18n="用 abox-link 配对设备并只读浏览选定的文件夹。">用 abox-link 配对设备并只读浏览选定的文件夹。</p>
+                  <div class="settings-toggle"><label for="set-device-link-on" class="settings-toggle-label" data-i18n="允许连接设备">允许连接设备</label><input class="interface-switch" role="switch" type="checkbox" id="set-device-link-on"></div>
                 </div>
                 </div>
               </section>
@@ -1633,7 +1606,7 @@
                 </div>
                 </div>
               </section>
-              <p id="security-tunnel-host-help" hidden data-i18n="默认取监听地址的主机">默认取监听地址的主机</p>
+
             </section>
 
             <!-- 运维监控 -->
@@ -2094,7 +2067,7 @@
         </div>
       </div>
 
-      <!-- 内网隧道视图 -->
+      <!-- 连接设备视图 -->
       <div id="view-extensions" class="view hidden">
         <header class="set-head">
           <h1 data-i18n-text="[&quot;扩展&quot;]">扩展</h1>
@@ -2106,74 +2079,53 @@
         </div>
       </div>
 
-      <div id="view-tunnel" class="view hidden">
+      <div id="view-device-link" class="view hidden">
         <header class="set-head">
-          <h1 data-i18n-text="[&quot;内网隧道&quot;]">内网隧道</h1>
+          <h1 data-i18n-text="[&quot;连接设备&quot;]">连接设备</h1>
           <p data-i18n-text="[&quot;在你的电脑上运行 abox-link，让云端工作空间中的 Agent 按需访问你授权的内网服务。&quot;]">在你的电脑上运行 abox-link，让云端工作空间中的 Agent 按需访问你授权的内网服务。</p>
         </header>
 
-        <div class="tun-body">
-          <div id="tun-status" class="tun-status">
-            <span id="tun-st-dot" class="t-dot big"></span>
-            <div class="tun-st-text">
-              <b id="tun-st-title" data-i18n-text="[&quot;离线&quot;]">离线</b>
-              <span id="tun-st-sub" class="tun-st-sub mono"></span>
-            </div>
-          </div>
-          <div id="tun-maps" class="tun-maps hidden"></div>
-          <div id="tun-modes" class="card tun-guide">
-            <h3 data-i18n-text="[&quot;访问模式&quot;]">访问模式</h3>
-            <p id="tun-mode-current" role="status"></p>
-            <p data-i18n-text="[&quot;：直接访问放行的内网 IP 或域名，对话与终端无需配置代理。支持 IPv4 / TCP。&quot;]"><b data-i18n-text="[&quot;透明模式 · 默认推荐&quot;]">透明模式 · 默认推荐</b>：直接访问放行的内网 IP 或域名，对话与终端无需配置代理。支持 IPv4 / TCP。</p>
-            <p data-i18n-text="[&quot;：保留给旧客户端或特殊场景；需要显式使用 SOCKS 代理，数据库等程序通常要另配端口映射，Agent 可能因漏用代理而连接失败。&quot;]"><b data-i18n-text="[&quot;兼容代理模式 · 暂不推荐&quot;]">兼容代理模式 · 暂不推荐</b>：保留给旧客户端或特殊场景；需要显式使用 SOCKS 代理，数据库等程序通常要另配端口映射，Agent 可能因漏用代理而连接失败。</p>
-            <p data-i18n-text="[&quot;两种模式都需要本机 abox-link 在线并配置白名单。旧客户端不会自动切换；请下载新版客户端，在本机开启透明模式并保存重连。&quot;]">两种模式都需要本机 abox-link 在线并配置白名单。旧客户端不会自动切换；请下载新版客户端，在本机开启透明模式并保存重连。</p>
-          </div>
-          <div id="tun-network" class="card hidden">
-            <h3 data-i18n-text="[&quot;透明内网访问&quot;]">透明内网访问</h3>
-            <p id="tun-network-note" class="card-desc"></p>
-            <div id="tun-network-rules" class="mono"></div>
-            <div id="tun-network-workspaces"></div>
-            <div class="field-row">
-              <label class="field"><span data-i18n-text="[&quot;检查客户端到目标的 TCP 连接&quot;]">检查客户端到目标的 TCP 连接</span><input id="tun-probe-target" class="mono" placeholder="db.corp.local:5432"></label>
-              <button id="tun-probe" class="btn btn-sm" type="button" data-icon="activity" data-tip="检查客户端到指定目标的 TCP 连接" data-i18n-text="[&quot;检查&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;检查客户端到指定目标的 TCP 连接&quot;}">检查</button>
-            </div>
-            <p id="tun-probe-result" role="status"></p>
-          </div>
-          <p id="tun-admin-online" class="field-hint hidden"></p>
+        <div class="dev-body">
+          <div id="dev-status" class="dev-status">
+            <span id="dev-st-dot" class="t-dot big"></span>
+            <div class="dev-st-text">
+              <b id="dev-st-title" data-i18n-text="[&quot;离线&quot;]">离线</b>
 
-          <div id="tun-off-admin" class="card tun-hint hidden">
-            <p data-i18n-text="[&quot;隧道功能未启用。启用后，你可以在自己的电脑上运行 abox-link 客户端，\n            让云端容器里的智能体访问「只有你本机能连」的内网（公司内网、局域网设备、本地数据库）。&quot;]">隧道功能未启用。启用后，你可以在自己的电脑上运行 abox-link 客户端，
-            让云端容器里的智能体访问「只有你本机能连」的内网（公司内网、局域网设备、本地数据库）。</p>
+            </div>
+          </div>
+          <p id="dev-admin-online" class="field-hint hidden"></p>
+
+          <div id="dev-off-admin" class="card dev-hint hidden">
+            <p data-i18n="请在安全设置中允许连接设备。">请在安全设置中允许连接设备。</p>
             <div>
-                  <button id="tun-goto-settings" class="btn btn-primary btn-sm" data-icon="settings" data-tip="前往系统设置启用内网隧道" data-i18n-text="[&quot;设置&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;前往系统设置启用内网隧道&quot;}">设置</button>
+                  <button id="dev-goto-settings" class="btn btn-primary btn-sm" data-icon="settings" data-tip="前往设置以允许连接设备" data-i18n-text="[&quot;设置&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;前往设置以允许连接设备&quot;}">设置</button>
             </div>
           </div>
 
-          <div id="tun-guide" class="card tun-guide hidden">
+          <div id="dev-guide" class="card dev-guide hidden">
             <h3 data-i18n-text="[&quot;接入步骤&quot;]">接入步骤</h3>
             <ol>
               <li data-i18n-text="[&quot;（放到你自己的电脑上）\n                &quot;]">
                 <b data-i18n-text="[&quot;下载 abox-link 客户端&quot;]">下载 abox-link 客户端</b>（放到你自己的电脑上）
-                <div id="tun-dl" class="tun-dl"></div>
-                <span id="tun-dl-empty" class="field-hint hidden" data-i18n-text="[&quot;此服务尚未安装客户端，请从 &quot;,&quot; 下载对应系统的 abox-link。一键安装 v0.1.1 起自动提供下载。&quot;]">此服务尚未安装客户端，请从 <a href="https://github.com/devilcoolyue/agentbox/releases/latest" target="_blank" rel="noopener noreferrer" data-i18n-text="[&quot;官方发布页&quot;]">官方发布页</a> 下载对应系统的 abox-link。一键安装 v0.1.1 起自动提供下载。</span>
+                <div id="dev-dl" class="dev-dl"></div>
+                <span id="dev-dl-empty" class="field-hint hidden" data-i18n-text="[&quot;此服务尚未安装客户端，请从 &quot;,&quot; 下载对应系统的 abox-link。一键安装 v0.1.1 起自动提供下载。&quot;]">此服务尚未安装客户端，请从 <a href="https://github.com/devilcoolyue/agentbox/releases/latest" target="_blank" rel="noopener noreferrer" data-i18n-text="[&quot;官方发布页&quot;]">官方发布页</a> 下载对应系统的 abox-link。一键安装 v0.1.1 起自动提供下载。</span>
               </li>
               <li data-i18n-text="[&quot;，它会自动打开本机控制台 &quot;]">
                 <b data-i18n-text="[&quot;双击运行&quot;]">双击运行</b>，它会自动打开本机控制台 <code>http://127.0.0.1:7801</code>
               </li>
-              <li data-i18n-text="[&quot;——不用输服务器地址和密码。\n                之后在控制台里点选放行规则、点「启动」即可，还能勾选开机自启。\n                &quot;]">
-                <b data-i18n-text="[&quot;粘贴配对码完成接入&quot;]">粘贴配对码完成接入</b>——不用输服务器地址和密码。
-                之后在控制台里点选放行规则、点「启动」即可，还能勾选开机自启。
-                <div class="tun-cmd-foot">
-                  <button id="tun-pair" class="btn btn-primary btn-sm" data-icon="link" data-tip="生成一次性配对码，10 分钟内有效" data-i18n-text="[&quot;配对&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;生成一次性配对码，10 分钟内有效&quot;}">配对</button>
-                  <span id="tun-pair-hint" class="field-hint" data-i18n-text="[&quot;10 分钟内有效，只能用一次&quot;]">10 分钟内有效，只能用一次</span>
+              <li>
+                <b data-i18n="将配对码粘贴到 abox-link。">将配对码粘贴到 abox-link。</b>
+                <div class="dev-cmd-foot">
+                  <button id="dev-pair" class="btn btn-primary btn-sm" data-icon="link" data-tip="生成一次性配对码，10 分钟内有效" data-i18n-text="[&quot;配对&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;生成一次性配对码，10 分钟内有效&quot;}">配对</button>
+                  <span id="dev-pair-hint" class="field-hint" data-i18n-text="[&quot;10 分钟内有效，只能用一次&quot;]">10 分钟内有效，只能用一次</span>
                 </div>
-                <div id="tun-pair-result" class="tun-pair-result hidden">
-                  <pre id="tun-pair-code" class="tun-cmd mono"></pre>
-                  <button id="tun-pair-copy" type="button" class="btn btn-ghost tun-pair-copy" data-icon="copy" aria-label="复制配对码" data-tip="复制配对码" data-i18n-attrs="{&quot;aria-label&quot;:&quot;复制配对码&quot;,&quot;data-tip&quot;:&quot;复制配对码&quot;}"></button>
+                <div id="dev-pair-result" class="dev-pair-result hidden">
+                  <pre id="dev-pair-code" class="dev-cmd mono"></pre>
+                  <button id="dev-pair-copy" type="button" class="btn btn-ghost dev-pair-copy" data-icon="copy" aria-label="复制配对码" data-tip="复制配对码" data-i18n-attrs="{&quot;aria-label&quot;:&quot;复制配对码&quot;,&quot;data-tip&quot;:&quot;复制配对码&quot;}"></button>
                 </div>
               </li>
               <li>
-                <b data-i18n-text="[&quot;完成。&quot;]">完成。</b><span id="tun-guide-mode" data-i18n-text="[&quot;连接后可访问本机放行的内网目标。&quot;]">连接后可访问本机放行的内网目标。</span>
+                <b data-i18n-text="[&quot;完成。&quot;]">完成。</b><span id="dev-guide-mode" data-i18n-text="[&quot;在 abox-link 中添加文件夹，然后打开「文件 → 从我的电脑」。&quot;]">在 abox-link 中添加文件夹，然后打开「文件 → 从我的电脑」。</span>
               </li>
             </ol>
           </div>
@@ -2923,7 +2875,7 @@
   </form>
 </dialog>
 
-<!-- 内网隧道：状态 + 接入指引 -->
+<!-- 连接设备：状态 + 接入指引 -->
 <!-- 图标选择器：整套图标库按需加载 -->
 <dialog id="dlg-icon-picker" class="dlg-icon-picker" aria-labelledby="icon-picker-title">
   <form method="dialog">

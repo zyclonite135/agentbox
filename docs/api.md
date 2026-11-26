@@ -20,7 +20,7 @@
 | `GET /api/me` | 已登录 | 当前用户、角色、时区、额度及界面所需信息 |
 | `GET /api/onboarding` | 已登录 | 当前用户的首次准备快照；不联网验证提供方或启动空间 |
 | `POST /api/me/password` | 已登录 | `{old_password, new_password}`；保留当前令牌，撤销其他登录 |
-| `POST /api/tunnel/pair/redeem` | 凭配对码 | 配对码本身是一次性凭证，无需另带登录令牌 |
+| `POST /api/device-link/pair/redeem` | 凭配对码 | 配对码本身是一次性凭证，无需另带登录令牌 |
 
 ## 工作空间
 
@@ -160,17 +160,19 @@ POST   /api/proxies/import          批量导入 {text}，每行一条
 GET    /api/proxies/export          导出为可再导入的文本（含密码明文）
 ```
 
-## 内网隧道
+## Подключение устройств
 
-```text
-WS     /api/tunnel                  内网反向隧道（abox-link 客户端拨入；yamux over WSS）
-GET    /api/tunnel/status           本用户隧道状态（在线/映射/透明规则/空间网络就绪状态）
-POST   /api/tunnel/probe            检查本用户客户端到目标的 TCP 连通性 {target:"host:port"}
-POST   /api/tunnel/pair             生成配对码（一次性，10 分钟有效）
-POST   /api/tunnel/pair/redeem      用配对码换会话令牌（无需登录：码本身即凭证）
-GET    /api/tunnel/clients          可下载的 abox-link 预编译客户端列表
-GET    /api/tunnel/clients/{name}   下载客户端二进制（实际 <data_dir>/abox-link/ 下的文件）
-```
+| Метод | Путь | Назначение |
+|---|---|---|
+| WS | /api/device-link | Подключение abox-link для чтения выбранных папок |
+| GET | /api/device-link/status | Состояние подключения |
+| POST | /api/device-link/pair | Одноразовый код сопряжения |
+| POST | /api/device-link/pair/redeem | Обмен кода на токен устройства |
+| GET | /api/device-link/clients | Список сборок abox-link |
+| GET | /api/device-link/clients/{name} | Скачать сборку abox-link |
+| GET | /api/local-folders | Список доступных папок |
+| GET | /api/local-folders/{folder} | Просмотр папки |
+| POST | /api/sessions/{id}/local-file | Копирование файла или добавление во вложения |
 
 ## 用户、额度与系统管理
 
@@ -355,7 +357,7 @@ curl --fail-with-body -sS "$ABOX_URL/api/users/alice/credits" \
 {"type":"resize","cols":120,"rows":36}
 ```
 
-额度拦截使用关闭码 `4003`，账号撤权使用 `4004`；客户端应显示 reason 并停止无意义的自动重连。配对隧道则使用 yamux over WebSocket，由 abox-link 处理，不属于聊天 JSON 协议。
+额度拦截使用关闭码 `4003`，账号撤权使用 `4004`；客户端应显示 reason 并停止无意义的自动重连。设备文件连接使用 yamux over WebSocket，由 abox-link 处理，不属于聊天 JSON 协议。
 
 ## 接口依据
 
@@ -390,11 +392,11 @@ POST   /api/sessions/{id}/git/push         {repo, remote, ref, expected_head, ex
 
 创建空间新增可选 `git_connection_id`：省略采用用户默认，显式空串不绑定，非空必须是当前用户可用连接。默认连接作为绑定表单的建议值，不会授权用户未选中的仓库。绑定时校验仓库真实 remote 与连接地址，操作时再次核对；地址变化返回 409 要求重新绑定。
 
-`base_url` 限 HTTPS，支持服务子路径；只提供 HTTP 的内网服务可填 `http://`，但必须同时选择 `network.route=tunnel` 且不带 CA，服务端直连一律拒绝 HTTP，仓库地址的协议须与连接一致，不接受 userinfo/query/fragment。连接创建后 provider/base_url/username 不可改；换服务需新建连接。GitHub 缺省 username 为 x-access-token，GitLab 为 oauth2，通用服务需填写。缺省 read_only=true；这只是 Agentbox 的限制，上游仍需赋予对应权限。
+Git HTTPS 连接的服务地址可包含安装子路径，不能包含 userinfo、查询参数或片段。创建后，若要更换服务地址，请创建新连接。
 
 push-preview 返回目标 URL、连接标签、完整 ref、本地和远程 SHA 以及最多 20 条提交摘要；push 必须带回三个校验值。当前仅推送当前分支到远程同名分支，禁止强推、删除、多 ref 和隐式标签推送。远端提前推进或本地 HEAD 变化返回 409。网络中断后结果可能未知，应重新核对远端，而非重复本地提交。
 
-网络传输通过按次的网桥 HTTP grant 转发，只允许所选仓库的 upload-pack 或 receive-pack。长效 Token 留在服务端，receive-pack 校验 ref/old/new；拒绝重定向，不把调用方 Cookie 或任意 Header 发往上游。Git 仍在容器运行，单条网络命令最长 30 分钟（`gitx.NetworkTimeout`，经内网隧道的大仓库可能要几分钟）。网桥使用 `proxy_bridge.bind` 的监听主机及动态端口，容器通过 `proxy_bridge.host` 访问，需允许容器到该网桥的连接。上游缺省由服务端直连 HTTPS；可按下文配置公司 CA、用户隧道或 SSH。
+网络传输通过按次的网桥 HTTP grant 转发，只允许所选仓库的 upload-pack 或 receive-pack。长效 Token 留在服务端，receive-pack 校验 ref/old/new；拒绝重定向，不把调用方 Cookie 或任意 Header 发往上游。Git 仍在容器运行，单条网络命令最长 30 分钟（`gitx.NetworkTimeout`）。网桥使用 `proxy_bridge.bind` 的监听主机及动态端口，容器通过 `proxy_bridge.host` 访问，需允许容器到该网桥的连接。上游缺省由服务端直连 HTTPS；可按下文配置公司 CA或 SSH。
 
 连接、绑定、默认值及 fetch/pull/push 写入 `git_operations` 审计（不记录 Token 和原始网络错误）。个人 Git 连接中的「操作记录」可查询并取消活动操作。正在传输的请求无法撤回；停用/修改连接会拒绝后续 grant 请求。
 
@@ -426,7 +428,7 @@ POST /api/git/connections/{connection}/revoke {revision}；OAuth 连接专用
 
 授权 state、PKCE verifier、浏览器 nonce 和原登录令牌关联在服务端短时内存中，10 分钟到期、每用户最多 4 个、重启后需重试。回调同时要求 HttpOnly / SameSite=Lax Cookie，原登录失效或应用停用/修改后不保存授权（凭证写入事务再次验证原登录令牌，防止删除/重建同名用户的并发串号）；授权码单次消费，回调页面不反射上游错误/令牌。
 
-GitHub 请求 `repo read:user`（repo 本身包含写权限，Agentbox 的只读策略在服务端执行）；GitLab 只读请求 `read_user read_repository`，可写再加 `write_repository`。自建 GitLab 可使用规范 HTTPS 服务前缀。网络缺省服务端直连并验证系统 CA；应用的 network 可选择用户隧道与公司 CA。
+GitHub 请求 `repo read:user`（repo 本身包含写权限，Agentbox 的只读策略在服务端执行）；GitLab 只读请求 `read_user read_repository`，可写再加 `write_repository`。自建 GitLab 可使用规范 HTTPS 服务前缀。网络缺省服务端直连并验证系统 CA；应用的 network 可配置公司 CA。
 
 OAuth Access/Refresh Token 均在连接密文内。使用前按连接串行续期，保留未重新返回的刷新令牌/范围；刷新失败不回落其他账号。`connection_id` 用于保留原连接 ID 的重新授权，不影响已有绑定；需使用原 OAuth 应用并核对连接修订。
 
@@ -434,11 +436,11 @@ OAuth Access/Refresh Token 均在连接密文内。使用前按连接串行续�
 
 ### 企业网络与 SSH
 
-连接和 OAuth 应用新增 `network: {route?: "direct"|"tunnel", ca_pem?: string}`；缺省保持服务端直连。`tunnel` 使用连接属主自己的 abox-link 隧道，目标 DNS 在客户端解析，仍受该客户端白名单控制；总开关关闭、用户离线、白名单拒绝均报错，绝不回落直连。兼容和透明客户端均可用于显式 Git 隧道。
+连接和 OAuth 应用通过 AgentBox 服务器访问 Git，可在 network.ca_pem 中设置公司 CA。
 
-`ca_pem` 限 32 KiB，只接受 PEM 根 CA/中间 CA，不接受私钥或非 CA 证书。追加到此连接专用系统信任池，保留域名验证和 TLS >= 1.2，不更改系统全局 CA。路由和 CA 是连接/应用不可变身份的一部分，并加入密文认证数据；更换需新建连接/应用。旧无 network 行仍按原认证数据解密。SQLite schema 7 保存 network；备份兼容旧库并验证新的认证数据。
+`ca_pem` 限 32 KiB，只接受 PEM 根 CA/中间 CA，不接受私钥或非 CA 证书。追加到此连接专用系统信任池，保留域名验证和 TLS >= 1.2，不更改系统全局 CA。CA 是连接/应用不可变身份的一部分，并加入密文认证数据；更换需新建连接/应用。旧无 network 行仍按原认证数据解密。SQLite schema 7 保存 network；备份兼容旧库并验证新的认证数据。
 
-OAuth 应用配置的路由/CA 贯穿授权码交换、续期、撤销与随后 Git 传输；请求使用授权用户自己的隧道，浏览器也必须能打开平台授权页。GitHub Enterprise API 与 GitLab 子路径通过同一策略访问。
+OAuth 应用配置的 CA 贯穿授权码交换、续期、撤销与随后 Git 传输；浏览器也必须能打开平台授权页。GitHub Enterprise API 与 GitLab 子路径通过同一策略访问。
 
 创建 SSH 连接：
 
@@ -452,8 +454,7 @@ OAuth 应用配置的路由/CA 贯穿授权码交换、续期、撤销与随后 
   "private_key": "PEM / OpenSSH 私钥",
   "passphrase": "可选解密口令",
   "host_key": "ssh-ed25519 AAAA... 管理员提供的服务器主机公钥",
-  "read_only": true,
-  "network": {"route": "tunnel"}
+  "read_only": true
 }
 ```
 
@@ -507,7 +508,7 @@ PUT /api/git/connections/{connection}/shares  {revision,users:[{user,write:false
 
 仅管理员可配置自己拥有的 PAT/SSH 连接共享（专用服务账号或部署密钥）；个人 OAuth 不共享。管理员权限本身不能读取/使用其他用户的私有连接。名单整表更新，每人明确只读/可写，最多 500 人；连接自身 read_only=true 时所有消费者均只读。权限判断在服务端执行，覆盖创建空间默认、绑定、测试读取、clone/fetch/pull/push、PR/MR；HTTP/TCP grant 每次开始上游请求重查修订及当前授权。
 
-连接列表包含私有和被授权连接，`managed` 表示是否允许维护。普通消费者不能编辑、删除、改密钥、撤销 OAuth 或修改共享名单，列表不下发密钥或其他被授权用户名。共享连接的网络路由使用实际操作者自己的隧道；审计记录实际操作者。
+连接列表包含私有和被授权连接，`managed` 表示是否允许维护。普通消费者不能编辑、删除、改密钥、撤销 OAuth 或修改共享名单，列表不下发密钥或其他被授权用户名。审计记录实际操作者。
 
 撤权增加连接修订并清理被撤销用户的默认建议；仓库绑定保留为不可用，需手工重新绑定，不能静默换账号。正在上游执行的请求不能收回，必要时在上游撤销 Token/密钥。删除用户同时清理授予名单，重建同名用户不会继承旧授权。SQLite schema 8 增加 git_connection_shares。
 

@@ -95,7 +95,6 @@ python3 scripts/verify.py run --step docker.transparent \
   --network-image agentbox-network:dev
 ```
 
-具体镜像、平台和夹具构建条件仍以原脚本及 [CLI 兼容矩阵](compatibility.md)、[透明网络验收](architecture/transparent-network.md) 为准。命令目录逐项标注资源，不能把“未提供这些资源”误读为对应能力已验收。`docker.reasoning` / `docker.mcp` 用真实 CLI 加模拟上游，不消耗模型额度。
 
 原生 Smoke.app、Windows 安装器、跨 OS peer、磁盘镜像故障测试以及真正付费/联网检查在 `list` 的外部入口中列出，保持原参数和隔离要求，不提供自动 `all` 模式。特别是 `CODEX_LIVE_TEST=1` 会真实调用已登录的模型，需要单独明确授权；正式签名、最低系统、真实 IME/拖放/休眠和试用期需要设备/参与者，不能用合成脚本替代。
 

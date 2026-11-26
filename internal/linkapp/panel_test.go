@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"agentbox/internal/tunnel"
+	"agentbox/internal/devicelink"
 )
 
-// The panel can open a hole into the user's intranet, so the guard in front of
+// The panel controls the user's shared folders, so the guard in front of
 // it is load-bearing: loopback binding alone does not stop a hostile web page
 // from POSTing to 127.0.0.1, nor DNS rebinding from reaching it by name.
 func TestLocalGuard(t *testing.T) {
@@ -61,7 +61,6 @@ func TestLocalGuard(t *testing.T) {
 func TestStateOmitsToken(t *testing.T) {
 	p := NewPanel(Config{
 		Server: "https://box.example.com", User: "alice", Token: "super-secret-token",
-		Allow: []string{"10.0.0.0/8"},
 	}, NewSupervisor())
 
 	raw, err := json.Marshal(p.state())
@@ -82,7 +81,7 @@ func TestStateOmitsToken(t *testing.T) {
 
 func TestStartRefusesUnpairedConfig(t *testing.T) {
 	sup := NewSupervisor()
-	err := sup.Start(Config{Allow: []string{"10.0.0.0/8"}})
+	err := sup.Start(Config{})
 	if err == nil {
 		t.Fatal("want an error when there are no server credentials")
 	}
@@ -91,32 +90,24 @@ func TestStartRefusesUnpairedConfig(t *testing.T) {
 	}
 }
 
-func TestStartRefusesRulelessConfig(t *testing.T) {
-	sup := NewSupervisor()
-	err := sup.Start(Config{Server: "https://box.example.com", User: "a", Token: "t"})
-	if err == nil {
-		t.Fatal("want an error when there are no allow rules")
-	}
-}
-
 func TestRePairStopsTunnelWithPreviousFolders(t *testing.T) {
 	t.Setenv("ABOX_LINK_HOME", t.TempDir())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/tunnel/pair/redeem" {
+		if r.URL.Path == "/api/device-link/pair/redeem" {
 			writeJSON(w, http.StatusOK, map[string]string{"user": "new-user", "token": "new-token"})
 			return
 		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer server.Close()
-	old := Config{Server: server.URL, User: "old-user", Token: "old-token", Folders: []localFolder{{Folder: tunnel.Folder{ID: "fixture-folder-01", Name: "Reports"}, Path: t.TempDir()}}}
+	old := Config{Server: server.URL, User: "old-user", Token: "old-token", Folders: []localFolder{{Folder: devicelink.Folder{ID: "fixture-folder-01", Name: "Reports"}, Path: t.TempDir()}}}
 	sup := NewSupervisor()
 	defer sup.Stop()
 	if err := sup.Start(old); err != nil {
 		t.Fatal(err)
 	}
 	panel := NewPanel(old, sup)
-	body, err := json.Marshal(map[string]string{"code": tunnel.EncodePairCode(server.URL, "fixture")})
+	body, err := json.Marshal(map[string]string{"code": devicelink.EncodePairCode(server.URL, "fixture")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +115,7 @@ func TestRePairStopsTunnelWithPreviousFolders(t *testing.T) {
 	rec := httptest.NewRecorder()
 	panel.handlePair(rec, req)
 	if rec.Code != http.StatusOK || sup.Running() {
-		t.Fatalf("previous tunnel still running or pair failed: %d, %s", rec.Code, rec.Body)
+		t.Fatalf("previous device connection still running or pair failed: %d, %s", rec.Code, rec.Body)
 	}
 	got, err := LoadConfig()
 	if err != nil || got.User != "new-user" || len(got.Folders) != 0 {
@@ -151,7 +142,7 @@ func TestFolderPanelAcceptsQuotedPath(t *testing.T) {
 	}
 	change(map[string]string{"id": "unknown-folder"})
 	if panel.Config().Folders != nil {
-		t.Fatal("removing an unknown folder enabled folder-only mode")
+		t.Fatal("removing an unknown folder created a catalog")
 	}
 	change(map[string]string{"name": "Отчёты", "path": `"` + path + `"`})
 	shares := panel.Config().Folders
@@ -160,7 +151,7 @@ func TestFolderPanelAcceptsQuotedPath(t *testing.T) {
 	}
 	change(map[string]string{"id": shares[0].ID})
 	cfg, err := LoadConfig()
-	if err != nil || !cfg.foldersOnly() || len(cfg.Folders) != 0 {
+	if err != nil || len(cfg.Folders) != 0 {
 		t.Fatalf("empty catalog was not saved for removal on the server: %+v %v", cfg.Folders, err)
 	}
 }
@@ -169,16 +160,6 @@ func TestFolderPanelAcceptsQuotedPath(t *testing.T) {
 // stop button and the shutdown path both do it unconditionally.
 func TestStopWhenIdleIsHarmless(t *testing.T) {
 	NewSupervisor().Stop()
-}
-
-func TestCleanList(t *testing.T) {
-	got := cleanList([]string{" 10.0.0.0/8 ", "", "   ", "db:5432"})
-	if len(got) != 2 || got[0] != "10.0.0.0/8" || got[1] != "db:5432" {
-		t.Fatalf("cleanList = %q", got)
-	}
-	if cleanList(nil) == nil {
-		t.Error("cleanList should return an empty slice, not nil, so the UI never sees null")
-	}
 }
 
 func TestLogRingKeepsLatestAndTracksSeq(t *testing.T) {

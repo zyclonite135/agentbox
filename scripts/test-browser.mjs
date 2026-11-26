@@ -89,15 +89,16 @@ export async function smoke(page) {
  let settings = { listen:'127.0.0.1:8180', agent_image:'fixture', permission_mode:'bypassPermissions', max_upload_mb:10,
   idle_timeout_min:30, turn_timeout_min:120, timezone:'UTC', container:{memory_mb:512,cpus:1,pids_limit:128,network:'none'},
   resources:{max_running:2,max_running_per_user:1,min_free_bytes:0},models:{claude:[],codex:[{id:'fixture',label:'Fixture',reasoning:{support:'supported',control:'effort',levels:['low','high','xhigh']}},{id:'fixture-lite',label:'Fixture Lite',reasoning:{support:'supported',control:'effort',levels:['low','high']}},{id:'fixture-none',label:'No adjustment',reasoning:{support:'unsupported'}},{id:'fixture-custom',label:'Custom'}]}, default_models:{claude:'fixture',codex:'fixture'},
-  terminal_tips:{tips:['fixture'],interval_sec:4,animation:'scroll'},tunnel:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},
+  terminal_tips:{tips:['fixture'],interval_sec:4,animation:'scroll'},device_link:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},
   model_gateway:{bind:'172.17.0.1:1083',host:'172.17.0.1',dedicated_connections:false,active:false,needed:false},pricing:{} };
  const me = {user:'fixture',role:'admin',timezone:'UTC',models:{claude:[],codex:[]},quota:{metered:false}};
  Object.defineProperty(me,'chat_history_timeout_sec',{enumerable:true,get:()=>settings.chat_history_timeout_sec});
  let sessions = [{id:'fixture-space',name:'Fixture workspace',agent:'codex',account_id:'fixture',account_label:'Fixture',status:'stopped',default_model:'fixture'}];
- const chatMessages = []; let chatSocket, historyEntries = [], historyCosts = {}, historyThread = null;
+ let deviceConnected = true;
+ const chatMessages = []; let onChatSend; let chatSocket, historyEntries = [], historyCosts = {}, historyThread = null;
  let usageRows = [];
  let usageTrend = {granularity:'hour',buckets:[],timezone:me.timezone}, usageTrendFail = false, usageTrendReads = 0, usageTrendQuery;
- await page.routeWebSocket('**/api/sessions/*/chat?*', ws => { chatSocket=ws; ws.onMessage(data => chatMessages.push(JSON.parse(data))); });
+ await page.routeWebSocket('**/api/sessions/*/chat?*', ws => { chatSocket=ws; ws.onMessage(data => { const msg=JSON.parse(data); chatMessages.push(msg); onChatSend?.(msg); }); });
  let usageLiveSocket;
  await page.routeWebSocket('**/api/usage/live?*', ws => { usageLiveSocket = ws; });
  const terminalInput = []; let terminalSocket;
@@ -138,8 +139,8 @@ export async function smoke(page) {
    release={...release,...nextRelease,checked_at:Date.now(),attempted_at:Date.now()};body=release;
   }
   else if(path === '/api/system') body={version:'v0.1.0',go_version:'go1.26.6',docker_version:'28.5.2',schema_version:2,sessions_running:0,sessions_total:1,users:1,accounts:0,listen:'127.0.0.1:8180',data_dir:'/fixture/data',config_path:'/fixture/config.json',started_at:Date.now()};
-  else if(path === '/api/tunnel/status') body={enabled:true,transparent:true,client_transparent:true,connected:true,proxy_up:true,since:Date.now()-10000,remote:'192.0.2.10:1234',maps:[],rules:['db.corp:5432','10.20.0.0/16'],workspaces:[{session:'fixture-space',name:'Fixture workspace',ready:true}]};
-  else if(path === '/api/tunnel/probe') { assert.equal(route.request().postDataJSON().target,'db.corp:5432'); body={ok:true,elapsed_ms:12}; }
+  else if(path === '/api/device-link/status') body={enabled:true,connected:deviceConnected};
+  else if(path === '/api/device-link/pair') body={code:'ABOX1-device-fixture',expires_in:600};
   else if(path === '/api/sessions') body=sessions;
   else if(path.endsWith('/models') && path.startsWith('/api/sessions/')) body={models:settings.models.codex,default_reasoning:{support:'unknown',control:'effort'},discovery:'available'};
   else if(path === '/api/accounts') {
@@ -161,7 +162,7 @@ export async function smoke(page) {
   } else if(path.endsWith('/apikey')) {
    keyWrites++; accounts.find(a=>a.id===path.split('/')[3]).auth_mode='apikey';
    accounts.find(a=>a.id===path.split('/')[3]).cred_status='ok';body={ok:true};
-  } else if(['/api/proxies','/api/users','/api/tunnel/clients'].includes(path) || path.endsWith('/files')) body=[];
+  } else if(['/api/proxies','/api/users','/api/device-link/clients'].includes(path) || path.endsWith('/files')) body=[];
   else if(path.endsWith('/history')) body={entries:historyEntries,thread:historyThread,costs:historyCosts};
   else if(path === '/api/settings') {
    if(route.request().method()==='PUT'){settingsWrites++;const patch=route.request().postDataJSON();settings={...settings,...patch,...(patch.model_gateway?{model_gateway:{...settings.model_gateway,...patch.model_gateway}}:{})};}
@@ -654,6 +655,34 @@ export async function smoke(page) {
   usageRows=[];
   usageTrend={granularity:'hour',buckets:[],timezone:me.timezone};
   }
+  if (process.env.AGENTBOX_BROWSER_ONLY_DEVICE_LINK === '1') {
+   await page.goto(base+'/#/device-link');
+   await page.locator('#dev-st-title').filter({hasText:'设备已连接'}).waitFor();
+   await page.locator('#dev-pair').click();
+   await page.locator('#dev-pair-code').filter({hasText:'ABOX1-device-fixture'}).waitFor();
+   deviceConnected = false;
+   await page.reload();
+   await page.locator('#dev-st-title').filter({hasText:'等待接入'}).waitFor();
+   await page.goto(base+'/#/sessions/fixture-space/chat');
+   const message = "Reply after the device disconnects";
+   await page.locator("#chat-input").fill(message);
+   await page.waitForFunction(()=>!document.querySelector("#chat-send").disabled);
+   let sent;
+   const outgoing = new Promise(resolve => { sent = resolve; });
+   onChatSend = msg => { if (msg.text === message) sent(msg); };
+   await page.locator("#chat-send").click();
+   const timer = new AbortController();
+   try {
+    const msg = await Promise.race([outgoing, new Promise((_,reject) => {
+     const id = setTimeout(() => reject(new Error("No chat submission reached the server fixture")), 4000);
+     timer.signal.addEventListener("abort", () => clearTimeout(id), {once:true});
+    })]);
+    assert.equal(msg.text,message);
+   } finally { timer.abort(); onChatSend = undefined; }
+   assert.deepEqual(errors,[]);
+   console.log('Device pairing, offline status and chat submission passed');
+   return;
+  }
   if (process.env.AGENTBOX_BROWSER_ONLY_USAGE === '1') {
    await page.setViewportSize({width:1280,height:900});
    await usageSmoke();
@@ -1093,21 +1122,13 @@ export async function smoke(page) {
   await at('#/settings/models','#mdl-panel-accounts');
   await page.goForward();
   await at('#/settings/models/system','#mdl-panel-system');
-  await open('open-tunnel');
-  await at('#/tunnel','#view-tunnel');
-  await page.locator('#tun-network').waitFor({state:'visible'});
-  assert.match(await page.locator('#tun-modes').innerText(),/默认推荐/);
-  assert.match(await page.locator('#tun-modes').innerText(),/暂不推荐/);
-  assert.match(await page.locator('#tun-mode-current').innerText(),/当前连接：透明模式/);
-  assert.match(await page.locator('#tun-network-rules').innerText(),/db.corp:5432/);
-  assert.match(await page.locator('#tun-network-workspaces').innerText(),/网络就绪/);
-  await page.locator('#tun-probe-target').fill('db.corp:5432');
-  await page.locator('#tun-probe').click();
-  await page.locator('#tun-probe-result').filter({hasText:'12 ms'}).waitFor();
-  await mkdir(resolve('output/playwright'),{recursive:true});
-  await page.screenshot({path:resolve('output/playwright/transparent-network.png')});
+  await open('open-device-link');
+  await at('#/device-link','#view-device-link');
+  await page.locator("#dev-st-title").filter({hasText:"设备已连接"}).waitFor();
+  assert.equal(await page.locator("#dev-pair").isVisible(), true);
+  assert.equal(await page.locator("#chat-network").count(), 0);
   await page.reload();
-  await at('#/tunnel','#view-tunnel');
+  await at('#/device-link','#view-device-link');
   await page.locator('[data-session-id="fixture-space"]').click();
   await at('#/sessions/fixture-space/chat','#tab-chat');
   // Model capabilities: compatible choices survive, incompatible/unknown ones reset.

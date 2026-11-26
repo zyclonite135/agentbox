@@ -14,9 +14,6 @@ type logRing struct {
 	lines []LogLine
 	next  int64
 	max   int
-	// mirror, when set, also receives every line — used by the headless CLI
-	// mode, whose "panel" is the terminal.
-	mirror func(string)
 }
 
 // LogLine is one entry in the panel's log view.
@@ -37,14 +34,7 @@ func (r *logRing) Printf(format string, args ...any) {
 	if len(r.lines) > r.max {
 		r.lines = append(r.lines[:0:0], r.lines[len(r.lines)-r.max:]...)
 	}
-	mirror := r.mirror
 	r.mu.Unlock()
-
-	// Outside the lock: the mirror writes to a terminal and must not be able to
-	// stall other loggers.
-	if mirror != nil {
-		mirror(text)
-	}
 }
 
 // Since returns the lines newer than seq, plus the latest sequence number.

@@ -117,7 +117,6 @@ type Server struct {
 	priceCatalogOnce sync.Once
 	prices           *pricecatalog.Service
 
-	network          networkState
 	egress           egressState
 	updates          updateState
 	storage          storageState
@@ -136,14 +135,9 @@ type Server struct {
 	git              *gitx.Runner
 	chat             *chatManager
 	attachmentMu     sync.Mutex // receipt acceptance and attachment TTL deletion
-	tunnels          *tunnelHub
+	devices          *deviceHub
 	pairs            *pairStore    // outstanding abox-link pairing codes
 	previews         *previewStore // 短时只读的 HTML 预览通行证
-	mapAuth          mapSourceAuth // source-IP cache for tunnel port-map listeners
-
-	tunnelMu   sync.Mutex   // guards the SOCKS listener lifecycle below
-	tunnelLn   net.Listener // nil when the tunnel proxy is not running
-	tunnelBind string       // bind address tunnelLn was created with
 
 	bridgeMu   sync.Mutex   // guards the account-proxy bridge lifecycle below
 	bridgeLn   net.Listener // nil when the bridge is not running
@@ -233,7 +227,7 @@ func NewContext(ctx context.Context, cfg *config.Config) (*Server, error) {
 		cfg:        cfg,
 		store:      st,
 		dock:       dock,
-		tunnels:    newTunnelHub(),
+		devices:    newDeviceHub(),
 		pairs:      newPairStore(),
 		previews:   newPreviewStore(),
 		startedAt:  time.Now(),
@@ -346,7 +340,7 @@ func (s *Server) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/login", s.handleLogin)
-	mux.Handle("POST /api/tunnel/probe", s.auth(http.HandlerFunc(s.handleNetworkProbe)))
+
 	mux.HandleFunc("GET /api/ping", s.handlePing)
 	// 全站图标配置不含敏感信息，登录页也要用，所以读取不需要登录
 	mux.HandleFunc("GET /api/icons", s.handleIcons)
@@ -575,16 +569,16 @@ func (s *Server) routes() *http.ServeMux {
 	mux.Handle("DELETE /api/sessions/{id}/chat/threads/{tid}", s.auth(s.withSession(s.handleThreadDelete)))
 	// 旧入口：语义已并入「新建对话线程」，保留路由兼容尚未刷新的页面
 	mux.Handle("POST /api/sessions/{id}/chat/reset", s.auth(s.withSession(s.handleThreadNew)))
-	mux.Handle("GET /api/tunnel", s.auth(http.HandlerFunc(s.handleTunnelWS)))
-	mux.Handle("GET /api/tunnel/status", s.auth(http.HandlerFunc(s.handleTunnelStatus)))
+	mux.Handle("GET /api/device-link", s.auth(http.HandlerFunc(s.handleDeviceLinkWS)))
+	mux.Handle("GET /api/device-link/status", s.auth(http.HandlerFunc(s.handleDeviceLinkStatus)))
 	mux.Handle("GET /api/local-folders", s.auth(http.HandlerFunc(s.handleLocalFolders)))
 	mux.Handle("GET /api/local-folders/{folder}", s.auth(http.HandlerFunc(s.handleLocalFolder)))
 	mux.Handle("POST /api/sessions/{id}/local-file", s.auth(s.withSession(s.handleLocalFile)))
-	mux.Handle("POST /api/tunnel/pair", s.auth(http.HandlerFunc(s.handleTunnelPair)))
+	mux.Handle("POST /api/device-link/pair", s.auth(http.HandlerFunc(s.handleDeviceLinkPair)))
 	// Redemption is unauthenticated by design: the pairing code is the credential.
-	mux.HandleFunc("POST /api/tunnel/pair/redeem", s.handleTunnelPairRedeem)
-	mux.Handle("GET /api/tunnel/clients", s.auth(http.HandlerFunc(s.handleTunnelClients)))
-	mux.Handle("GET /api/tunnel/clients/{name}", s.auth(http.HandlerFunc(s.handleTunnelClientGet)))
+	mux.HandleFunc("POST /api/device-link/pair/redeem", s.handleDeviceLinkPairRedeem)
+	mux.Handle("GET /api/device-link/clients", s.auth(http.HandlerFunc(s.handleDeviceLinkClients)))
+	mux.Handle("GET /api/device-link/clients/{name}", s.auth(http.HandlerFunc(s.handleDeviceLinkClientGet)))
 
 	// 预览直链自带通行证（见 preview.go），不走 s.auth
 	mux.HandleFunc("GET /preview/", s.handlePreviewServe)
@@ -635,10 +629,7 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	s.spawn(s.termWatchLoop)
 	s.spawn(s.tokenJanitor)
 	s.spawn(s.announcementLoop)
-	s.spawn(s.networkLoop)
-	if err := s.applyTunnel(); err != nil {
-		log.Printf("tunnel disabled: %v", err)
-	}
+	s.spawn(s.egressLoop)
 	if err := s.applyProxyBridge(); err != nil {
 		log.Printf("account proxy bridge disabled: %v", err)
 	}
@@ -893,7 +884,7 @@ func (s *Server) accountView(a config.Account, sessions int) acctView {
 
 // execEnv is the full per-exec env for a session: account env, the account's
 // outbound IP proxy when one is bound, plus the intranet proxy variable when
-// the owning user has a live reverse tunnel.
+// the account’s configured egress settings.
 func (s *Server) execEnv(sess store.Session) ([]string, error) {
 	acct, err := s.sessionAccount(sess)
 	if err != nil {
@@ -915,7 +906,7 @@ func (s *Server) execEnv(sess store.Session) ([]string, error) {
 		}
 		env = append(filtered, "ANTHROPIC_MODEL="+model)
 	}
-	env = append(env, s.tunnelEnvList(sess)...)
+
 	return s.usageTelemetryEnv(sess, s.modelGatewayEnv(sess, acct, env)), nil
 }
 
@@ -967,7 +958,7 @@ func (s *Server) handleAccounts(w http.ResponseWriter, r *http.Request) {
 func (s *Server) workspaces() *workspace.Service {
 	s.workspaceOnce.Do(func() {
 		s.workspace = workspace.New(s.cfg, s.store, s.dock, s.sessionAccount, s.credentialService().Sync)
-		s.workspace.SetNetworkHook(s.workspaceNetwork)
+		s.workspace.SetNetworkHook(s.ensureEgress)
 		s.workspace.SetMCPHook(s.syncMCPOnStart)
 		s.workspace.SetConnectionHook(s.applyCodexEndpoint)
 		s.workspace.SetLifecycleHook(s.emitWorkspaceLifecycle)

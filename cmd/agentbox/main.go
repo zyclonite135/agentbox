@@ -2,7 +2,6 @@ package main
 
 import (
 	"agentbox/internal/buildinfo"
-	"agentbox/internal/netaccess"
 	"context"
 	"flag"
 	"fmt"
@@ -25,15 +24,6 @@ func main() {
 		}
 		return
 	}
-	if len(os.Args) == 2 && os.Args[1] == "network-helper" {
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer stop()
-		if err := netaccess.RunHelper(ctx, netaccess.HelperConfig{Control: os.Getenv("ABOX_NETWORK_CONTROL"), Session: os.Getenv("ABOX_NETWORK_SESSION"), Secret: os.Getenv("ABOX_NETWORK_SECRET")}); err != nil {
-			log.Fatal(err)
-		}
-		return
-	}
-
 	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-version" || os.Args[1] == "version") {
 		fmt.Println(buildinfo.String("agentbox"))
 		return

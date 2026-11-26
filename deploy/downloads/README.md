@@ -282,7 +282,7 @@ sudo /opt/agentbox/current/agentbox backup-verify /安全备份目录/system.tar
 
 ## abox-link 客户端
 
-下载对应系统/架构的 `abox-link` 包并校验、解压。无参数运行打开本机控制台；通过浏览器中的内网隧道页面取得配对信息。无头模式用 `abox-link --help` 查看参数。
+下载对应系统/架构的 `abox-link` 包并校验、解压。无参数运行打开本机控制台；通过浏览器中的设备连接页面取得配对信息。可通过 `abox-link --daemon` 在后台运行本机控制台。
 
 发布平台：Linux amd64/arm64、macOS amd64/arm64、Windows amd64。v0.1.1 起安装/升级会把随包编译好的五个平台客户端放到 `/var/lib/agentbox/abox-link/`，控制台直接提供下载，不需要服务器安装 Go 或用户自行编译。
 

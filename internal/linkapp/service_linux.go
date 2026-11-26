@@ -60,7 +60,7 @@ func InstallAutostart() error {
 		env = fmt.Sprintf("Environment=ABOX_LINK_HOME=%s\n", home)
 	}
 	unit := fmt.Sprintf(`[Unit]
-Description=abox-link 内网隧道
+Description=abox-link 文件共享
 After=network-online.target
 
 [Service]

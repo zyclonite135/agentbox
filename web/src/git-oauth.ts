@@ -62,9 +62,9 @@ function editApp(app:GitOAuthApp|null,done:()=>Promise<void>){
  <label><span data-i18n="显示名称">${trHTML("显示名称")}</span><input name="label" type="text" required maxlength="128"></label>
  <label><span data-i18n="平台">${trHTML("平台")}</span><select name="provider"><option value="github">GitHub / GitHub Enterprise</option><option value="gitlab" data-i18n="GitLab / 自建 GitLab">${trHTML("GitLab / 自建 GitLab")}</option></select></label>
  <label><span data-i18n="服务地址">${trHTML("服务地址")}</span><input name="base_url" type="url" required></label>
- <label><span data-i18n="网络路由">${trHTML("网络路由")}</span><select name="route"><option value="" data-i18n="服务端直连">${trHTML("服务端直连")}</option><option value="tunnel" data-i18n="授权用户的内网隧道">${trHTML("授权用户的内网隧道")}</option></select></label>
+
  <label><span data-i18n="公司 CA 证书（可选）">${trHTML("公司 CA 证书（可选）")}</span><textarea name="ca_pem" rows="3" spellcheck="false"></textarea></label>
- <p class="field-hint"><span data-i18n="隧道模式下，授权、续期、撤销和 Git 传输均使用授权用户自己的在线隧道；浏览器也需能打开平台授权页。">${trHTML("隧道模式下，授权、续期、撤销和 Git 传输均使用授权用户自己的在线隧道；浏览器也需能打开平台授权页。")}</span></p>
+ <p class="field-hint"><span data-i18n="AgentBox 服务端必须能访问 Git 服务，浏览器必须能打开授权页面。">${trHTML("AgentBox 服务端必须能访问 Git 服务，浏览器必须能打开授权页面。")}</span></p>
  <label>Client ID<input name="client_id" type="text" required maxlength="256" autocomplete="off"></label>
  <label>Client Secret${app?i18nText("（留空保留）"):""}<input name="client_secret" type="password" ${app?"":"required"} autocomplete="new-password" maxlength="8192"></label>
  <label><span data-i18n="回调地址">${trHTML("回调地址")}</span><input name="redirect_url" type="url" required></label>
@@ -76,14 +76,14 @@ function editApp(app:GitOAuthApp|null,done:()=>Promise<void>){
  const provider=form.elements.namedItem("provider") as HTMLSelectElement;
  field("label").value=app?.label||"";setSelectValue(provider,app?.provider||"github");field("base_url").value=app?.base_url||"https://github.com";
  field("client_id").value=app?.client_id||"";field("redirect_url").value=app?.redirect_url||location.origin+"/api/git/oauth/callback";field("enabled").checked=app?.enabled??true;
- setSelectValue(form.elements.namedItem("route") as HTMLSelectElement,app?.network?.route||"");field("ca_pem").value=app?.network?.ca_pem||"";
- if(app){(form.elements.namedItem("route") as HTMLSelectElement).disabled=true;field("ca_pem").disabled=true;provider.disabled=true;for(const name of ["base_url","client_id","redirect_url"])field(name).disabled=true;}
+ field("ca_pem").value=app?.network?.ca_pem||"";
+ if(app){field("ca_pem").disabled=true;provider.disabled=true;for(const name of ["base_url","client_id","redirect_url"])field(name).disabled=true;}
  provider.addEventListener("change",()=>{field("base_url").value=provider.value==="gitlab"?"https://gitlab.com":"https://github.com";});
  let busy=false;const save=d.querySelector<HTMLButtonElement>('[type="submit"]')!,close=d.querySelector<HTMLButtonElement>("[data-close]")!;
  d.addEventListener("cancel",e=>{if(busy)e.preventDefault();});
  form.addEventListener("submit",async e=>{
   e.preventDefault();if(busy||token!==S.token)return;busy=true;save.disabled=close.disabled=true;
-  try{await api("/git/oauth/apps",{method:"PUT",body:JSON.stringify({id:app?.id||"",revision:app?.revision||0,label:field("label").value,provider:provider.value,base_url:field("base_url").value,client_id:field("client_id").value,client_secret:field("client_secret").value,redirect_url:field("redirect_url").value,enabled:field("enabled").checked,network:{route:(form.elements.namedItem("route") as HTMLSelectElement).value,ca_pem:field("ca_pem").value}})});field("client_secret").value="";d.close();if(token===S.token){toast(i18nText("OAuth 应用已保存"));await done();}}
+  try{await api("/git/oauth/apps",{method:"PUT",body:JSON.stringify({id:app?.id||"",revision:app?.revision||0,label:field("label").value,provider:provider.value,base_url:field("base_url").value,client_id:field("client_id").value,client_secret:field("client_secret").value,redirect_url:field("redirect_url").value,enabled:field("enabled").checked,network:{ca_pem:field("ca_pem").value}})});field("client_secret").value="";d.close();if(token===S.token){toast(i18nText("OAuth 应用已保存"));await done();}}
   catch(e){if(d.open)d.querySelector("[data-error]")!.textContent=(e as Error).message;else if(token===S.token)toast((e as Error).message,true);}
   finally{busy=false;save.disabled=close.disabled=false;}
  });

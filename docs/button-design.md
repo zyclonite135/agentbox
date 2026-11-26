@@ -76,7 +76,7 @@
 | `btn-sidebar-close` | 关闭菜单 | 已有图标 |
 | `btn-new` | 新建工作空间 | 已有图标 |
 | `btn-usagelog` | 使用记录余额— | 已有图标 |
-| `btn-tunnel` | 内网隧道离线 | 已有图标 |
+| `btn-device-link` | 设备离线 | 已有图标 |
 | `btn-settings` | 系统设置 | 已有图标 |
 | `data-theme-option=system` | 切换到跟随系统 | 已有图标 |
 | `data-theme-option=light` | 切换到浅色 | 已有图标 |

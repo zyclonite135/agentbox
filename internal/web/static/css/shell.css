@@ -305,7 +305,7 @@
 /* 管理入口两列带字；收起侧栏时变成一列图标（见下方 data-sidebar-collapsed 规则） */
 .side-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
 .side-tool { height: 34px; padding: 0 8px; gap: 8px; font-size: 12.5px; }
-#tunnel-text { display: none; }
+#device-link-text { display: none; }
 .side-tool.active { box-shadow: none; }
 .side-collapse {
   display: inline-flex; align-items: center; justify-content: center;
@@ -380,10 +380,10 @@
 :root[data-theme-mode="dark"] .side-theme-cycle svg.ic-moon { display: block; }
 .side-theme-cycle { display: none; }
 
-/* ---- 内网隧道入口：右侧状态灯 + 文案（在线时点亮） ---- */
-#btn-tunnel { position: relative; }
-.tunnel-state { display: flex; margin-left: auto; }
-.tunnel-state .t-dot { width: 5px; height: 5px; box-shadow: 0 0 0 2px var(--panel); }
+/* ---- 连接设备入口：右侧状态灯 + 文案（在线时点亮） ---- */
+#btn-device-link { position: relative; }
+.device-link-state { display: flex; margin-left: auto; }
+.device-link-state .t-dot { width: 5px; height: 5px; box-shadow: 0 0 0 2px var(--panel); }
 .t-dot {
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--line);
@@ -600,7 +600,7 @@
 }
 /* 区域滚动容器滚到头时在自己身上回弹（iOS）或拉伸（Android），不串到外层：文档本身不滚
  * （base.css），用户拉到顶或底能看到「到头了」，顶栏不跟着动。 */
-:is(.chat-log, .chat-hero, .tp-list, .empty, .set-content, .ext-body, .tun-body, .files-list,
+:is(.chat-log, .chat-hero, .tp-list, .empty, .set-content, .ext-body, .dev-body, .files-list,
     .changes-list, .changes-diff, .skills-list, .skills-detail, #mcp-content) { overscroll-behavior: contain; }
 /* 内容不满一屏时没有原生回弹，responsive.ts 用 --pull-y 让内容跟手位移、松手弹回。
  * 移的是子元素：区域本身留在原地并裁掉越界部分，不会盖到上方的栏。 */
@@ -671,7 +671,7 @@
   :root[data-sidebar-collapsed="true"] .side-item { padding: 0; justify-content: center; }
   :root[data-sidebar-collapsed="true"] .side-tools { grid-template-columns: 1fr; justify-items: center; }
   :root[data-sidebar-collapsed="true"] :is(.side-tool, .side-user) { flex: none; width: var(--rail-item); height: var(--rail-item); border-radius: calc(8px * var(--radius-scale)); }
-  :root[data-sidebar-collapsed="true"] .tunnel-state { position: absolute; right: 6px; bottom: 6px; margin: 0; }
+  :root[data-sidebar-collapsed="true"] .device-link-state { position: absolute; right: 6px; bottom: 6px; margin: 0; }
   :root[data-sidebar-collapsed="true"] .side-preferences { flex-direction: column; gap: 2px; padding: 6px 0 0; margin-top: 6px; }
   :root[data-sidebar-collapsed="true"] .theme-options { display: none; }
   :root[data-sidebar-collapsed="true"] .side-theme-cycle { display: flex; }

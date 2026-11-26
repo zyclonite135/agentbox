@@ -21,13 +21,13 @@ export function initSecurityLayout(section: HTMLElement, signal: AbortSignal, ad
       host.dataset.securityHelp!.split(" ").flatMap(id => settingsHelpText(document.getElementById(id))));
   }
   const list = section.querySelector("#user-list")!;
-  const tunnel = section.querySelector<HTMLInputElement>("#set-tunnel-on")!;
+  const deviceLink = section.querySelector<HTMLInputElement>("#set-device-link-on")!;
   const limit = section.querySelector<HTMLInputElement>("#set-upload")!;
-  const [userSummary, tunnelSummary, uploadSummary] = peers.map(fold => fold.summary);
+  const [userSummary, deviceSummary, uploadSummary] = peers.map(fold => fold.summary);
   const refresh = () => {
     const count = list.querySelectorAll(".user-row:not([aria-hidden])").length;
     setText(userSummary, "用户数 · {p0}", { p0: String(count) });
-    setText(tunnelSummary, tunnel.checked ? "隧道已开启" : "隧道已关闭");
+    setText(deviceSummary, deviceLink.checked ? "设备连接已启用" : "设备连接已停用");
     setText(uploadSummary, limit.value ? "上传上限 · {p0} MB" : "上传与监听", { p0: limit.value });
   };
   refresh();

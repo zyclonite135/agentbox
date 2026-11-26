@@ -1,12 +1,12 @@
 package server
 
 import (
-	"agentbox/internal/tunnel"
 	"bufio"
 	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/yamux"
 	"io"
 	"net"
 	"net/http"
@@ -143,12 +143,22 @@ func TestShutdownStopsPeriodicWorkersImmediately(t *testing.T) {
 	closeTestServer(t, s)
 }
 
-func TestShutdownClosesProxyCONNECTAndTunnelSession(t *testing.T) {
+func TestShutdownClosesProxyCONNECTAndDeviceSession(t *testing.T) {
 	upstream := startUpstreamSOCKS(t, "test-user", "test-pass")
 	s := bridgeTestServer(t, upstream, "test-user", "test-pass")
-	s.tunnels = newTunnelHub()
-	wireLink(t, s.tunnels, "alice", tunnel.Whitelist{})
-	session := s.tunnels.session("alice")
+	s.devices = newDeviceHub()
+	left, right := net.Pipe()
+	defer right.Close()
+	session, err := yamux.Client(left, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peer, err := yamux.Server(right, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer peer.Close()
+	s.devices.register("alice", session, deviceInfo{})
 	proxyURL := startBridge(t, s)
 	target, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

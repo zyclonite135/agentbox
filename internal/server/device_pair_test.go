@@ -79,14 +79,14 @@ func TestPairOrigin(t *testing.T) {
 		{
 			name:    "browser origin wins",
 			claimed: "https://box.example.com",
-			req:     func() *http.Request { return httptest.NewRequest("POST", "/api/tunnel/pair", nil) },
+			req:     func() *http.Request { return httptest.NewRequest("POST", "/api/device-link/pair", nil) },
 			want:    "https://box.example.com",
 		},
 		{
 			name:    "falls back to request host",
 			claimed: "",
 			req: func() *http.Request {
-				r := httptest.NewRequest("POST", "/api/tunnel/pair", nil)
+				r := httptest.NewRequest("POST", "/api/device-link/pair", nil)
 				r.Host = "box.internal:8080"
 				return r
 			},
@@ -96,7 +96,7 @@ func TestPairOrigin(t *testing.T) {
 			name:    "honours a terminating proxy's headers",
 			claimed: "",
 			req: func() *http.Request {
-				r := httptest.NewRequest("POST", "/api/tunnel/pair", nil)
+				r := httptest.NewRequest("POST", "/api/device-link/pair", nil)
 				r.Host = "127.0.0.1:8080"
 				r.Header.Set("X-Forwarded-Host", "box.example.com, inner")
 				r.Header.Set("X-Forwarded-Proto", "https")
@@ -108,7 +108,7 @@ func TestPairOrigin(t *testing.T) {
 			name:    "ignores a nonsense claim",
 			claimed: "javascript:alert(1)",
 			req: func() *http.Request {
-				r := httptest.NewRequest("POST", "/api/tunnel/pair", nil)
+				r := httptest.NewRequest("POST", "/api/device-link/pair", nil)
 				r.Host = "box.internal"
 				return r
 			},

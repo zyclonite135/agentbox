@@ -1,5 +1,4 @@
-/* abox-link 控制台前端：轮询 /api/state 渲染整页，改动先存在本地 draft，
- * 点「保存并应用」才提交。日志按 seq 增量拉取。 */
+/* abox-link: pairing, local folders and connection status. */
 "use strict";
 
 import { createI18n, languages } from "./i18n-core.js";
@@ -33,7 +32,6 @@ function localizedAttribute(el, attr, source) {
 
 
 const $ = (id) => document.getElementById(id);
-const SELF_SSH = "self.abox-link:22"; // 与 internal/tunnel.SelfHost 对应
 
 // This panel is embedded in its own binary, so its small icon set is standalone.
 const actionIcons = {
@@ -105,19 +103,17 @@ async function api(path, body) {
 }
 
 let state = null;   // 服务端权威状态
-let draft = null;   // 用户正在编辑的副本；null 表示无未保存改动
 let logSeq = 0;
-let rulesKey = null; // 当前画出来的规则行签名，值没变就不重建
 let foldersKey = "";
 let folderSaving = false;
 
 /* ---- 渲染 ---- */
 
 const ST = {
-  online:      { cls: "on",   title: "隧道在线",   btn: "停止" },
-  connecting:  { cls: "busy", title: "正在连接…",  btn: "停止" },
-  auth_failed: { cls: "bad",  title: "凭证已失效", btn: "启动" },
-  stopped:     { cls: "",     title: "未连接",     btn: "启动" },
+  online:      { cls: "on",   title: "设备已连接",   btn: "断开" },
+  connecting:  { cls: "busy", title: "正在连接…",  btn: "断开" },
+  auth_failed: { cls: "bad",  title: "凭证已失效", btn: "连接" },
+  stopped:     { cls: "",     title: "未连接",     btn: "连接" },
 };
 
 function render() {
@@ -136,104 +132,23 @@ function render() {
   $("wire").className = "wire " + look.cls; // 电路两条腿与三个节点全按状态取色
   $("st-title").textContent = tr(look.title);
   $("st-sub").textContent = subtitle(st);
-  actionLabel($("btn-toggle"), tr(look.btn), look.btn === "停止" ? "stop" : "play");
+  actionLabel($("btn-toggle"), tr(look.btn), look.btn === "断开" ? "stop" : "play");
 
-  renderRules();
   renderFolders();
   renderOptions();
-  $("savebar").classList.toggle("hidden", !draft);
+
 }
 
 function subtitle(st) {
   if (st.state === "online") {
-    const mode = st.folders_only ? "本机文件夹" : st.transparent ? "透明访问" : "兼容代理";
-    const parts = [tr(mode), tr("已连接 {duration}", { duration: uptime(Date.now() - st.since) })];
+    const parts = [tr("已连接 {duration}", { duration: uptime(Date.now() - st.since) })];
     if (typeof st.ping_ms === "number" && st.ping_ms >= 0) {
       parts.push(tr("延迟 {latency}", { latency: fmtLatency(st.ping_ms) }));
-    }
-    for (const m of st.maps || []) {
-      parts.push(m.ok ? tr("映射 {port}", { port: m.port }) : tr("映射 {port}（失败：{detail}）", { port: m.port, detail: m.detail }));
     }
     return parts.join(" · ");
   }
   if (st.detail) return st.detail;
   return state.server ? hostOf(state.server) : "";
-}
-
-/* draft 里存的是编辑中的值，没有 draft 就直接看 state */
-function view() {
-  return draft || {
-    allow: state.allow.slice(),
-    maps: state.maps.slice(),
-    auto_connect: state.auto_connect,
- transparent: !!state.transparent,
-    insecure: state.insecure,
-  };
-}
-
-/* 开始编辑：把当前值快照成 draft，并重画（增删行需要） */
-function edit(mutate) {
-  draft = draft || view();
-  mutate(draft);
-  render();
-}
-
-/* 输入框里的改动：只更新 draft，不重画行——重画会毁掉正在输入的那个输入框 */
-function editValue(mutate) {
-  draft = draft || view();
-  mutate(draft);
-  rulesKey = keyOf(draft); // 画面已经是最新值了，别让下一轮轮询把行重建掉
-  $("savebar").classList.remove("hidden");
-}
-
-function keyOf(v) {
-  return JSON.stringify([v.allow, v.maps]);
-}
-
-function renderRules() {
-  const v = view();
-
-  // 电路中点挂的就是白名单——放行规则在本机侧生效，这里是它作用的那一点
-  $("wire-rules").textContent = v.allow.length ? tr("{count} 条规则", { count: v.allow.length }) : tr("无规则");
-
-  // 轮询每 2 秒调一次 render()，这里必须只在规则真的变了时才重建 DOM，
-  // 否则正在编辑的输入框会被换掉，焦点和光标位置跟着丢。
-  const key = keyOf(v);
-  if (key === rulesKey) return;
-  rulesKey = key;
-
-  const allowBox = $("allow-list");
-  allowBox.replaceChildren();
-  v.allow.forEach((rule, i) => {
-    allowBox.appendChild(ruleRow(rule, "192.168.1.0/24", (val) => {
-      editValue((d) => { d.allow[i] = val; });
-    }, () => {
-      edit((d) => { d.allow.splice(i, 1); });
-    }));
-  });
-
-  const mapBox = $("map-list");
-  mapBox.replaceChildren();
-  v.maps.forEach((spec, i) => {
-    const [port, target] = splitMap(spec);
-    mapBox.appendChild(mapRow(port, target, (p, t) => {
-      editValue((d) => { d.maps[i] = p + "=" + t; });
-    }, () => {
-      edit((d) => { d.maps.splice(i, 1); });
-    }));
-  });
-}
-
-/* 每敲一个字符就同步进 draft（不重绘），这样轮询刷新不会吞掉还没失焦的输入 */
-function input(value, placeholder, onCommit) {
-  const el = document.createElement("input");
-  el.type = "text";
-  el.value = value;
-  el.placeholder = placeholder;
-  el.spellcheck = false;
-  el.addEventListener("input", () => onCommit(el.value.trim()));
-  el.addEventListener("keydown", (e) => { if (e.key === "Enter") el.blur(); });
-  return el;
 }
 
 function removeBtn(onClick) {
@@ -288,37 +203,9 @@ $("local-folder-form").addEventListener("submit", event => {
   void saveFolder($("local-folder-add"), { name: $("local-folder-name").value, path: $("local-folder-path").value });
 });
 
-function ruleRow(value, placeholder, onCommit, onRemove) {
-  const row = document.createElement("div");
-  row.className = "rule";
-  const target = input(value, placeholder, onCommit);
-  localizedAttribute(target, "aria-label", "放行目标");
-  row.append(target, removeBtn(onRemove));
-  return row;
-}
-
-function mapRow(port, target, onCommit, onRemove) {
-  const row = document.createElement("div");
-  row.className = "rule";
-  const p = input(port, "3306", () => onCommit(p.value.trim(), t.value.trim()));
-  const t = input(target, "10.0.1.5:3306", () => onCommit(p.value.trim(), t.value.trim()));
-  localizedAttribute(p, "aria-label", "服务端端口");
-  localizedAttribute(t, "aria-label", "内网目标");
-  p.style.maxWidth = "110px";
-  const sep = document.createElement("span");
-  sep.className = "sep";
-  sep.textContent = "→";
-  row.append(p, sep, t, removeBtn(onRemove));
-  return row;
-}
-
 function renderOptions() {
-  const v = view();
-  $("opt-auto").checked = v.auto_connect;
- $("opt-transparent").checked = !!v.transparent;
-  $("opt-insecure").checked = v.insecure;
-  $("opt-self-ssh").checked = v.allow.includes(SELF_SSH);
-
+  $("opt-auto").checked = state.auto_connect;
+  $("opt-insecure").checked = state.insecure;
   const boot = state.autostart || {};
   $("opt-boot").checked = !!boot.installed;
   $("opt-boot").disabled = !boot.supported;
@@ -366,7 +253,7 @@ $("btn-pair").addEventListener("click", async () => {
       state = await api("/pair", { code, insecure: $("pair-insecure").checked });
       $("pair-code").value = "";
       render();
-      toastUI("接入成功，可以添加本机文件夹或放行规则");
+      toastUI("配对成功，可以添加本机文件夹");
     } catch (e) {
       pairErrorSource = e instanceof PanelAPIError ? e.source : "";
       $("pair-err").textContent = e.message;
@@ -386,19 +273,18 @@ $("btn-toggle").addEventListener("click", async () => {
   });
 });
 
-$("btn-add-allow").addEventListener("click", () => edit((d) => d.allow.push("")));
-$("btn-add-map").addEventListener("click", () => edit((d) => d.maps.push("=")));
+for (const id of ["opt-auto", "opt-insecure"]) {
+  const input = $(id);
+  input.addEventListener("change", () => withBusy(input, async () => {
+    try {
+      state = await api("/config", id === "opt-auto" ? { auto_connect: input.checked } : { insecure: input.checked });
+    } catch (error) {
+      toast(error.message, true);
+    }
+    render();
+  }));
+}
 
-/* 本机 SSH 只是一条放行规则；勾选与否等价于规则列表里有没有这一条 */
-$("opt-self-ssh").addEventListener("change", (e) => edit((d) => {
-  d.allow = d.allow.filter((r) => r !== SELF_SSH);
-  if (e.target.checked) d.allow.push(SELF_SSH);
-}));
-$("opt-transparent").addEventListener("change", (e) => edit((d) => { d.transparent = e.target.checked; }));
-$("opt-auto").addEventListener("change", (e) => edit((d) => { d.auto_connect = e.target.checked; }));
-$("opt-insecure").addEventListener("change", (e) => edit((d) => { d.insecure = e.target.checked; }));
-
-/* 开机自启是立即生效的系统操作，不走 draft */
 $("opt-boot").addEventListener("change", async (e) => {
   const enable = e.target.checked;
   try {
@@ -411,35 +297,11 @@ $("opt-boot").addEventListener("change", async (e) => {
   }
 });
 
-$("btn-save").addEventListener("click", async () => {
-  const v = view();
-  // 空行是用户加了输入框却没填，静默丢掉即可
-  const payload = {
-    allow: v.allow.filter((s) => s.trim()),
-    maps: v.maps.filter((s) => s.trim() && s !== "="),
-    auto_connect: v.auto_connect,
- transparent: !!v.transparent,
-    insecure: v.insecure,
-  };
-  await withBusy($("btn-save"), async () => {
-    try {
-      state = await api("/config", payload);
-      draft = null;
-      render();
-      toastUI(state.running ? "已保存，隧道按新规则重连中" : "已保存");
-    } catch (e) {
-      toast(e.message, true);
-    }
-  });
-});
-
-$("btn-revert").addEventListener("click", () => { draft = null; render(); });
-
 $("btn-unpair").addEventListener("click", async () => {
-  if (!confirm(tr("解除绑定会移除已共享的文件夹，放行规则会保留。继续？"))) return;
+  if (!confirm(tr("解除配对并移除共享文件夹？"))) return;
   try {
     state = await api("/unpair", {});
-    draft = null;
+
     $("local-folder-form").reset();
     render();
   } catch (e) {
@@ -451,11 +313,6 @@ $("btn-unpair").addEventListener("click", async () => {
 
 function hostOf(url) {
   try { return new URL(url).host; } catch (_) { return url || ""; }
-}
-
-function splitMap(spec) {
-  const i = (spec || "").indexOf("=");
-  return i < 0 ? [spec, ""] : [spec.slice(0, i), spec.slice(i + 1)];
 }
 
 /* 延迟展示：<1ms 收成「<1」，个位数保留一位小数，其余取整 */

@@ -27,7 +27,7 @@ export const ICON_SLOTS = {
     "nav.usage": { group: "nav", label: "使用记录", icon: "tabler:receipt" },
     "nav.git": { group: "nav", label: "Git 管理", icon: "tabler:git-fork" },
     "nav.extensions": { group: "nav", label: "扩展", icon: "tabler:puzzle" },
-    "nav.tunnel": { group: "nav", label: "内网隧道", icon: "tabler:affiliate" },
+    "nav.deviceLink": { group: "nav", label: "连接设备", icon: "tabler:devices" },
     "nav.settings": { group: "nav", label: "系统设置", icon: "tabler:settings" },
     "nav.user": { group: "nav", label: "用户菜单", icon: "tabler:user-circle" },
     "nav.logout": { group: "nav", label: "退出登录", base: "logout" },

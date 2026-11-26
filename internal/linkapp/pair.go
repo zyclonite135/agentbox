@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"strings"
 
-	"agentbox/internal/tunnel"
+	"agentbox/internal/devicelink"
 )
 
 // Pair turns a pasted pairing code into stored credentials: it decodes the
 // server address, redeems the single-use secret there for a session token, and
-// merges the result into cfg (leaving the user's allow rules and maps alone).
+// merges the result into cfg for the local file connection.
 func Pair(cfg Config, code string, insecure bool) (Config, error) {
-	payload, err := tunnel.DecodePairCode(code)
+	payload, err := devicelink.DecodePairCode(code)
 	if err != nil {
 		return cfg, err
 	}
@@ -25,7 +25,7 @@ func Pair(cfg Config, code string, insecure bool) (Config, error) {
 	}
 
 	body, _ := json.Marshal(map[string]string{"code": payload.Code})
-	resp, err := httpClient(insecure).Post(base.String()+"/api/tunnel/pair/redeem", "application/json", bytes.NewReader(body))
+	resp, err := httpClient(insecure).Post(base.String()+"/api/device-link/pair/redeem", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return cfg, fmt.Errorf("连接 %s 失败：%w", base.Host, err)
 	}

@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"agentbox/internal/tunnel"
+	"agentbox/internal/devicelink"
 )
 
 type localFolder struct {
-	tunnel.Folder
+	devicelink.Folder
 	Path string `json:"path"`
 }
 
@@ -94,8 +94,8 @@ func folderHandler(folders []localFolder) func(io.ReadWriter) {
 	}
 	active := make(chan struct{}, 4)
 	return func(stream io.ReadWriter) {
-		var req tunnel.FolderRequest
-		fail := func(code string) { _ = tunnel.WriteFolderMessage(stream, tunnel.FolderResponse{Error: code}) }
+		var req devicelink.FolderRequest
+		fail := func(code string) { _ = devicelink.WriteFolderMessage(stream, devicelink.FolderResponse{Error: code}) }
 		select {
 		case active <- struct{}{}:
 			defer func() { <-active }()
@@ -103,7 +103,7 @@ func folderHandler(folders []localFolder) func(io.ReadWriter) {
 			fail("busy")
 			return
 		}
-		if tunnel.ReadFolderMessage(stream, &req) != nil || !tunnel.ValidFolderPath(req.Path) ||
+		if devicelink.ReadFolderMessage(stream, &req) != nil || !devicelink.ValidFolderPath(req.Path) ||
 			!filepath.IsLocal(filepath.FromSlash(req.Path)) || req.Offset < 0 || req.Offset > 1_000_000 ||
 			req.Read && (req.Path == "." || req.Limit < 0) {
 			fail("invalid")
@@ -138,7 +138,7 @@ func folderHandler(folders []localFolder) func(io.ReadWriter) {
 				fail("too_large")
 				return
 			}
-			if tunnel.WriteFolderMessage(stream, tunnel.FolderResponse{Size: info.Size()}) == nil {
+			if devicelink.WriteFolderMessage(stream, devicelink.FolderResponse{Size: info.Size()}) == nil {
 				_, _ = io.CopyN(stream, f, info.Size())
 			}
 			return
@@ -148,14 +148,14 @@ func folderHandler(folders []localFolder) func(io.ReadWriter) {
 			fail("missing")
 			return
 		}
-		_ = tunnel.WriteFolderMessage(stream, res)
+		_ = devicelink.WriteFolderMessage(stream, res)
 	}
 }
 
-func listLocalFolder(f *os.File, offset int) (tunnel.FolderResponse, error) {
-	var result tunnel.FolderResponse
+func listLocalFolder(f *os.File, offset int) (devicelink.FolderResponse, error) {
+	var result devicelink.FolderResponse
 	for remaining := offset; remaining > 0; {
-		entries, err := f.ReadDir(min(remaining, tunnel.FolderPageSize))
+		entries, err := f.ReadDir(min(remaining, devicelink.FolderPageSize))
 		if err == io.EOF {
 			return result, nil
 		}
@@ -164,18 +164,18 @@ func listLocalFolder(f *os.File, offset int) (tunnel.FolderResponse, error) {
 		}
 		remaining -= len(entries)
 	}
-	entries, err := f.ReadDir(tunnel.FolderPageSize)
+	entries, err := f.ReadDir(devicelink.FolderPageSize)
 	if err != nil && err != io.EOF {
 		return result, err
 	}
 	for _, entry := range entries {
 		info, err := entry.Info()
 		if err == nil && (info.IsDir() || info.Mode().IsRegular()) && entry.Name() != "." &&
-			tunnel.ValidFolderPath(entry.Name()) && filepath.IsLocal(entry.Name()) {
-			result.Entries = append(result.Entries, tunnel.FolderEntry{Name: entry.Name(), Dir: info.IsDir(), Size: info.Size()})
+			devicelink.ValidFolderPath(entry.Name()) && filepath.IsLocal(entry.Name()) {
+			result.Entries = append(result.Entries, devicelink.FolderEntry{Name: entry.Name(), Dir: info.IsDir(), Size: info.Size()})
 		}
 	}
-	if len(entries) == tunnel.FolderPageSize {
+	if len(entries) == devicelink.FolderPageSize {
 		result.Next = offset + len(entries)
 	}
 	return result, nil
@@ -219,7 +219,7 @@ func (p *Panel) handleFolders(w http.ResponseWriter, r *http.Request) {
 			path = path[1 : len(path)-1]
 		}
 		name := strings.TrimSpace(req.Name)
-		if !filepath.IsAbs(path) || !tunnel.ValidFolderName(name) || len(cfg.Folders) >= tunnel.MaxFolders {
+		if !filepath.IsAbs(path) || !devicelink.ValidFolderName(name) || len(cfg.Folders) >= devicelink.MaxFolders {
 			writeErr(w, http.StatusBadRequest, "请输入有效的文件夹名称与绝对路径（最多 16 个）")
 			return
 		}
@@ -234,7 +234,7 @@ func (p *Panel) handleFolders(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		root.Close()
-		cfg.Folders = append(cfg.Folders, localFolder{Folder: tunnel.Folder{ID: rand.Text(), Name: name}, Path: filepath.Clean(path)})
+		cfg.Folders = append(cfg.Folders, localFolder{Folder: devicelink.Folder{ID: rand.Text(), Name: name}, Path: filepath.Clean(path)})
 	}
 	if err := SaveConfig(cfg); err != nil {
 		writeErr(w, http.StatusInternalServerError, "保存配置失败")

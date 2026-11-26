@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"agentbox/internal/tunnel"
+	"agentbox/internal/devicelink"
 )
 
 func TestLocalFolderStream(t *testing.T) {
@@ -31,25 +31,25 @@ func TestLocalFolderStream(t *testing.T) {
 	}
 	symlink := os.Symlink(outside, filepath.Join(root, "outside"))
 	insideLink := os.Symlink(nested, filepath.Join(root, "inside-link"))
-	handler := folderHandler([]localFolder{{Folder: tunnel.Folder{ID: id, Name: "Отчёты"}, Path: root}})
-	call := func(req tunnel.FolderRequest) (tunnel.FolderResponse, string) {
+	handler := folderHandler([]localFolder{{Folder: devicelink.Folder{ID: id, Name: "Отчёты"}, Path: root}})
+	call := func(req devicelink.FolderRequest) (devicelink.FolderResponse, string) {
 		t.Helper()
 		var stream bytes.Buffer
-		if err := tunnel.WriteFolderMessage(&stream, req); err != nil {
+		if err := devicelink.WriteFolderMessage(&stream, req); err != nil {
 			t.Fatal(err)
 		}
 		handler(&stream)
-		var result tunnel.FolderResponse
-		if err := tunnel.ReadFolderMessage(&stream, &result); err != nil {
+		var result devicelink.FolderResponse
+		if err := devicelink.ReadFolderMessage(&stream, &result); err != nil {
 			t.Fatal(err)
 		}
 		return result, stream.String()
 	}
-	list, body := call(tunnel.FolderRequest{ID: id, Path: "."})
+	list, body := call(devicelink.FolderRequest{ID: id, Path: "."})
 	if list.Error != "" || len(list.Entries) != 2 || body != "" {
 		t.Fatalf("list returned %#v, body=%q", list, body)
 	}
-	read := tunnel.FolderRequest{ID: id, Path: "отчёт.txt", Read: true, Limit: 6}
+	read := devicelink.FolderRequest{ID: id, Path: "отчёт.txt", Read: true, Limit: 6}
 	if reply, body := call(read); reply.Size != 6 || body != "report" {
 		t.Fatalf("read returned %#v, body=%q", reply, body)
 	}
@@ -57,7 +57,7 @@ func TestLocalFolderStream(t *testing.T) {
 	if reply, body := call(read); reply.Error != "" || body != "nested" {
 		t.Fatalf("nested read returned %#v, body=%q", reply, body)
 	}
-	for _, denied := range []tunnel.FolderRequest{
+	for _, denied := range []devicelink.FolderRequest{
 		{ID: "unknown-folder", Path: "."},
 		{ID: id, Path: "../отчёт.txt", Read: true, Limit: 100},
 		{ID: id, Path: "отчёт.txt", Read: true, Limit: 5},
@@ -68,12 +68,12 @@ func TestLocalFolderStream(t *testing.T) {
 		}
 	}
 	if symlink == nil {
-		if reply, body := call(tunnel.FolderRequest{ID: id, Path: "outside/отчёт.txt", Read: true, Limit: 100}); reply.Error == "" || body != "" {
+		if reply, body := call(devicelink.FolderRequest{ID: id, Path: "outside/отчёт.txt", Read: true, Limit: 100}); reply.Error == "" || body != "" {
 			t.Fatalf("followed unshared directory link: %#v, %q", reply, body)
 		}
 	}
 	if insideLink == nil {
-		if reply, body := call(tunnel.FolderRequest{ID: id, Path: "inside-link/отчёт.txt", Read: true, Limit: 100}); reply.Error == "" || body != "" {
+		if reply, body := call(devicelink.FolderRequest{ID: id, Path: "inside-link/отчёт.txt", Read: true, Limit: 100}); reply.Error == "" || body != "" {
 			t.Fatalf("followed a directory link inside the share: %#v, %q", reply, body)
 		}
 	}

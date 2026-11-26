@@ -55,8 +55,6 @@ type Service struct {
 	mu              sync.Mutex
 	starts          sessionLock
 	locks           map[string]sessionLock
-	builtinOnce     sync.Once
-	builtinErr      error
 }
 
 func New(cfg *config.Config, st Store, dock Runtime, account func(store.Session) (config.Account, error), syncCredentials func(context.Context, config.Account, store.Session) error) *Service {
@@ -108,27 +106,8 @@ func (s *Service) HomeTemplateDir() string {
 	return filepath.Join(s.cfg.DataDir, "home-template")
 }
 
-// BuiltinTemplateDir is where the platform's own template layer (abox-remote
-// and its skill, embedded in the binary) is written out, once per process. It
-// is regenerated on every start and not backed up.
-func (s *Service) BuiltinTemplateDir() string {
-	return filepath.Join(s.cfg.DataDir, "builtin-template")
-}
-
-// templateDirs lists the layers for a session start, lowest priority first.
-// The built-in layer only applies with the tunnel on: abox-remote reaches the
-// user's machine through it, so without a tunnel its skill would only mislead.
 func (s *Service) templateDirs(user string) []string {
-	dirs := []string{s.HomeTemplateDir(), s.UserTemplateDir(user)}
-	if !s.cfg.GetTunnel().Enabled {
-		return dirs
-	}
-	s.builtinOnce.Do(func() { s.builtinErr = agent.WriteBuiltinTemplate(s.BuiltinTemplateDir()) })
-	if s.builtinErr != nil {
-		log.Printf("write built-in home template: %v", s.builtinErr)
-		return dirs
-	}
-	return append([]string{s.BuiltinTemplateDir()}, dirs...)
+	return []string{s.HomeTemplateDir(), s.UserTemplateDir(user)}
 }
 
 // UserTemplateDir is the same idea scoped to one user, layered on top of the
@@ -279,14 +258,6 @@ func (s *Service) start(ctx context.Context, id string, wake bool) (store.Sessio
 	// After seeding: the pool copy just written carries the real upstream.
 	if err := s.applyConnection(ctx, cur, acct); err != nil {
 		return store.Session{}, false, fmt.Errorf("%w: %w", ErrCredentials, err)
-	}
-	// Only advertise the intranet proxy to the agent when the feature is on;
-	// the hint keys off $AGENTBOX_INTRANET_PROXY so it stays inert if no tunnel
-	// is live, but there's no reason to seed it when tunneling is disabled.
-	if s.cfg.GetTunnel().Enabled {
-		if err := agent.SeedIntranetHint(cur.Agent, s.HomeDir(cur), dockerx.AgentUID, dockerx.AgentGID); err != nil {
-			log.Printf("seed intranet hint %s: %v", cur.ID, err)
-		}
 	}
 	shared, err := s.EnsureSharedDir(cur.User)
 	if err != nil {

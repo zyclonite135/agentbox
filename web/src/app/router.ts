@@ -39,7 +39,7 @@ export function initRouter() {
       let parts: string[] = [];
       try { parts = location.hash.slice(1).split("/").slice(1).map(decodeURIComponent); } catch { /* invalid URL → home */ }
       const [page, id, tab] = parts;
-      if ((page === "usage" || page === "tunnel") && parts.length === 1) {
+      if ((page === "usage" || page === "device-link") && parts.length === 1) {
         emit(`open-${page}`);
       } else if (page === "git" && parts.length <= 2) {
         emit("open-git", GIT_SECS.includes(id) ? id : "guide");

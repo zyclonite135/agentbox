@@ -19,7 +19,6 @@ import (
 	"agentbox/internal/config"
 	"agentbox/internal/gitaccess"
 	"agentbox/internal/store"
-	"agentbox/internal/tunnel"
 )
 
 func gitOAuthFixture(t *testing.T, provider, base string, networks ...gitaccess.NetworkPolicy) (*Server, config.GitOAuthApp) {
@@ -239,7 +238,7 @@ func TestGitOAuthCallbackRejectsLogoutAndAppChange(t *testing.T) {
 	}
 }
 
-func TestGitOAuthCompanyRouteAndCA(t *testing.T) {
+func TestGitOAuthCompanyCA(t *testing.T) {
 	var calls atomic.Int32
 	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
@@ -248,22 +247,10 @@ func TestGitOAuthCompanyRouteAndCA(t *testing.T) {
 	}))
 	defer upstream.Close()
 	ca := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: upstream.Certificate().Raw}))
-	s, app := gitOAuthFixture(t, "gitlab", upstream.URL, gitaccess.NetworkPolicy{Route: "tunnel", CAPEM: ca})
-	s.cfg.Tunnel.Enabled = true
-	s.tunnels = newTunnelHub()
+	s, app := gitOAuthFixture(t, "gitlab", upstream.URL, gitaccess.NetworkPolicy{CAPEM: ca})
 	state, cookie, _ := startGitOAuth(t, s, app, "")
-	if w := callbackGitOAuth(s, state, cookie); w.Code != 502 || calls.Load() != 0 {
-		t.Fatalf("offline OAuth contacted upstream: %d %d", w.Code, calls.Load())
-	}
-	allow, err := tunnel.ParseWhitelist([]string{strings.TrimPrefix(upstream.URL, "https://")})
-	if err != nil {
-		t.Fatal(err)
-	}
-	wireLink(t, s.tunnels, "alice", allow)
-	waitReady(t, s.tunnels, "alice")
-	state, cookie, _ = startGitOAuth(t, s, app, "")
 	if w := callbackGitOAuth(s, state, cookie); w.Code != 200 || calls.Load() != 1 {
-		t.Fatalf("OAuth over user tunnel: %d %s", w.Code, w.Body.String())
+		t.Fatalf("OAuth with a custom CA: %d %s", w.Code, w.Body.String())
 	}
 	rows, err := s.store.GitConnections("alice")
 	if err != nil || len(rows) != 1 || rows[0].Network != app.Network {

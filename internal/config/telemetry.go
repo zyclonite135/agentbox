@@ -44,15 +44,6 @@ func (c *Config) validateUsageTelemetry() error {
 		gateway = defaultModelGatewayBind
 	}
 	others := map[string]string{"proxy_bridge.bind": c.ProxyBridge.Bind, "model_gateway.bind": gateway}
-	if c.Tunnel.Enabled || c.Tunnel.Transparent {
-		others["tunnel.proxy_bind"] = c.Tunnel.ProxyBind
-		network := c.Tunnel.NetworkBind
-		if network == "" {
-			host, _, _ := net.SplitHostPort(c.Tunnel.ProxyBind)
-			network = net.JoinHostPort(host, "1082")
-		}
-		others["tunnel.network_bind"] = network
-	}
 	for field, addr := range others {
 		if addr != "" && addr == bind {
 			return fmt.Errorf("usage_telemetry.bind %s collides with %s", bind, field)

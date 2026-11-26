@@ -47,7 +47,7 @@ export function fixture(lang) {
   const settings = {listen:'127.0.0.1:8180',agent_image:'agentbox-agent:latest',permission_mode:'bypassPermissions',max_upload_mb:512,idle_timeout_min:30,timezone:'Asia/Shanghai',
     container:{memory_mb:2048,cpus:2,pids_limit:512,network:'bridge'},resources:{max_running:12,max_running_per_user:3,min_free_bytes:10737418240},models,
     default_models:{claude:'claude-opus-5',codex:'gpt-5.5'},terminal_tips:{tips:[pick('Keep project files in /workspace and shared files in /shared','项目文件放在 /workspace，共享文件放在 /shared')],interval_sec:4,animation:'scroll'},
-    tunnel:{enabled:true,transparent:true,proxy_bind:'172.17.0.1:1080',network_bind:'172.17.0.1:1082',network_image:'agentbox-network:latest'},proxy_bridge:{bind:'172.17.0.1:1081'},
+    device_link:{enabled:true},proxy_bridge:{bind:'172.17.0.1:1081'},
     model_gateway:{bind:'172.17.0.1:1083',host:'172.17.0.1',dedicated_connections:false,active:true,needed:true},pricing:{}};
 
   // The task the tour hands to Claude, as stream-json events.
@@ -280,12 +280,12 @@ export async function mockApi(context, fx, base, {animateTerminal}) {
     else if (path === '/api/users') body = [{name:'demo',role:'admin'},{name:'designer',role:'user'}];
     else if (path === '/api/git/connections') body = [];
     else if (path === '/api/me/git') body = {user:'demo',name:'Demo',email:'demo@example.com'};
-    else if (path === '/api/tunnel/clients') body = ['darwin-arm64','darwin-amd64','windows-amd64.exe','linux-amd64','linux-arm64'].map(platform => ({name:'abox-link-' + platform,size:12582912}));
+    else if (path === '/api/device-link/clients') body = ['darwin-arm64','darwin-amd64','windows-amd64.exe','linux-amd64','linux-arm64'].map(platform => ({name:'abox-link-' + platform,size:12582912}));
     else if (path.startsWith('/api/updates')) body = {current_version:'v0.1.16',revision:'',built_at:'',latest_version:'v0.1.16',available:false,comparable:true};
     else if (path === '/api/usage') body = {total:fx.total,...fx.total,by_model:[],by_user:[]};
     else if (path === '/api/usage/trend') body = {granularity:'hour',timezone:'Asia/Shanghai',buckets:[0,0,0,0,0,0,0,0,180,420,960,640,240,1100,1480,760].map((k,hour) => ({start:`2026-07-15T${String(hour).padStart(2,'0')}:00`,requests:Math.round(k/40),input_tokens:k*100,output_tokens:k*300,cache_read_tokens:k*600,cache_write_tokens:0,cost_micro_usd:k*2000}))};
     else if (path === '/api/usage/events') body = {rows:fx.rows,total:fx.total,facets:{users:['demo','designer'],agents:['claude','codex'],models:['claude-haiku-4-5','claude-opus-5','gpt-5.5']},scope:'all',timezone:'Asia/Shanghai',order:'desc',limit:20,offset:0,sync:{last_scan_at:fx.now,last_success_at:fx.now,scanning:false,errors:0}};
-    else if (path === '/api/tunnel/status') body = {enabled:true,transparent:true,client_transparent:true,connected:true,proxy_up:true,since:fx.now-3600000,remote:'192.0.2.10:53000',maps:[],rules:['10.20.0.0/16','gitlab.corp.example:443','db.corp.example:5432'],workspaces:fx.sessions.filter(s => s.status === 'running').map(s => ({session:s.id,name:s.name,ready:true}))};
+    else if (path === '/api/device-link/status') body = {enabled:true,connected:true};
     else if (path === '/api/extensions') body = {extensions:fx.extensionsList};
     else if (path.startsWith('/api/extensions/')) body = path.endsWith('/events') ? {events:[]} : path.endsWith('/logs') ? {logs:[]} : fx.extensionsList.find(e => path.includes(e.id));
     else if (path.endsWith('/models')) body = {models:fx.sessions.find(s => s.id === session)?.agent === 'codex' ? fx.models.codex : fx.models.claude,default_reasoning:{support:'supported',control:'effort',levels:['low','medium','high','xhigh']},client_effort:'high',discovery:'available'};
@@ -569,9 +569,9 @@ async function screens(page, fx, base, api, shot) {
   await page.evaluate(() => { location.hash = '#/settings/accounts'; });
   await page.locator('#sec-accounts').getByText(fx.accounts[0].label, {exact:true}).waitFor();
   await shot('accounts');
-  await page.evaluate(() => { location.hash = '#/tunnel'; });
+  await page.evaluate(() => { location.hash = '#/device-link'; });
   await page.getByText('gitlab.corp.example:443', {exact:false}).first().waitFor();
-  await page.locator('#tun-dl a').first().waitFor();
+  await page.locator('#dev-dl a').first().waitFor();
   await shot('tunnel');
   await page.evaluate(() => { location.hash = '#/extensions'; });
   await page.locator('#ext-list .ext-card').nth(1).waitFor();

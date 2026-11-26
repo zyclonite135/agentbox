@@ -49,7 +49,7 @@ func (s *Server) openGitSSH(ctx context.Context, c store.GitConnection, reposito
 		return nil, err
 	}
 	return gitaccess.OpenSSH(ctx, repository, c.Username, credential, write, v2, func(ctx context.Context, network, address string) (net.Conn, error) {
-		return s.gitDial(ctx, c, network, address)
+		return (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, network, address)
 	})
 }
 func (s *Server) gitSSHTransport(ctx context.Context, c store.GitConnection, repository string, write bool, ref, old, next string) (string, func(), error) {

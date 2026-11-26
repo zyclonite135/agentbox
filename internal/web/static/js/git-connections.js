@@ -85,7 +85,7 @@ function renderGitConnections(host) {
             setTextRender(title, () => c.label + (!managed ? i18nText(" · 共享自 ") + c.owner : "") + (def.connection_id === c.id ? i18nText(" · 默认") : ""));
             const meta = document.createElement("p");
             meta.className = "field-hint";
-            setTextRender(meta, () => `${c.provider} · ${c.auth_type === "oauth" ? "OAuth" : c.auth_type === "ssh" ? "SSH" : i18nText("HTTPS Token")} · ${c.base_url}\n${c.enabled ? i18nText("已保存") : i18nText("已停用")} · ${c.read_only ? i18nText("只读") : i18nText("允许推送")} · ${c.network?.route === "tunnel" ? i18nText("内网隧道") : i18nText("直连")}${c.host_fingerprint ? i18nText("\n主机指纹：") + c.host_fingerprint : ""}`);
+            setTextRender(meta, () => `${c.provider} · ${c.auth_type === "oauth" ? "OAuth" : c.auth_type === "ssh" ? "SSH" : i18nText("HTTPS Token")} · ${c.base_url}\n${c.enabled ? i18nText("已保存") : i18nText("已停用")} · ${c.read_only ? i18nText("只读") : i18nText("允许推送")}${c.host_fingerprint ? i18nText("\n主机指纹：") + c.host_fingerprint : ""}`);
             // 行内只露三个常用动作；启停、授权、公钥这些低频动作与删除收进 ⋯，删除放最后。
             const buttons = document.createElement("div");
             buttons.className = "git-connection-tools";
@@ -155,9 +155,9 @@ function editConnection(c, saved) {
     <label><span data-i18n="私钥口令（如有）">${trHTML("私钥口令（如有）")}</span><input type="password" name="passphrase" autocomplete="new-password"></label>
     <label><span data-i18n="服务器主机公钥">${trHTML("服务器主机公钥")}</span><textarea name="host_key" rows="2" spellcheck="false" placeholder="ssh-ed25519 AAAA…"></textarea></label>
     <p class="field-hint"><span data-i18n="向 Git 服务管理员核对主机公钥，不能填个人公钥。私钥只在服务端使用，不复制到工作空间。修改已有连接时留空保留密钥。替换主机公钥前，请从管理员处重新核实指纹。">${trHTML("向 Git 服务管理员核对主机公钥，不能填个人公钥。私钥只在服务端使用，不复制到工作空间。修改已有连接时留空保留密钥。替换主机公钥前，请从管理员处重新核实指纹。")}</span></p></div>
-    <label><span data-i18n="网络路由">${trHTML("网络路由")}</span><select name="route"><option value="" data-i18n="服务端直连">${trHTML("服务端直连")}</option><option value="tunnel" data-i18n="我的内网隧道">${trHTML("我的内网隧道")}</option></select></label>
+
     <label data-ca-row><span data-i18n="公司 CA 证书（可选）">${trHTML("公司 CA 证书（可选）")}</span><textarea name="ca_pem" rows="3" spellcheck="false" placeholder="${trHTML("PEM 根 CA / 中间 CA；留空使用系统信任库")}" data-i18n-attrs="{&quot;placeholder&quot;:&quot;PEM 根 CA / 中间 CA；留空使用系统信任库&quot;}"></textarea></label>
-    <p class="field-hint"><span data-i18n="隧道需在线并放行服务域名和端口，断开时不会改为直连。路由与信任信息保存后固定，调整需新建连接。">${trHTML("隧道需在线并放行服务域名和端口，断开时不会改为直连。路由与信任信息保存后固定，调整需新建连接。")}</span></p>
+    <p class="field-hint"><span data-i18n="保存后信任信息固定，修改时需新建连接。">${trHTML("保存后信任信息固定，修改时需新建连接。")}</span></p>
     <label class="check"><input type="checkbox" name="read_only" checked><span data-i18n="只允许读取仓库">${trHTML("只允许读取仓库")}</span></label>
     <p class="field-hint"><span data-i18n="使用有目标仓库权限的 Token。推送需同时具有上游写权限。服务地址和用户名保存后不可修改；更换目标请创建新连接。">${trHTML("使用有目标仓库权限的 Token。推送需同时具有上游写权限。服务地址和用户名保存后不可修改；更换目标请创建新连接。")}</span></p>
     <p data-error role="alert" class="login-error"></p><div class="dlg-actions"><button type="submit" class="btn btn-primary" data-icon="save"><span class="action-label" data-i18n="保存">${trHTML("保存")}</span></button></div>
@@ -167,16 +167,15 @@ function editConnection(c, saved) {
     const field = (name) => form.elements.namedItem(name);
     const provider = form.elements.namedItem("provider");
     const save = d.querySelector('[type="submit"]');
-    const auth = form.elements.namedItem("auth_type"), route = form.elements.namedItem("route");
+    const auth = form.elements.namedItem("auth_type");
     if (c?.auth_type === "oauth")
         auth.append(option("oauth", "OAuth"));
     setSelectValue(auth, c?.auth_type || "pat");
-    setSelectValue(route, c?.network?.route || "");
     field("ca_pem").value = c?.network?.ca_pem || "";
     const syncAuth = () => { const ssh = auth.value === "ssh"; d.querySelector("[data-ssh]").classList.toggle("hidden", !ssh); d.querySelector("[data-token-row]").classList.toggle("hidden", ssh); d.querySelector("[data-ca-row]").classList.toggle("hidden", ssh); field("token").required = !c && !ssh; field("private_key").required = field("host_key").required = !c && ssh; };
     auth.addEventListener("change", () => { field("base_url").value = auth.value === "ssh" ? "ssh://github.com" : "https://github.com"; field("username").value = auth.value === "ssh" ? "git" : ""; syncAuth(); });
     if (c) {
-        auth.disabled = route.disabled = field("ca_pem").disabled = true;
+        auth.disabled = field("ca_pem").disabled = true;
         setAttrRender(field("private_key"), "placeholder", () => i18nText("留空保留现有私钥"));
         setAttrRender(field("host_key"), "placeholder", () => c.host_fingerprint || i18nText("已保存主机公钥"));
     }
@@ -206,7 +205,7 @@ function editConnection(c, saved) {
         d.querySelector("[data-error]").textContent = "";
         const body = c
             ? { revision: c.revision, label: field("label").value.trim(), read_only: field("read_only").checked, ...(field("token").value ? { token: field("token").value } : {}), ...(c.auth_type === "ssh" && field("private_key").value ? { private_key: field("private_key").value, passphrase: field("passphrase").value } : {}), ...(c.auth_type === "ssh" && field("host_key").value ? { host_key: field("host_key").value } : {}) }
-            : { label: field("label").value.trim(), provider: provider.value, base_url: field("base_url").value, username: field("username").value, token: field("token").value, read_only: field("read_only").checked, auth_type: auth.value, private_key: field("private_key").value, passphrase: field("passphrase").value, host_key: field("host_key").value, network: { route: route.value, ca_pem: auth.value === "ssh" ? "" : field("ca_pem").value } };
+            : { label: field("label").value.trim(), provider: provider.value, base_url: field("base_url").value, username: field("username").value, token: field("token").value, read_only: field("read_only").checked, auth_type: auth.value, private_key: field("private_key").value, passphrase: field("passphrase").value, host_key: field("host_key").value, network: { ca_pem: auth.value === "ssh" ? "" : field("ca_pem").value } };
         try {
             await api(c ? `/git/connections/${c.id}` : "/git/connections", { method: c ? "PATCH" : "POST", body: JSON.stringify(body) });
             field("token").value = field("private_key").value = field("passphrase").value = "";

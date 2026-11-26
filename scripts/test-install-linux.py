@@ -182,7 +182,7 @@ elif args[0] not in ('enable','disable','daemon-reload','reset-failed'): raise S
         token = json.load(response)['token']
     with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:18189/api/voice', headers={'Authorization':'Bearer '+token}), timeout=5) as response:
         assert json.load(response) == {'enabled': True}
-    with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:18189/api/tunnel/clients', headers={'Authorization':'Bearer '+token}), timeout=5) as response:
+    with urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:18189/api/device-link/clients', headers={'Authorization':'Bearer '+token}), timeout=5) as response:
         clients = json.load(response)
         assert len(clients) == 5, clients
     assert all((Path('/var/lib/agentbox/abox-link') / c['name']).read_bytes() == b'synthetic client' for c in clients)

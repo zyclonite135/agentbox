@@ -62,9 +62,7 @@ func truncReason(s string) string {
 //
 // The exec env reaches this process only. A tmux session that already exists
 // was forked from some earlier exec, so anything started in it keeps that older
-// env — a tunnel that came up after the session started stays invisible there
-// (the symptom: the agent reports no $AGENTBOX_INTRANET_PROXY while the link is
-// plainly connected). Pushing the values into tmux's global environment makes
+// env. Pushing the values into tmux's global environment makes
 // every window/pane opened from now on, including a restarted agent, see the
 // current values. Panes already running keep their frozen env; that is a
 // process-level fact of life, not something tmux can undo.
@@ -106,7 +104,7 @@ func tmuxEnvSync(env []string) string {
 		have[k] = true
 		fmt.Fprintf(&b, "tmux set-environment -g %s %s; ", k, shellQuote(v))
 	}
-	for _, k := range append(append(append(append([]string{}, tunnelEnvNames...), proxyEnvNames...), modelGatewayEnvNames...), usageTelemetryEnvNames...) {
+	for _, k := range append(append(append([]string{}, proxyEnvNames...), modelGatewayEnvNames...), usageTelemetryEnvNames...) {
 		if !have[k] {
 			fmt.Fprintf(&b, "tmux set-environment -gu %s; ", k)
 		}

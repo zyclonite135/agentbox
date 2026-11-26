@@ -13,9 +13,7 @@ import (
 // workspace may open. Everything else — internet, other host services, other
 // workspaces — is rejected, and new inbound connections are dropped.
 //
-// The rules apply to every UID in the namespace, including the transparent
-// network helper: its intranet traffic goes to the control port (allowed), and
-// its direct fallback dials are meant to fail closed under this policy.
+// The rules apply to every UID in the namespace.
 type EgressPolicy struct {
 	Hosts     []netip.Addr
 	Ports     []int

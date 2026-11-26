@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 交叉编译 abox-link 客户端，放进 data/abox-link/ 供 Web UI 下载。
 #
-# 客户端与服务端是一对：新客户端的控制台要用 /api/tunnel/pair/redeem，旧服务端上没这个
+# 客户端与服务端是一对：新客户端的控制台要用 /api/device-link/pair/redeem，旧服务端上没这个
 # 接口。所以务必**先部署服务端**（deploy/deploy.sh）再跑这个脚本，反过来会让下载到新
 # 客户端的用户配对失败。
 #

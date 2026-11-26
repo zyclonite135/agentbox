@@ -2,6 +2,8 @@ package backup
 
 import (
 	"encoding/json"
+	"encoding/pem"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,13 +21,16 @@ func TestGitSecretsSystemBackupRestore(t *testing.T) {
 	}
 }
 func testGitSecretsSystemBackupRestore(t *testing.T, mode string) {
+	caServer := httptest.NewTLSServer(nil)
+	ca := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caServer.Certificate().Raw}))
+	caServer.Close()
 	cfg, data := fixture(t)
 	st, err := store.Open(filepath.Join(data, "state.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	c := store.GitConnection{ID: "fixture-git", Owner: "alice", Label: "Fixture", Provider: "gitlab", BaseURL: "https://git.example.com", Network: gitaccess.NetworkPolicy{Route: "tunnel"}, AuthType: "pat", Username: "oauth2", Enabled: true, ReadOnly: true}
+	c := store.GitConnection{ID: "fixture-git", Owner: "alice", Label: "Fixture", Provider: "gitlab", BaseURL: "https://git.example.com", Network: gitaccess.NetworkPolicy{CAPEM: ca}, AuthType: "pat", Username: "oauth2", Enabled: true, ReadOnly: true}
 	v := gitaccess.Vault{DataDir: data}
 	c.Secret, err = v.Seal([]byte("synthetic-backup-secret"), c.AssociatedData(), true)
 	if err != nil {
@@ -50,7 +55,7 @@ func testGitSecretsSystemBackupRestore(t *testing.T, mode string) {
 			t.Fatal(err)
 		}
 	}
-	app := config.GitOAuthApp{ID: "fixture-app", Network: gitaccess.NetworkPolicy{Route: "tunnel"}, Provider: "gitlab", BaseURL: "https://git.example.com", ClientID: "fixture-client", RedirectURL: "https://box.example/api/git/oauth/callback", Revision: 1}
+	app := config.GitOAuthApp{ID: "fixture-app", Network: gitaccess.NetworkPolicy{CAPEM: ca}, Provider: "gitlab", BaseURL: "https://git.example.com", ClientID: "fixture-client", RedirectURL: "https://box.example/api/git/oauth/callback", Revision: 1}
 	app.Secret, err = v.Seal([]byte("synthetic-app-secret"), app.AssociatedData(), false)
 	if err != nil {
 		t.Fatal(err)

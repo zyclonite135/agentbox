@@ -15,31 +15,31 @@ import (
 	"strings"
 	"time"
 
+	"agentbox/internal/devicelink"
 	"agentbox/internal/dockerx"
 	"agentbox/internal/safefs"
 	"agentbox/internal/store"
-	"agentbox/internal/tunnel"
 
 	"github.com/hashicorp/yamux"
 )
 
 type linkFolderCatalog struct {
-	Owner   time.Time       `json:"owner"`
-	Folders []tunnel.Folder `json:"folders"`
+	Owner   time.Time           `json:"owner"`
+	Folders []devicelink.Folder `json:"folders"`
 }
 
-func parseLinkFolders(header string) ([]tunnel.Folder, error) {
+func parseLinkFolders(header string) ([]devicelink.Folder, error) {
 	if header == "" {
-		return nil, nil // old client
+		return nil, errors.New("missing folder catalog")
 	}
-	var folders []tunnel.Folder
+	var folders []devicelink.Folder
 	raw, err := base64.RawURLEncoding.DecodeString(header)
-	if err != nil || len(raw) > 16<<10 || json.Unmarshal(raw, &folders) != nil || folders == nil || len(folders) > tunnel.MaxFolders {
+	if err != nil || len(raw) > 16<<10 || json.Unmarshal(raw, &folders) != nil || folders == nil || len(folders) > devicelink.MaxFolders {
 		return nil, errors.New("invalid folder catalog")
 	}
 	seen := make(map[string]bool, len(folders))
 	for _, folder := range folders {
-		if seen[folder.ID] || !tunnel.ValidFolderID(folder.ID) || !tunnel.ValidFolderName(folder.Name) {
+		if seen[folder.ID] || !devicelink.ValidFolderID(folder.ID) || !devicelink.ValidFolderName(folder.Name) {
 			return nil, errors.New("invalid folder metadata")
 		}
 		seen[folder.ID] = true
@@ -51,7 +51,7 @@ func (s *Server) userFolderRoot(user string) (*safefs.Root, error) {
 	return s.openDataDir(filepath.Join(s.cfg.DataDir, "users", user))
 }
 
-func (s *Server) saveLinkFolders(user store.User, folders []tunnel.Folder) error {
+func (s *Server) saveLinkFolders(user store.User, folders []devicelink.Folder) error {
 	root, err := s.userFolderRoot(user.Name)
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func (s *Server) saveLinkFolders(user store.User, folders []tunnel.Folder) error
 	return err
 }
 
-func (s *Server) savedLinkFolders(user store.User) []tunnel.Folder {
+func (s *Server) savedLinkFolders(user store.User) []devicelink.Folder {
 	root, err := s.userFolderRoot(user.Name)
 	if err != nil {
 		return nil
@@ -86,15 +86,18 @@ func (s *Server) savedLinkFolders(user store.User) []tunnel.Folder {
 	return catalog.Folders
 }
 
-func (s *Server) liveLinkFolders(user store.User) (*yamux.Session, []tunnel.Folder) {
-	hub := s.tunnels
+func (s *Server) liveLinkFolders(user store.User) (*yamux.Session, []devicelink.Folder) {
+	if !s.cfg.GetDeviceLink().Enabled || s.devices == nil {
+		return nil, nil
+	}
+	hub := s.devices
 	hub.mu.RLock()
 	session, info := hub.conns[user.Name], hub.info[user.Name]
 	hub.mu.RUnlock()
 	if session == nil || session.IsClosed() || info.folders == nil {
 		return nil, nil
 	}
-	owner, valid := s.store.TokenUser(info.folderToken)
+	owner, valid := s.store.TokenUser(info.token)
 	if !valid || owner.Name != user.Name || !owner.CreatedAt.Equal(user.CreatedAt) {
 		return nil, nil
 	}
@@ -119,20 +122,22 @@ func (s *Server) handleLocalFolders(w http.ResponseWriter, r *http.Request) {
 	user := reqUser(r)
 	session, folders := s.liveLinkFolders(user)
 	if session == nil {
-		folders = s.savedLinkFolders(user)
+		if s.cfg.GetDeviceLink().Enabled {
+			folders = s.savedLinkFolders(user)
+		}
 	}
 	if folders == nil {
-		folders = []tunnel.Folder{}
+		folders = []devicelink.Folder{}
 	}
 	writeJSON(w, http.StatusOK, struct {
-		Online  bool            `json:"online"`
-		Folders []tunnel.Folder `json:"folders"`
+		Online  bool                `json:"online"`
+		Folders []devicelink.Folder `json:"folders"`
 	}{session != nil, folders})
 }
 
-func (s *Server) openLocalFolderStream(w http.ResponseWriter, r *http.Request, req tunnel.FolderRequest) (*yamux.Stream, tunnel.FolderResponse, func(), bool) {
-	var response tunnel.FolderResponse
-	if !tunnel.ValidFolderID(req.ID) || !tunnel.ValidFolderPath(req.Path) {
+func (s *Server) openLocalFolderStream(w http.ResponseWriter, r *http.Request, req devicelink.FolderRequest) (*yamux.Stream, devicelink.FolderResponse, func(), bool) {
+	var response devicelink.FolderResponse
+	if !devicelink.ValidFolderID(req.ID) || !devicelink.ValidFolderPath(req.Path) {
 		writeErr(w, http.StatusBadRequest, "invalid local folder path")
 		return nil, response, nil, false
 	}
@@ -157,12 +162,12 @@ func (s *Server) openLocalFolderStream(w http.ResponseWriter, r *http.Request, r
 	_ = stream.SetDeadline(time.Now().Add(5 * time.Minute))
 	stop := context.AfterFunc(r.Context(), func() { _ = stream.SetDeadline(time.Now()) })
 	closeStream := func() { stop(); _ = stream.Close() }
-	_, err = stream.Write([]byte{tunnel.StreamFolders})
+	_, err = stream.Write([]byte{devicelink.StreamFolders})
 	if err == nil {
-		err = tunnel.WriteFolderMessage(stream, req)
+		err = devicelink.WriteFolderMessage(stream, req)
 	}
 	if err == nil {
-		err = tunnel.ReadFolderMessage(stream, &response)
+		err = devicelink.ReadFolderMessage(stream, &response)
 	}
 	if err != nil {
 		closeStream()
@@ -202,7 +207,7 @@ func (s *Server) handleLocalFolder(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = "."
 	}
-	_, result, closeStream, ok := s.openLocalFolderStream(w, r, tunnel.FolderRequest{ID: r.PathValue("folder"), Path: name, Offset: offset})
+	_, result, closeStream, ok := s.openLocalFolderStream(w, r, devicelink.FolderRequest{ID: r.PathValue("folder"), Path: name, Offset: offset})
 	if !ok {
 		return
 	}
@@ -236,7 +241,7 @@ func (s *Server) handleLocalFile(w http.ResponseWriter, r *http.Request, workspa
 		return
 	}
 	limit := s.cfg.GetMaxUploadMB() << 20
-	stream, response, closeStream, ok := s.openLocalFolderStream(w, r, tunnel.FolderRequest{ID: input.Folder, Path: input.Path, Read: true, Limit: limit})
+	stream, response, closeStream, ok := s.openLocalFolderStream(w, r, devicelink.FolderRequest{ID: input.Folder, Path: input.Path, Read: true, Limit: limit})
 	if !ok {
 		return
 	}
@@ -247,7 +252,7 @@ func (s *Server) handleLocalFile(w http.ResponseWriter, r *http.Request, workspa
 	}
 	if s.cfg.GetStoragePolicy().Mount != "" {
 		// The body of this HTTP request is only a path. Reserve the actual
-		// transfer separately before storing the bytes from the tunnel.
+		// transfer separately before storing the bytes from the devicelink.
 		release, admitted := s.reserveStorageBytes(r, response.Size, s.cfg.GetResources().MinFreeBytes)
 		if !admitted {
 			refuseStorageWrite(w, r)

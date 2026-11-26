@@ -59,12 +59,12 @@ func TestModelGatewayValidation(t *testing.T) {
 	if _, err := Load(writeRaw(t, map[string]any{"auth_token": "test-token-long-enough", "model_gateway": map[string]any{"bind": "0.0.0.0:1082"}})); err == nil {
 		t.Error("wildcard bind without host accepted")
 	}
-	if _, err := Load(writeRaw(t, map[string]any{"auth_token": "test-token-long-enough", "tunnel": map[string]any{"enabled": true},
-		"model_gateway": map[string]any{"bind": "172.17.0.1:1082"}})); err == nil {
+	if _, err := Load(writeRaw(t, map[string]any{"auth_token": "test-token-long-enough", "device_link": map[string]any{"enabled": true},
+		"model_gateway": map[string]any{"bind": "172.17.0.1:1081"}})); err == nil {
 		t.Error("gateway bind colliding with the transparent network listener accepted")
 	}
-	if _, err := Load(writeRaw(t, map[string]any{"auth_token": "test-token-long-enough", "tunnel": map[string]any{"enabled": true}})); err != nil {
-		t.Errorf("default gateway bind collides with tunnel defaults: %v", err)
+	if _, err := Load(writeRaw(t, map[string]any{"auth_token": "test-token-long-enough", "device_link": map[string]any{"enabled": true}})); err != nil {
+		t.Errorf("default gateway bind with device sharing: %v", err)
 	}
 	// A legacy section is validated after migration, under its new name.
 	if _, err := Load(writeRaw(t, map[string]any{"auth_token": "test-token-long-enough", "extensions": map[string]any{"gateway": map[string]any{"bind": "nope"}}})); err == nil || !strings.Contains(err.Error(), "model_gateway.bind") {

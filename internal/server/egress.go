@@ -43,15 +43,6 @@ func (s *Server) egressRestricted() bool {
 	return s.cfg.GetContainer().EgressMode() == config.EgressRestricted
 }
 
-// workspaceNetwork is the workspace lifecycle network hook: the egress lock
-// goes in first so nothing runs unrestricted, then the transparent helper.
-func (s *Server) workspaceNetwork(ctx context.Context, sess store.Session) error {
-	if err := s.ensureEgress(ctx, sess); err != nil {
-		return err
-	}
-	return s.ensureNetwork(ctx, sess)
-}
-
 // ensureEgress installs (or refreshes) the restricted-egress rules. It runs
 // under the workspace lifecycle lock on every start/attach and from the
 // network loop, and is a single inspect when nothing changed.
@@ -79,7 +70,11 @@ func (s *Server) ensureEgress(ctx context.Context, sess store.Session) error {
 	if done {
 		return nil
 	}
-	started, err = s.dock.LockEgress(ctx, sess.ContainerID, s.cfg.GetTunnel().NetworkImage, v4, v6)
+	image := s.cfg.GetContainer().EgressImage
+	if image == "" {
+		image = "agentbox-network:latest"
+	}
+	started, err = s.dock.LockEgress(ctx, sess.ContainerID, image, v4, v6)
 	if err != nil {
 		return err
 	}
@@ -125,16 +120,6 @@ func (s *Server) egressPolicy(ctx context.Context) (netaccess.EgressPolicy, erro
 	}
 	r := pb.DynamicPortRange()
 	p.RangeLow, p.RangeHigh = r.Low, r.High
-	if tc := s.cfg.GetTunnel(); tc.Enabled {
-		if err := add("tunnel", tc.ProxyHost, tc.ProxyBind); err != nil {
-			return p, err
-		}
-		if tc.Transparent {
-			if err := add("tunnel.network_bind", tc.ProxyHost, tc.NetworkBind); err != nil {
-				return p, err
-			}
-		}
-	}
 	gw := s.cfg.GetModelGateway()
 	if err := add("model_gateway", gw.Host, gw.Bind); err != nil {
 		return p, err
@@ -261,4 +246,28 @@ func (s *Server) listenDynamic(host string) (net.Listener, error) {
 
 func logEgress(sess store.Session, err error) {
 	log.Printf("restricted egress %s (%s): %v", sess.ID, sess.Name, err)
+}
+
+func (s *Server) egressLoop() {
+	for {
+		if s.egressRestricted() {
+			running := map[string]bool{}
+			for _, sess := range s.store.All() {
+				if sess.Status != store.StatusRunning {
+					continue
+				}
+				running[sess.ContainerID] = true
+				ctx, cancel := context.WithTimeout(s.workContext(), 15*time.Second)
+				err := s.workspaces().RefreshNetwork(ctx, sess.ID)
+				cancel()
+				if err != nil && s.workContext().Err() == nil {
+					logEgress(sess, err)
+				}
+			}
+			s.pruneEgress(running)
+		}
+		if !waitInterval(s.workContext(), 10*time.Second) {
+			return
+		}
+	}
 }

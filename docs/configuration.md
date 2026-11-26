@@ -87,12 +87,7 @@
 | `proxies[].scheme` | `socks5` / `http` / `https` | 上游代理协议，端口范围 1–65535 |
 | `proxy_bridge.bind` | `172.17.0.1:1081` | 容器访问的本地 HTTP 代理桥接监听地址 |
 | `proxy_bridge.host` | 从 bind 提取主机 | 注入容器代理 URL 的主机；监听通配地址时应显式给出可达地址 |
-| `tunnel.enabled` | `false` | 是否接受 abox-link 内网连接 |
-| `tunnel.transparent` | `true` | 默认选择透明模式；总开关仍由 `enabled` 独立控制，显式 `false` 保留兼容代理模式 |
-| `tunnel.network_bind` | `proxy_bind` 主机的 `1082` 端口 | 透明网络控制监听地址，仅向容器网络开放 |
-| `tunnel.network_image` | `agentbox-network:latest` | 透明网络辅助镜像，使用前需构建 |
-| `tunnel.proxy_bind` | 隧道启用或透明模式为 true 且未填写时为 `172.17.0.1:1080` | 内网 SOCKS5 代理监听地址 |
-| `tunnel.proxy_host` | 从 proxy_bind 提取主机 | 容器实际连接的主机；bind 为通配地址时必须显式配置 |
+| `device_link.enabled` | `false` | 是否允许 abox-link 配对与共享文件夹 |
 
 桥接和隧道地址应为宿主机上可绑定、且容器可达的地址。可在 Linux 上查看默认网桥网关：
 
@@ -114,7 +109,7 @@ docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}'
 
 | 字段 | 默认值 / 格式 | 说明 |
 | --- | --- | --- |
-| `model_gateway.bind` | `172.17.0.1:1083` | 监听地址，须容器可达；不能与 `proxy_bridge.bind`、`tunnel.proxy_bind`、`tunnel.network_bind` 相同。改动需重启服务，已在运行的 CLI 持有旧地址 |
+| `model_gateway.bind` | `172.17.0.1:1083` | 监听地址，须容器可达；不能与 `proxy_bridge.bind` 相同。改动需重启服务，已在运行的 CLI 持有旧地址 |
 | `model_gateway.host` | 从 bind 提取主机 | 写进容器 base URL 的主机；bind 为通配地址时必须填写 |
 | `model_gateway.dedicated_connections` | `false` | 每次上游请求独占一条 HTTP/1.1 连接、不复用，中断时关掉这条连接（同独立网关的 `-dedicated-connections`）。代价是每次请求重新握手。可在「系统设置 → IP 代理 → 模型网关」切换，即时生效 |
 
@@ -132,7 +127,7 @@ Claude 与 Codex 空间的 CLI 经 OpenTelemetry（OTLP/HTTP JSON）把每次 AP
 
 | 字段 | 默认值 / 格式 | 说明 |
 | --- | --- | --- |
-| `usage_telemetry.bind` | `172.17.0.1:1084` | 监听地址，须容器可达；不能与 `proxy_bridge.bind`、`model_gateway.bind`、`tunnel.proxy_bind`、`tunnel.network_bind` 相同。改动需重启服务；已在运行的 CLI 持有旧地址，重启 CLI 后才用新地址 |
+| `usage_telemetry.bind` | `172.17.0.1:1084` | 监听地址，须容器可达；不能与 `proxy_bridge.bind`、`model_gateway.bind` 相同。改动需重启服务；已在运行的 CLI 持有旧地址，重启 CLI 后才用新地址 |
 | `usage_telemetry.host` | 从 bind 提取主机 | 写进容器上报地址的主机；bind 为通配地址时必须填写 |
 | `usage_telemetry.disabled` | `false` | 设为 `true` 时不监听，也不再给新启动的 Claude 注入遥测环境变量，Codex 空间的 `[otel]` 段在下次对话或打开终端时移除；使用记录只显示日志估算的延迟 |
 
@@ -270,7 +265,7 @@ data/                               实际根目录由 data_dir 决定
 
 `resources` 支持 `max_running`、`max_running_per_user` 和 `min_free_bytes`，均为非负整数，0 禁用。可从管理员设置 API/界面原子保存并立即影响新启动。限制与磁盘统计口径见[运行维护](architecture/deployment-layout.md#容量与回收)。
 
-Git 连接与 OAuth 应用可在网页选择 `network.route=tunnel` 及 `network.ca_pem`；路由固定为连接属主的 abox-link 隧道，断开时不直连，客户端需放行目标域名/端口。公司 CA 仅附加到该连接 TLS 信任池。SSH 连接需配置可信的服务器主机公钥并核对 SHA256 指纹，私钥不下发容器。详见 [Git API](api.md#企业网络与-ssh)。
+Git 连接与 OAuth 应用通过 AgentBox 服务器连接。可选的公司 CA 只附加到该连接的 TLS 信任池。SSH 连接须验证主机公钥，私钥留在服务端。
 
 ## 共享工具存储
 

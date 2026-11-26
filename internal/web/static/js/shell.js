@@ -239,7 +239,7 @@ window.addEventListener("keydown", (e) => {
 syncSidebar();
 /* ---- 顶栏：设置视图显示标题，工作台视图显示 状态灯+会话名+⋯菜单 ---- */
 const VIEW_TITLE = {
-    get git() { return i18nText("Git 管理"); }, get settings() { return i18nText("系统设置"); }, get usage() { return i18nText("使用记录"); }, get tunnel() { return i18nText("内网隧道"); }, get extensions() { return i18nText("扩展"); },
+    get git() { return i18nText("Git 管理"); }, get settings() { return i18nText("系统设置"); }, get usage() { return i18nText("使用记录"); }, get "device-link"() { return i18nText("连接设备"); }, get extensions() { return i18nText("扩展"); },
 };
 export function updateTopbarTitle() {
     const inWork = S.view === "work" && !!S.current;
@@ -268,9 +268,9 @@ export function showView(name) {
     $("view-git").classList.toggle("hidden", name !== "git");
     $("view-settings").classList.toggle("hidden", name !== "settings");
     $("view-usage").classList.toggle("hidden", name !== "usage");
-    $("view-tunnel").classList.toggle("hidden", name !== "tunnel");
+    $("view-device-link").classList.toggle("hidden", name !== "device-link");
     $("view-extensions").classList.toggle("hidden", name !== "extensions");
-    for (const [id, view] of [["btn-git-management", "git"], ["btn-settings", "settings"], ["btn-usagelog", "usage"], ["btn-tunnel", "tunnel"], ["btn-extensions", "extensions"]]) {
+    for (const [id, view] of [["btn-git-management", "git"], ["btn-settings", "settings"], ["btn-usagelog", "usage"], ["btn-device-link", "device-link"], ["btn-extensions", "extensions"]]) {
         $(id).classList.toggle("active", name === view);
         if (name === view)
             $(id).setAttribute("aria-current", "page");
@@ -284,7 +284,7 @@ export function showView(name) {
 $("btn-settings").addEventListener("click", () => emit("open-settings"));
 /* 账号额度在工作台头部的 ⋯ 菜单里；这里是侧栏的使用记录入口。 */
 $("btn-usagelog").addEventListener("click", () => emit("open-usage"));
-$("btn-tunnel").addEventListener("click", () => emit("open-tunnel"));
+$("btn-device-link").addEventListener("click", () => emit("open-device-link"));
 /* ---- 侧栏：会话列表 ---- */
 /* 侧栏里新出现的空间（刚新建、别处新建后轮询到）底色闪一下，告诉你它落在了哪。
  * 登录后第一次拿到的列表只记下、不闪；退出登录后重新记。 */

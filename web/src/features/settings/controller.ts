@@ -554,19 +554,11 @@ function fillSettingsForms() {
   setTextRender($("security-note"), () => st.restart_required
     ? i18nText("监听地址已修改，重启 agentbox 服务后生效")
     : i18nText("权限模式与上传上限即时生效；监听地址需重启 agentbox 服务"));
-  $<HTMLInputElement>("set-tunnel-on").checked = !!(st.tunnel && st.tunnel.enabled);
- $<HTMLInputElement>("set-tunnel-transparent").checked = !!st.tunnel?.transparent;
- $<HTMLInputElement>("set-network-bind").value = st.tunnel?.network_bind || "";
- $<HTMLInputElement>("set-network-image").value = st.tunnel?.network_image || "";
-  $<HTMLInputElement>("set-tunnel-bind").value = (st.tunnel && st.tunnel.proxy_bind) || "";
-  $<HTMLInputElement>("set-tunnel-host").value = (st.tunnel && st.tunnel.proxy_host) || "";
+  $<HTMLInputElement>("set-device-link-on").checked = !!st.device_link?.enabled;
   $<HTMLInputElement>("set-bridge-bind").value = (st.proxy_bridge && st.proxy_bridge.bind) || "";
   $<HTMLInputElement>("set-bridge-host").value = (st.proxy_bridge && st.proxy_bridge.host) || "";
   $<HTMLInputElement>("set-mgw-dedicated").checked = !!st.model_gateway?.dedicated_connections;
   renderModelGateway(st);
-  setTextRender($("tunnel-note"), () => st.tunnel && st.tunnel.enabled
-    ? (st.tunnel_active ? i18nText("隧道已启用，SOCKS5 代理监听中") : i18nText("隧道已启用，但代理未在监听（检查绑定地址）"))
-    : i18nText("默认绑定 docker 网桥网关 172.17.0.1，仅容器与本机可达"));
   const tips: Partial<Settings["terminal_tips"]> = st.terminal_tips || {};
   terminalTipsEditor.loaded = tips.tips || [];
   terminalTipsEditor.displayed = terminalTipsEditor.loaded.map(terminalTipText).join("\n");
@@ -934,22 +926,9 @@ function initSaveBar(signal: AbortSignal) {
         listen: inputVal("set-listen").trim(),
       }),
       done: (st) => { if (st.restart_required) toast(i18nText("监听地址改动需重启 agentbox 服务后生效")); } },
-    { id: "tunnel", get label() { return i18nText("内网隧道"); },
-      fields: ["set-tunnel-on", "set-tunnel-transparent", "set-network-bind", "set-network-image", "set-tunnel-bind", "set-tunnel-host"],
-      patch: () => ({
-        tunnel: {
-          enabled: $<HTMLInputElement>("set-tunnel-on").checked,
-          transparent: $<HTMLInputElement>("set-tunnel-transparent").checked,
-          network_bind: inputVal("set-network-bind").trim(),
-          network_image: inputVal("set-network-image").trim(),
-          proxy_bind: inputVal("set-tunnel-bind").trim(),
-          proxy_host: inputVal("set-tunnel-host").trim(),
-        },
-      }),
-      done: (st) => { if (st.tunnel_error) toast(i18nText("隧道启动失败：") + st.tunnel_error, true); } },
-    { id: "bridge", get label() { return i18nText("代理桥接地址"); }, fields: ["set-bridge-bind", "set-bridge-host"],
-      patch: () => ({ proxy_bridge: { bind: inputVal("set-bridge-bind").trim(), host: inputVal("set-bridge-host").trim() } }),
-      done: () => openProxiesSection() }, // 重绑结果（成功/失败）由列表接口回报
+    { id: "device-link", get label() { return i18nText("设备连接"); },
+      fields: ["set-device-link-on"],
+      patch: () => ({ device_link: { enabled: $<HTMLInputElement>("set-device-link-on").checked } }) },
     { id: "model_gateway", get label() { return i18nText("模型网关"); }, fields: ["set-mgw-dedicated"],
       patch: () => ({ model_gateway: { dedicated_connections: $<HTMLInputElement>("set-mgw-dedicated").checked } }),
       done: (st) => renderModelGateway(st) },

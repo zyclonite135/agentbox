@@ -140,7 +140,7 @@ export class CreationFlow {
             void poll();
             try {
                 result = await api(this.path() + "/git", { method: "POST", headers: { "Content-Type": "application/json", "X-Git-Async": "1" }, body: JSON.stringify({ attempt_id: attempt, connection_id: connection, url, directory }), signal });
-                // 新服务端在后台克隆、先回执 running：查询创建回执直到出结果（经内网隧道的大仓库可能要几分钟）。
+                // 新服务端在后台克隆、先回执 running：查询创建回执直到出结果。
                 // 回执里的 running 只在服务端仍持有这次导入时出现，否则会被报成 uncertain，循环不会空转。
                 let failures = 0;
                 while (result.state === "running") {

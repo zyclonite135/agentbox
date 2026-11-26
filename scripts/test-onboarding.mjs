@@ -42,7 +42,7 @@ try{
   const models={claude:[{id:'claude-fixture',label:'Claude fixture'}],codex:[{id:'codex-first',label:'First'},{id:'codex-second',label:'Second'}]};
   const settings={listen:'127.0.0.1:8180',agent_image:'fixture',permission_mode:'default',max_upload_mb:20,idle_timeout_min:30,timezone:'UTC',
     models,default_models:{claude:'claude-fixture',codex:'codex-first'},container:{memory_mb:512,cpus:1,pids_limit:128,network:'none'},
-    resources:{max_running:0,max_running_per_user:0,min_free_bytes:0},terminal_tips:{tips:[],interval_sec:0,animation:'none'},tunnel:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},pricing:{}};
+    resources:{max_running:0,max_running_per_user:0,min_free_bytes:0},terminal_tips:{tips:[],interval_sec:0,animation:'none'},device_link:{enabled:false},proxy_bridge:{bind:'127.0.0.1:1081'},pricing:{}};
   let sentTask;
   await page.routeWebSocket('**/api/sessions/*/chat?*',ws=>{ws.send(JSON.stringify({type:'status',state:'idle'}));ws.onMessage(raw=>{
     const message=JSON.parse(String(raw));if(message.type!=='user_message')return;
@@ -133,7 +133,7 @@ try{
     else if(path.endsWith('/history'))body={entries:[],thread:null,costs:{}};
     else if(path.endsWith('/chat/threads'))body={threads:[],active:null};
     else if(path==='/api/usage/events')body={total:{cost_micro_usd:0},rows:[]};
-    else if(path==='/api/tunnel/status')body={enabled:false};
+    else if(path==='/api/device-link/status')body={enabled:false};
     else if(path.startsWith('/api/updates'))body={current_version:'dev',revision:'0123456789abcdef',built_at:'',latest_version:'',available:false,comparable:false,release_url:'',notes:'',error:'',checked_at:Date.now(),attempted_at:0,supported:false};
     else if(path==='/api/pricing')body={rows:[],revision:0,candidate:null};
     await route.fulfill({json:body});

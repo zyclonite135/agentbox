@@ -554,12 +554,62 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  assert.match(await diagnostics.nth(2).innerText(),/Квота у провайдера исчерпана/);
  assert.match(await diagnostics.nth(3).innerText(),/При выполнении запроса произошла ошибка/);
  assert.match(await diagnostics.nth(4).innerText(),/При выполнении запроса произошла ошибка/);
- assert.equal(await diagnostics.locator('details[open]').count(),0);
- await diagnostics.nth(2).getByText('Подробности',{exact:true}).click();
+ const toggleFor = index => diagnostics.nth(index).getByRole('button',{name:'Подробности'});
+ const quotaToggle = toggleFor(2);
+ const quotaDetails = diagnostics.nth(2).locator('.agent-diagnostic-details');
+ assert.equal(await diagnostics.getByText('Подробности',{exact:true}).count(),0,'details label should be accessible without taking a row');
+ assert.equal(await diagnostics.locator('button[aria-expanded="true"]').count(),0);
+ assert.equal(await diagnostics.nth(4).getByRole('button').count(),0,'an empty diagnostic has no disclosure button');
+ assert.equal(await quotaDetails.isVisible(),false);
+ assert.equal(await quotaDetails.evaluate(el=>el.inert),true);
+ assert.equal(await quotaToggle.getAttribute('aria-controls'),await quotaDetails.getAttribute('id'));
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ const measureDisclosure = () => quotaToggle.evaluate(button=>{
+  const panel=document.getElementById(button.getAttribute('aria-controls'));
+  const icon=button.querySelector('svg');
+  const measure=()=>({height:panel.getBoundingClientRect().height,arrow:getComputedStyle(icon).transform});
+  const before=measure();
+  button.click();
+  const panelMotion=panel.getAnimations().find(animation=>animation.transitionProperty==='grid-template-rows');
+  const arrowMotion=icon.getAnimations().find(animation=>animation.transitionProperty==='transform');
+  if(!panelMotion||!arrowMotion) return {before};
+  for(const motion of [panelMotion,arrowMotion]){
+   motion.pause();
+   motion.currentTime=motion.effect.getTiming().duration/2;
+  }
+  const during=measure();
+  for(const motion of [panelMotion,arrowMotion]) motion.finish();
+  return {before,during,after:measure()};
+ });
+ const opening=await measureDisclosure();
+ assert.ok(opening.during && opening.before.height===0 && opening.during.height>0 && opening.during.height<opening.after.height);
+ assert.notEqual(opening.during.arrow,opening.before.arrow);
+ assert.notEqual(opening.during.arrow,opening.after.arrow);
+ assert.match(opening.after.arrow,/matrix\(-1,\s*0,\s*0,\s*-1,/);
+ const closing=await measureDisclosure();
+ assert.ok(closing.during && closing.before.height>closing.during.height && closing.during.height>0 && closing.after.height===0);
+ assert.notEqual(closing.during.arrow,closing.before.arrow);
+ assert.notEqual(closing.during.arrow,closing.after.arrow);
+ assert.equal(closing.after.arrow,opening.before.arrow);
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await quotaToggle.press('Enter');
+ assert.equal(await quotaToggle.getAttribute('aria-expanded'),'true');
+ assert.equal(await quotaDetails.evaluate(el=>el.inert),false);
+ assert.equal(await quotaDetails.evaluate(el=>el.getAnimations().length),0);
  assert.match(await diagnostics.nth(2).innerText(),/insufficient_quota.*req_quota/s);
  assert.equal(await diagnostics.nth(2).locator('pre').textContent(),'Execution failed.\n'+quota);
+ await quotaToggle.press('Space');
+ assert.equal(await quotaToggle.getAttribute('aria-expanded'),'false');
+ assert.equal(await quotaDetails.isVisible(),false);
  await page.setViewportSize({width:320,height:780});
- await diagnostics.nth(3).locator('summary').press('Enter');
+ await toggleFor(3).press('Enter');
+ assert.equal(await diagnostics.nth(3).evaluate(el=>{
+  const title=el.querySelector('.agent-diagnostic-title').getBoundingClientRect();
+  const button=el.querySelector('.agent-diagnostic-toggle').getBoundingClientRect();
+  const bounds=el.getBoundingClientRect();
+  return title.right<=button.left && button.right<=bounds.right &&
+   button.top>=bounds.top && button.bottom<=bounds.bottom;
+ }),true,'mobile card must leave space for the arrow');
  assert.equal(await diagnostics.nth(3).locator('pre').textContent(),unknown);
  assert.equal(await diagnostics.nth(3).locator('img').count(),0);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'diagnostic details overflow the phone layout');

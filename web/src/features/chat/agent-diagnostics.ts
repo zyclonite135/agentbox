@@ -1,4 +1,4 @@
-import { setText } from "../../i18n.js";
+import { setAttr, setText } from "../../i18n.js";
 import type { Params } from "../../i18n/core.js";
 import { svgIcon } from "../../icons.js";
 
@@ -170,21 +170,44 @@ export function describeAgentDiagnostic(value: unknown, raw: unknown, tone: Tone
   return { ...primary, raw: original };
 }
 
+let detailsSequence = 0;
+
 export function agentDiagnostic(value: unknown, raw: unknown, tone: Tone) {
   const diagnostic = describeAgentDiagnostic(value, raw, tone);
   const chip = document.createElement("div");
   chip.className = "chip has-icon agent-diagnostic " + (tone === "error" ? "err" : "warn");
   const body = document.createElement("div");
   body.className = "agent-diagnostic-body";
+  const header = document.createElement("div");
+  header.className = "agent-diagnostic-head";
   const title = document.createElement("div");
+  title.className = "agent-diagnostic-title";
   setText(title, diagnostic.source, diagnostic.params);
-  body.append(title);
+  header.append(title);
+  body.append(header);
 
   if (diagnostic.raw || diagnostic.code || diagnostic.status || diagnostic.requestID || diagnostic.extra) {
-    const details = document.createElement("details");
-    const toggle = document.createElement("summary");
-    setText(toggle, "代理诊断详情");
-    details.append(toggle);
+    const details = document.createElement("div");
+    details.className = "agent-diagnostic-details";
+    details.id = `agent-diagnostic-details-${++detailsSequence}`;
+    details.inert = true;
+    const content = document.createElement("div");
+    content.className = "agent-diagnostic-clip";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "agent-diagnostic-toggle";
+    toggle.setAttribute("aria-controls", details.id);
+    toggle.setAttribute("aria-expanded", "false");
+    setAttr(toggle, "aria-label", "代理诊断详情");
+    setAttr(toggle, "title", "代理诊断详情");
+    toggle.append(svgIcon("chevron", 14));
+    toggle.addEventListener("click", () => {
+      const expanded = details.classList.toggle("open");
+      if (!expanded && details.contains(document.activeElement)) toggle.focus();
+      toggle.setAttribute("aria-expanded", String(expanded));
+      details.inert = !expanded;
+    });
+    header.append(toggle);
     const identifiers = document.createElement("dl");
     for (const [name, detail] of [
       ["代理错误代码", diagnostic.code], ["HTTP 状态", diagnostic.status], ["请求 ID", diagnostic.requestID],
@@ -195,13 +218,14 @@ export function agentDiagnostic(value: unknown, raw: unknown, tone: Tone) {
       value.textContent = detail;
       identifiers.append(term, value);
     }
-    if (identifiers.childElementCount) details.append(identifiers);
+    if (identifiers.childElementCount) content.append(identifiers);
     for (const detail of new Set([diagnostic.raw, diagnostic.extra])) {
       if (!detail) continue;
       const original = document.createElement("pre");
       original.textContent = detail;
-      details.append(original);
+      content.append(original);
     }
+    details.append(content);
     body.append(details);
   }
 

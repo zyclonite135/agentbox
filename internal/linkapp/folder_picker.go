@@ -13,7 +13,10 @@ import (
 )
 
 func (p *Panel) managerPickFolder(w http.ResponseWriter, r *http.Request) {
-	if !p.Config().Paired() {
+	p.mu.Lock()
+	cfg, pick := p.cfg, p.pickFolder
+	p.mu.Unlock()
+	if !cfg.Paired() {
 		writeErr(w, http.StatusConflict, "请先接入服务器")
 		return
 	}
@@ -24,9 +27,6 @@ func (p *Panel) managerPickFolder(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusTooManyRequests, "文件操作忙，请稍后重试")
 		return
 	}
-	p.mu.Lock()
-	pick, token := p.pickFolder, p.cfg.Token
-	p.mu.Unlock()
 	var value string
 	var err error
 	if pick != nil {
@@ -39,7 +39,8 @@ func (p *Panel) managerPickFolder(w http.ResponseWriter, r *http.Request) {
 	if r.Context().Err() != nil {
 		return
 	}
-	if p.Config().Token != token {
+	current := p.Config()
+	if current.Token != cfg.Token || current.Server != cfg.Server || current.User != cfg.User {
 		writeErr(w, http.StatusConflict, "凭证已失效")
 		return
 	}

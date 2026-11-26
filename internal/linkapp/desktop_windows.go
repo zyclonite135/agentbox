@@ -56,9 +56,19 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 		return name, err
 	}
 	panel.mu.Unlock()
-	show := func() {
+
+	var quitting atomic.Bool
+	quit := func() {
+		if quitting.CompareAndSwap(false, true) {
+			app.Quit()
+		}
+	}
+	showWindow := func() {
+		if quitting.Load() {
+			return
+		}
 		window.Show()
-		// ShowWindow can use the launcher's initial hidden state on its first call.
+		// Windows can override the first ShowWindow call with the launcher's startup state.
 		if !window.IsVisible() {
 			window.Show()
 		}
@@ -67,17 +77,28 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 		}
 		window.Focus()
 	}
+	show := func() { application.InvokeSync(showWindow) }
 
-	var quitting atomic.Bool
-	quit := func() {
-		if quitting.CompareAndSwap(false, true) {
-			app.Quit()
-		}
-	}
+	// Retry the initial show once WebView2 has loaded if Windows left the
+	// window hidden. A close before then must leave it in the tray.
+	showOnLoad := !startHidden
+	window.OnWindowEvent(events.Windows.WebViewNavigationCompleted, func(*application.WindowEvent) {
+		application.InvokeSync(func() {
+			if showOnLoad {
+				showOnLoad = false
+				if !window.IsVisible() {
+					showWindow()
+				}
+			}
+		})
+	})
 	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		if !quitting.Load() {
 			event.Cancel()
-			window.Hide()
+			application.InvokeSync(func() {
+				showOnLoad = false
+				window.Hide()
+			})
 		}
 	})
 

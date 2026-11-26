@@ -38,6 +38,28 @@ func TestRunningPanel(t *testing.T) {
 	}
 }
 
+func TestRunningPanelDoesNotFollowRedirects(t *testing.T) {
+	contacted := make(chan struct{}, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contacted <- struct{}{}
+		_ = json.NewEncoder(w).Encode(map[string]any{"paired": true})
+	}))
+	defer target.Close()
+	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
+	}))
+	defer redirect.Close()
+
+	if _, running := runningPanel(strings.TrimPrefix(redirect.URL, "http://")); running {
+		t.Error("a redirect to a panel must not identify the local service as abox-link")
+	}
+	select {
+	case <-contacted:
+		t.Error("the panel probe followed a redirect")
+	default:
+	}
+}
+
 // hold keeps a port busy the way a running panel does, so RunPanel cannot bind it.
 func hold(t *testing.T, state map[string]any) string {
 	t.Helper()

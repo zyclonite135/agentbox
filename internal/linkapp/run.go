@@ -142,17 +142,18 @@ func RunPanel(opts RunOptions) error {
 	}
 }
 
+var panelHTTPClient = &http.Client{
+	Timeout:       2 * time.Second,
+	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+}
+
 func requestPanelWindow(url string) error {
 	req, err := http.NewRequest(http.MethodPost, url+"/api/window/show", nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("X-Abox-Panel", "1")
-	client := &http.Client{
-		Timeout:       2 * time.Second,
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}
-	resp, err := client.Do(req)
+	resp, err := panelHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -172,7 +173,7 @@ func runningPanel(addr string) (version string, running bool) {
 		return "", false
 	}
 	req.Header.Set("X-Abox-Panel", "1")
-	resp, err := (&http.Client{Timeout: 2 * time.Second}).Do(req)
+	resp, err := panelHTTPClient.Do(req)
 	if err != nil {
 		return "", false
 	}

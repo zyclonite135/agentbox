@@ -340,6 +340,16 @@ func (c *appServerConn) emitJSON(v any) {
 
 // --- 通知 → 事件翻译 ---
 
+type codexDiagnostic struct {
+	Message           string          `json:"message"`
+	CodexErrorInfo    json.RawMessage `json:"codexErrorInfo,omitempty"`
+	AdditionalDetails string          `json:"additionalDetails,omitempty"`
+	Code              json.RawMessage `json:"code,omitempty"`
+	RequestID         string          `json:"requestId,omitempty"`
+	ProviderRequestID string          `json:"request_id,omitempty"`
+	HTTPStatusCode    int             `json:"httpStatusCode,omitempty"`
+}
+
 // handleNotification 翻译一条服务端通知；回合结束返回 true。
 func (c *appServerConn) handleNotification(method string, params json.RawMessage) bool {
 	switch method {
@@ -391,10 +401,8 @@ func (c *appServerConn) handleNotification(method string, params json.RawMessage
 	case "turn/completed":
 		var p struct {
 			Turn struct {
-				Status string `json:"status"`
-				Error  *struct {
-					Message string `json:"message"`
-				} `json:"error"`
+				Status string           `json:"status"`
+				Error  *codexDiagnostic `json:"error"`
 			} `json:"turn"`
 		}
 		json.Unmarshal(params, &p)
@@ -410,31 +418,39 @@ func (c *appServerConn) handleNotification(method string, params json.RawMessage
 			c.attachUsage(ev)
 			c.emitJSON(ev)
 		default:
-			msg := "回合失败"
-			if p.Turn.Error != nil && p.Turn.Error.Message != "" {
-				msg = p.Turn.Error.Message
+			diagnostic := p.Turn.Error
+			if diagnostic == nil {
+				diagnostic = &codexDiagnostic{}
 			}
 			ev := map[string]any{"type": "turn.failed",
-				"error": map[string]any{"message": msg}}
+				"error": diagnostic}
 			c.attachUsage(ev)
 			c.emitJSON(ev)
 		}
 		return true
 	case "error":
 		var p struct {
-			Message string `json:"message"`
-			Error   struct {
-				Message string `json:"message"`
-			} `json:"error"`
-			WillRetry bool `json:"willRetry"`
+			codexDiagnostic
+			Error     *codexDiagnostic `json:"error"`
+			WillRetry bool             `json:"willRetry"`
 		}
 		json.Unmarshal(params, &p)
 		msg := p.Message
-		if msg == "" {
+		if msg == "" && p.Error != nil {
 			msg = p.Error.Message
 		}
-		if msg != "" {
-			ev := map[string]any{"type": "error", "message": msg}
+		if msg != "" || p.Error != nil || len(p.CodexErrorInfo) > 0 || len(p.Code) > 0 {
+			p.Message = msg
+			ev := map[string]any{"type": "error", "message": msg, "error": p.Error}
+			if p.Error == nil {
+				ev["error"] = p.codexDiagnostic
+			}
+			if p.RequestID != "" {
+				ev["requestId"] = p.RequestID
+			}
+			if p.ProviderRequestID != "" {
+				ev["request_id"] = p.ProviderRequestID
+			}
 			if p.WillRetry { // 连接抖动后 CLI 自己重试，回合还在继续，网页按提示而非失败显示
 				ev["will_retry"] = true
 			}

@@ -529,6 +529,52 @@ export async function chatCodexItemsSmoke(page, { setHistory, send, socket, setA
  await page.unroute(archive,resultArchive);
  await page.setViewportSize({width:1280,height:900});
 
+ const setLanguage = language => page.evaluate(async language => {
+  (await import('/_v/{{BUILD}}/js/i18n.js')).i18n.setLanguage(language);
+ }, language);
+ const previousLanguage = await page.evaluate(async () => (await import('/_v/{{BUILD}}/js/i18n.js')).i18n.preference);
+ const missingEnvironment = "Missing environment variable: " + String.fromCharCode(96) + "CODEX_LB_API_KEY" + String.fromCharCode(96) + ".";
+ const quota = 'API Error: 429 {"type":"error","error":{"type":"rate_limit_error","code":"insufficient_quota"},"request_id":"req_quota"}';
+ const unknown = '<img src=x onerror=alert(1)> ' + 'long-diagnostic'.repeat(40);
+ setHistory([
+  {kind:'user', ts, text:'Diagnostic fixtures'},
+  {kind:'event', ts, event:{type:'warning', message:'Model metadata for "gpt-fixture" not found. Defaulting to fallback metadata; this can degrade performance and cause issues.'}},
+  {kind:'event', ts, event:{type:'error', message:missingEnvironment}},
+  {kind:'event', ts, event:{type:'result', subtype:'error_during_execution', errors:[quota]}},
+  {kind:'event', ts, event:{type:'turn.failed', error:{message:unknown}}},
+ ]);
+ await reload();
+ await setLanguage('ru');
+ const diagnostics = page.locator('#chat-log .agent-diagnostic');
+ await diagnostics.nth(3).waitFor();
+ assert.match(await diagnostics.nth(0).innerText(),/Codex не нашёл метаданные модели gpt-fixture/);
+ assert.equal(await diagnostics.nth(0).evaluate(el=>el.classList.contains('warn')),true);
+ assert.match(await diagnostics.nth(1).innerText(),/Не задана переменная окружения CODEX_LB_API_KEY\./);
+ assert.match(await diagnostics.nth(2).innerText(),/Квота у провайдера исчерпана/);
+ assert.match(await diagnostics.nth(3).innerText(),/При выполнении запроса произошла ошибка/);
+ assert.equal(await diagnostics.locator('details[open]').count(),0);
+ await diagnostics.nth(2).getByText('Подробности',{exact:true}).click();
+ assert.match(await diagnostics.nth(2).innerText(),/insufficient_quota.*req_quota/s);
+ assert.equal(await diagnostics.nth(2).locator('pre').textContent(),quota);
+ await page.setViewportSize({width:320,height:780});
+ await diagnostics.nth(3).locator('summary').press('Enter');
+ assert.equal(await diagnostics.nth(3).locator('pre').textContent(),unknown);
+ assert.equal(await diagnostics.nth(3).locator('img').count(),0);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'diagnostic details overflow the phone layout');
+ await page.setViewportSize({width:1280,height:900});
+ const retry = 'exceeded retry limit, last status: 429 Too Many Requests, request id: req_fixture';
+ send({type:'user_message', text:'Live diagnostic', turn:turn('diagnostic-live'), ts});
+ send({type:'status', state:'running'});
+ send({type:'agent_event', ts, event:{type:'error', will_retry:true,
+  error:{message:'stream disconnected before completion: connection reset',codexErrorInfo:{responseStreamDisconnected:{httpStatusCode:null}}}}});
+ send({type:'agent_event', ts, event:{type:'turn.failed',error:{message:retry}}});
+ send({type:'status', state:'idle'});
+ await diagnostics.last().getByText('Провайдер отклонил запрос после нескольких попыток (HTTP 429).',{exact:true}).waitFor();
+ assert.match(await diagnostics.nth(4).innerText(),/Связь прервалась\. Агент повторяет запрос/);
+ await setLanguage('en');
+ assert.match(await diagnostics.last().innerText(),/The provider rejected the request after several attempts/);
+ await setLanguage(previousLanguage);
+
  // Leave the workspace as Codex, as the tasks suite does: later suites expect it.
  setHistory([]);
  console.log('Chat Codex items: commands named like the CLI (Read/Shell, legacy rows paired by command), exit/duration/diff stats, expandable output head/tail and diffs, text-only results with http(s) links only, live spinner + streamed output completing in place, unfinished rows settled when idle, mobile passed');

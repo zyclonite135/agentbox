@@ -519,6 +519,35 @@ func TestCodexLiveOutputIsBounded(t *testing.T) {
 	}
 }
 
+func TestCodexDiagnosticMetadata(t *testing.T) {
+	type event struct {
+		Type      string          `json:"type"`
+		Message   string          `json:"message"`
+		Error     codexDiagnostic `json:"error"`
+		RequestID string          `json:"requestId"`
+		WillRetry bool            `json:"will_retry"`
+	}
+	var events []event
+	c := appServerConn{emit: func(line []byte) {
+		var decoded event
+		if err := json.Unmarshal(line, &decoded); err != nil {
+			t.Fatal(err)
+		}
+		events = append(events, decoded)
+	}}
+	c.handleNotification("error", json.RawMessage(`{"error":{"message":"interrupted","codexErrorInfo":{"responseStreamDisconnected":{"httpStatusCode":null}}},"requestId":"req_fixture","willRetry":true}`))
+	c.handleNotification("turn/completed", json.RawMessage(`{"turn":{"status":"failed","error":{"message":"request rejected","codexErrorInfo":"usageLimitExceeded","additionalDetails":"fixture details","request_id":"req_quota","httpStatusCode":429}}}`))
+	if len(events) != 2 || events[0].Type != "error" || events[0].Message != "interrupted" || !events[0].WillRetry || events[0].RequestID != "req_fixture" ||
+		!strings.Contains(string(events[0].Error.CodexErrorInfo), "responseStreamDisconnected") {
+		t.Fatalf("retry diagnostic lost metadata: %+v", events)
+	}
+	failed := events[1]
+	if failed.Type != "turn.failed" || failed.Error.Message != "request rejected" || string(failed.Error.CodexErrorInfo) != `"usageLimitExceeded"` ||
+		failed.Error.AdditionalDetails != "fixture details" || failed.Error.ProviderRequestID != "req_quota" || failed.Error.HTTPStatusCode != 429 {
+		t.Fatalf("terminal diagnostic lost metadata: %+v", failed)
+	}
+}
+
 // Threads of a workspace run side by side; each records its CLI's pid in its
 // own valid file, so a stop reaches only that thread.
 func TestChatPidFilePerThread(t *testing.T) {

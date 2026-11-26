@@ -15,6 +15,7 @@ import { usageCard, usageReportOf } from "./features/chat/usage-card.js";
 import { syntaxMarks } from "./features/chat/syntax.js";
 import { fmtTokens } from "./usage-math.js";
 import { codexItemNodes } from "./features/chat/codex-items.js";
+import { agentDiagnostic } from "./features/chat/agent-diagnostics.js";
 import { resultFilesCard, splitResultFiles } from "./features/chat/result-files.js";
 import { breakClaudeGroup, claudeTaskProgress, claudeToolResults, claudeToolTitle, claudeToolUse, subAgentKnown, useMarkdown } from "./features/chat/claude-tools.js";
 import { heartbeatNode } from "./features/chat/folds.js";
@@ -1096,14 +1097,16 @@ function eventNodes(ev, opts) {
     }
     if (ev.type === "result") {
         compactReplays.clear();
-        if (ev.subtype === "success") {
+        if (ev.subtype === "success" && !ev.is_error) {
             const secs = ev.duration_ms ? (ev.duration_ms / 1000).toFixed(1) + "s" : "";
             // Cost is shown in the footer from committed usage, including table-priced
             // Codex/Claude fallbacks. Raw CLI totals could disagree with settlement.
             out.push(chip([i18nText("✓ 回合完成"), secs].filter(Boolean).join(" · "), "result"));
         }
         else {
-            out.push(chip(String(ev.result || ev.subtype || i18nText("回合失败")), "err", "chat.error"));
+            const errors = Array.isArray(ev.errors) ? ev.errors.filter((error) => typeof error === "string" && !!error) : [];
+            const message = [...new Set([ev.result, ...errors].filter(Boolean))].join("\n");
+            out.push(agentDiagnostic(ev, message || ev.error?.message || ev.subtype || "", "error"));
         }
         return out;
     }
@@ -1137,19 +1140,16 @@ function eventNodes(ev, opts) {
         return out;
     }
     if (ev.type === "turn.failed") {
-        out.push(chip(String(ev.error && ev.error.message || i18nText("回合失败")), "err", "chat.error"));
+        out.push(agentDiagnostic(ev, ev.error?.message || "", "error"));
         return out;
     }
-    if (ev.type === "error" && ev.message) {
+    if (ev.type === "error") {
         // will_retry：连接抖动，CLI 自己在重连，回合没失败
-        if (ev.will_retry)
-            out.push(chip(i18nText("连接中断，正在重试：{p0}", { p0: String(ev.message) }), "warn"));
-        else
-            out.push(chip(String(ev.message), "err", "chat.error"));
+        out.push(agentDiagnostic(ev, typeof ev.message === "string" ? ev.message : ev.error?.message || "", ev.will_retry ? "retry" : "error"));
         return out;
     }
     if (ev.type === "warning" && typeof ev.message === "string" && ev.message) {
-        out.push(chip(ev.message, "warn", "chat.warning"));
+        out.push(agentDiagnostic(ev, ev.message, "warning"));
         return out;
     }
     if (ev.type === "model_rerouted" && typeof ev.to_model === "string") {
@@ -1179,8 +1179,8 @@ function eventNodes(ev, opts) {
             out.push(chip(i18nText("✓ 回合完成"), "result"));
             return out;
         }
-        if (m.type === "error" && m.message) {
-            out.push(chip(String(m.message), "err", "chat.error"));
+        if ((m.type === "error" || m.type === "warning") && typeof m.message === "string" && m.message) {
+            out.push(agentDiagnostic(m, m.message, m.type === "error" ? "error" : "warning"));
             return out;
         }
         if (m.type.startsWith("exec_command_output") || m.type === "task_started" ||

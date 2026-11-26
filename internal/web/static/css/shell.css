@@ -162,16 +162,18 @@
 .shell { flex: 1; min-height: 0; display: flex; }
 
 /* ---- 侧栏：固定头尾，只有中间的会话列表滚动 ---- */
-:root[data-theme="light"] .sidebar {
+:is(.sidebar, .dlg-model-guide) {
+  /* 选中的空间行：暗色下 --panel-2 与侧栏底几乎同色，改用文字色混出更亮的底和描边 */
+  --session-active-bg: color-mix(in srgb, var(--text) 11%, var(--panel));
+  --session-active-line: color-mix(in srgb, var(--text) 24%, var(--panel));
+}
+:root[data-theme="light"] :is(.sidebar, .dlg-model-guide) {
   --session-active-bg: var(--panel-2);
   --session-active-line: var(--line);
 }
 .sidebar {
   --side-hover: color-mix(in srgb, var(--text) 5%, transparent);
   --side-active: color-mix(in srgb, var(--amber) 10%, var(--panel));
-  /* 选中的空间行：暗色下 --panel-2 与侧栏底几乎同色，改用文字色混出更亮的底和描边 */
-  --session-active-bg: color-mix(in srgb, var(--text) 11%, var(--panel));
-  --session-active-line: color-mix(in srgb, var(--text) 24%, var(--panel));
   width: 260px; min-height: 0; flex: none;
   background: var(--panel);
   border-right: 1px solid var(--line);

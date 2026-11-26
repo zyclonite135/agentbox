@@ -241,9 +241,31 @@ dialog label.check input { margin: 0; flex: none; }
 .agent-opt:has(input:focus-visible) { outline: 2px var(--focus-ring-style) var(--amber); outline-offset: 1px; }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 
-.dlg-model-guide { width: min(620px, 92vw); }
+.dlg-model-guide { width: min(660px, 94vw); --dlg-pad-x: 10px; --dlg-pad-y: 12px; }
+.dlg-model-guide > .dlg-head {
+  display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 8px;
+  padding: 10px var(--dlg-pad-x) 12px; margin-bottom: 12px;
+}
+.model-guide-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-inline: 4px; }
 .dlg-model-guide .dlg-title-row .ui-icon { flex: none; color: var(--accent); }
-.dlg-model-guide .dlg-desc { overflow-wrap: anywhere; }
+.model-guide-context { display: flex; align-items: center; gap: 12px; padding-inline: 4px; }
+.model-guide-context:has(#model-guide-agent:not([hidden])) {
+  padding: 10px 12px; min-height: 48px; border: 1px solid var(--session-active-line);
+  border-radius: calc(10px * var(--radius-scale)); background: var(--session-active-bg);
+}
+#model-guide-agent { flex: none; }
+#model-guide-agent svg { display: block; }
+.model-guide-caption { flex: 1; min-width: 0; margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+#model-guide-agent:not([hidden]) + .model-guide-caption {
+  color: var(--text-hi); font-size: 15px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.model-guide-state { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.model-guide-state.run { background: var(--green); }
+.model-guide-state.idle { background: var(--warn); }
+.dlg-model-guide > .dlg-body { scrollbar-width: none; }
+.dlg-model-guide > .dlg-body::-webkit-scrollbar { display: none; }
+.dlg-model-guide > .dlg-body:focus-visible { outline-offset: -3px; }
 .model-guide-list { list-style: none; display: grid; gap: 8px; margin: 0; padding: 0; }
 .model-guide-list:empty { display: none; }
 .model-guide-model {

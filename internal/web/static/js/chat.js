@@ -1012,7 +1012,7 @@ function modelGuideContext() {
     if (custom)
         models.push({ id: custom, label: custom });
     return {
-        caption: () => workspace.name, models, current: S.pick.model || workspaceModel(),
+        caption: () => workspace.name, workspace, models, current: S.pick.model || workspaceModel(),
         select: sessionModels ? (id) => {
             if (S.current?.id !== workspace.id || !modelOpts().some(model => model.id === id))
                 return false;

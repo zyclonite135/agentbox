@@ -285,7 +285,7 @@ export function initWorkspaceCreation() {
             return;
         const id = account.value, label = accounts.find(item => item.id === id)?.label || id;
         openModelGuide(modelGuide, {
-            caption: () => label, models: modelOptions(id), current: selectedModel || newModel(id, agent()),
+            caption: () => label, agent: agent(), models: modelOptions(id), current: selectedModel || newModel(id, agent()),
             select: model => {
                 if (!current() || !dialog.open || flow.requestID || account.value !== id || !modelOptions(id).some(item => item.id === model))
                     return false;

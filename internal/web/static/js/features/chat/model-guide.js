@@ -1,5 +1,8 @@
 import { setAttrRender, setText, setTextRender, t } from "../../i18n.js";
 import { svgIcon } from "../../icons.js";
+import { agentIcon } from "../../brand.js";
+import { sessionState } from "../../session-state.js";
+import { bus } from "../../state.js";
 import { $, keepScroll } from "../../util.js";
 // Use explicit model IDs. A proxy alias may point to a different model.
 // References: OpenAI's model-selection guide and Anthropic's model announcements.
@@ -46,8 +49,24 @@ export function updateModelGuide(trigger, context) {
     if (dialog().open && activeTrigger === trigger)
         renderModelGuide(context);
 }
-function renderModelGuide({ caption, models, current, select }) {
-    setTextRender($("model-guide-space"), caption);
+function renderGuideHeading({ caption, workspace, agent = workspace?.agent }) {
+    const name = $("model-guide-space");
+    setTextRender(name, caption);
+    setAttrRender(name, "title", () => agent ? caption() : "");
+    const brand = $("model-guide-agent");
+    brand.hidden = !agent;
+    brand.replaceChildren(...(agent ? [agentIcon(agent, 24)] : []));
+    const dot = $("model-guide-state");
+    dot.hidden = !workspace;
+    if (workspace) {
+        dot.className = "model-guide-state " + sessionState(workspace).cls;
+        setAttrRender(dot, "aria-label", () => sessionState(workspace).label);
+        setAttrRender(dot, "title", () => sessionState(workspace).label);
+    }
+}
+function renderModelGuide(context) {
+    renderGuideHeading(context);
+    const { models, current, select } = context;
     const focusedModel = document.activeElement?.dataset.guideModel;
     const rows = models.map(({ id, label }) => {
         const row = document.createElement("li");
@@ -93,6 +112,13 @@ let introduced = false;
 export function initModelGuide(read, signal) {
     const trigger = $("btn-model-guide");
     const modal = dialog();
+    bus.addEventListener("data-updated", () => {
+        if (!modal.open || activeTrigger !== trigger)
+            return;
+        const context = read();
+        if (context)
+            renderGuideHeading(context);
+    }, { signal });
     matchMedia("(max-width: 760px)").addEventListener("change", event => {
         if (event.matches)
             closeModelGuide(trigger);

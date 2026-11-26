@@ -2747,13 +2747,17 @@
 
 <dialog id="dlg-model-guide" class="dlg-model-guide" aria-labelledby="model-guide-title" aria-describedby="model-guide-space">
   <div class="dlg-head">
-    <div class="dlg-title-block">
+    <div class="model-guide-heading">
       <h2 id="model-guide-title" class="dlg-title-row"><svg width="18" height="18" data-icon="sparkles" aria-hidden="true"></svg><span data-i18n="如何选择模型？">如何选择模型？</span></h2>
-      <p id="model-guide-space" class="dlg-desc muted"></p>
+      <button id="btn-model-guide-close" type="button" class="dlg-x" autofocus aria-label="关闭" data-icon="close" data-i18n-attrs='{"aria-label":"关闭"}'></button>
     </div>
-    <button id="btn-model-guide-close" type="button" class="dlg-x" autofocus aria-label="关闭" data-icon="close" data-i18n-attrs='{"aria-label":"关闭"}'></button>
+    <div class="model-guide-context">
+      <span id="model-guide-agent" aria-hidden="true" hidden></span>
+      <p id="model-guide-space" class="model-guide-caption"></p>
+      <span id="model-guide-state" class="model-guide-state" role="img" hidden></span>
+    </div>
   </div>
-  <div class="dlg-body">
+  <div class="dlg-body" tabindex="0" role="region" aria-labelledby="model-guide-title">
     <ul id="model-guide-list" class="model-guide-list" role="list"></ul>
     <p id="model-guide-empty" class="muted" hidden data-i18n="没有可显示的模型。">没有可显示的模型。</p>
   </div>

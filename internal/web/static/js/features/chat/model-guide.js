@@ -127,11 +127,13 @@ export function initModelGuide(read, signal) {
     let request;
     let capabilities;
     let requestKey = "";
+    let menuKey = "";
     let failed = false;
     const opened = () => modal.open && activeTrigger === trigger;
     const selected = () => S.sessions.find(workspace => workspace.id === selectedID);
     const currentID = () => S.sessions.find(workspace => workspace.id === S.current?.id)?.id;
     const modelKey = (workspace) => JSON.stringify([workspace.id, workspace.account_id, workspace.agent, workspace.default_model]);
+    const workspaceMenuKey = () => JSON.stringify(S.sessions.map(workspace => [workspace.id, workspace.name, sessionState(workspace).label]));
     const context = () => {
         const workspace = selected();
         if (!workspace || workspace.id === S.current?.id || capabilities)
@@ -184,6 +186,7 @@ export function initModelGuide(read, signal) {
         if (!opened() || !S.sessions.length)
             return;
         event.stopPropagation();
+        menuKey = workspaceMenuKey();
         openMenu(switcher, S.sessions.map(workspace => ({
             label: workspace.name, icon: "file.folder", tip: sessionState(workspace).label, checked: workspace.id === selectedID,
             run: () => {
@@ -201,9 +204,17 @@ export function initModelGuide(read, signal) {
             void switchWorkspace(selectedID);
         }
     }, { signal });
+    bus.addEventListener("models-updated", () => {
+        if (opened() && selectedID && selectedID !== S.current?.id)
+            void switchWorkspace(selectedID);
+    }, { signal });
     bus.addEventListener("data-updated", () => {
         if (!opened())
             return;
+        if (switcher.getAttribute("aria-expanded") === "true" && menuKey !== workspaceMenuKey()) {
+            closeMenu();
+            (S.sessions.length ? switcher : $("btn-model-guide-close")).focus({ preventScroll: true });
+        }
         const workspace = selected();
         if ((selectedID && !workspace) || (workspace && requestKey && modelKey(workspace) !== requestKey)) {
             void switchWorkspace(workspace?.id ?? currentID());

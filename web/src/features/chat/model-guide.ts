@@ -148,11 +148,13 @@ export function initModelGuide(read: ReadGuide, signal: AbortSignal) {
   let request: AbortController | undefined;
   let capabilities: SessionModels | undefined;
   let requestKey = "";
+  let menuKey = "";
   let failed = false;
   const opened = () => modal.open && activeTrigger === trigger;
   const selected = () => S.sessions.find(workspace => workspace.id === selectedID);
   const currentID = () => S.sessions.find(workspace => workspace.id === S.current?.id)?.id;
   const modelKey = (workspace: Session) => JSON.stringify([workspace.id, workspace.account_id, workspace.agent, workspace.default_model]);
+  const workspaceMenuKey = () => JSON.stringify(S.sessions.map(workspace => [workspace.id, workspace.name, sessionState(workspace).label]));
 
   const context = (): GuideContext | undefined => {
     const workspace = selected();
@@ -201,6 +203,7 @@ export function initModelGuide(read: ReadGuide, signal: AbortSignal) {
   switcher.addEventListener("click", event => {
     if (!opened() || !S.sessions.length) return;
     event.stopPropagation();
+    menuKey = workspaceMenuKey();
     openMenu(switcher, S.sessions.map(workspace => ({
       label: workspace.name, icon: "file.folder", tip: sessionState(workspace).label, checked: workspace.id === selectedID,
       run: () => {
@@ -217,8 +220,15 @@ export function initModelGuide(read: ReadGuide, signal: AbortSignal) {
     }
   }, { signal });
 
+  bus.addEventListener("models-updated", () => {
+    if (opened() && selectedID && selectedID !== S.current?.id) void switchWorkspace(selectedID);
+  }, { signal });
   bus.addEventListener("data-updated", () => {
     if (!opened()) return;
+    if (switcher.getAttribute("aria-expanded") === "true" && menuKey !== workspaceMenuKey()) {
+      closeMenu();
+      (S.sessions.length ? switcher : $("btn-model-guide-close")).focus({ preventScroll: true });
+    }
     const workspace = selected();
     if ((selectedID && !workspace) || (workspace && requestKey && modelKey(workspace) !== requestKey)) {
       void switchWorkspace(workspace?.id ?? currentID());

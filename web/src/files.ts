@@ -1010,19 +1010,22 @@ async function uploadFiles(files: File[], clearFirst = false) {
 /* 拖拽上传：把文件拖到文件页任意处即可 */
 const filesTab = $("tab-files");
 ["dragenter", "dragover"].forEach((ev) => filesTab.addEventListener(ev, (e) => {
-  if (!S.current || !(e as DragEvent).dataTransfer?.types?.includes("Files")) return;
+  const data = (e as DragEvent).dataTransfer;
+  if (!S.current || !data?.types.includes("Files")) return;
   e.preventDefault();
-  filesTab.classList.add("drag-over");
+  const localFiles = filesTab.classList.contains("show-local-files");
+  filesTab.classList.toggle("drag-over", !localFiles);
+  if (localFiles) data.dropEffect = "none";
 }));
 filesTab.addEventListener("dragleave", (e) => {
   if (!filesTab.contains(e.relatedTarget as Node | null)) filesTab.classList.remove("drag-over");
 });
 filesTab.addEventListener("drop", (e) => {
   filesTab.classList.remove("drag-over");
-  const files = e.dataTransfer?.files;
-  if (!S.current || !files || !files.length) return;
+  const data = e.dataTransfer;
+  if (!data || (!data.files.length && !data.types.includes("Files"))) return;
   e.preventDefault();
-  uploadFiles([...files]);
+  if (data.files.length && S.current && !filesTab.classList.contains("show-local-files")) uploadFiles([...data.files]);
 });
 
 $("btn-download").addEventListener("click", () => {

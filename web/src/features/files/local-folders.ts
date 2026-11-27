@@ -1,7 +1,7 @@
 import { api } from "../../api.js";
 import { actionButton, fileIconName, svgIcon, type IconSlot } from "../../icons.js";
 import { setAttrRender, setText, t } from "../../i18n.js";
-import { moreButton } from "../../menu.js";
+import { closeMenu, moreButton } from "../../menu.js";
 import { setTip } from "../../tip.js";
 import { bus, emit, S } from "../../state.js";
 import { Poller } from "../../shared/poller.js";
@@ -38,9 +38,14 @@ let catalogError = false;
 
 const active = () => tab.classList.contains("show-local-files") && owner === S.token && session === S.current?.id;
 
+function closeFileMenu() {
+  if (list.querySelector('.local-file-more[aria-expanded="true"]')) closeMenu();
+}
+
 export function closeLocalFiles() {
   if (!tab.classList.contains("show-local-files")) return;
   watcher.stop();
+  closeFileMenu();
   browse?.abort();
   transfer?.abort();
   browse = transfer = undefined;
@@ -102,7 +107,7 @@ function renderPath() {
       part.type = "button";
       part.textContent = name;
       setTip(part, name);
-      part.addEventListener("click", () => openDirectory(folder, target, true));
+      part.addEventListener("click", () => openDirectory(folder.id, target, true));
       trail.append(separator(), part);
     });
     breadcrumb.append(trail);
@@ -115,16 +120,18 @@ function renderPath() {
   setTip(last, current);
   breadcrumb.append(separator(), last);
   trail.scrollLeft = trail.scrollWidth;
+  return last;
 }
 
-function openDirectory(folder?: Folder, path = "", focusPath = false) {
+function openDirectory(folderID?: string, path = "", focusPath = false) {
+  const folder = catalog?.folders.find(item => item.id === folderID);
   selected = folder;
   directory = path;
   if (folder) {
     panel.classList.remove("local-files-catalog");
-    renderPath();
+    const current = renderPath();
     void loadDirectory();
-    if (focusPath) breadcrumb.querySelector<HTMLElement>('[aria-current="page"]')?.focus();
+    if (focusPath) current?.focus();
   } else {
     browse?.abort();
     renderCatalog();
@@ -170,6 +177,7 @@ function directoryRow(name: string, open: (keyboard: boolean) => void, disabled 
 }
 
 function renderCatalog() {
+  closeFileMenu();
   list.replaceChildren();
   panel.classList.add("local-files-catalog");
   next = 0;
@@ -179,7 +187,7 @@ function renderCatalog() {
   head.hidden = !folders.length;
   showMessage(folders.length ? "" : "请在 abox-link 中添加本机文件夹并启动连接。");
   for (const folder of folders) {
-    list.append(directoryRow(folder.name, keyboard => openDirectory(folder, "", keyboard), !catalog?.online));
+    list.append(directoryRow(folder.name, keyboard => openDirectory(folder.id, "", keyboard), !catalog?.online));
   }
 }
 
@@ -192,10 +200,18 @@ async function refreshCatalog(signal: AbortSignal) {
     catalog = current;
     catalogError = false;
     if (changed || recovered) renderConnection(current.online);
-    if (!current.online || selected && !current.folders.some(folder => folder.id === selected?.id)) {
-      browse?.abort();
-      selected = undefined;
-      directory = "";
+    if (selected) {
+      const folder = current.online ? current.folders.find(item => item.id === selected?.id) : undefined;
+      if (!folder) {
+        browse?.abort();
+        selected = undefined;
+        directory = "";
+      } else if (folder.name !== selected.name) {
+        const hadPathFocus = breadcrumb.contains(document.activeElement);
+        selected = folder;
+        const current = renderPath();
+        if (hadPathFocus) current?.focus({ preventScroll: true });
+      }
     }
     if ((changed || recovered) && !selected) renderCatalog();
   } catch {
@@ -215,6 +231,7 @@ async function loadDirectory(offset = 0) {
   const params = new URLSearchParams({ path: here || ".", offset: String(offset) });
   more.hidden = true;
   if (!offset) {
+    closeFileMenu();
     next = 0;
     head.hidden = true;
     list.replaceChildren();
@@ -251,7 +268,7 @@ function fileButton(label: string, icon: IconSlot, run: (button: HTMLButtonEleme
 function addEntry(folder: Folder, parent: string, entry: Entry) {
   const path = parent ? parent + "/" + entry.name : entry.name;
   if (entry.directory) {
-    list.append(directoryRow(entry.name, keyboard => openDirectory(folder, path, keyboard)));
+    list.append(directoryRow(entry.name, keyboard => openDirectory(folder.id, path, keyboard)));
     return;
   }
   const row = document.createElement("div");
@@ -285,7 +302,7 @@ async function copyFile(target: HTMLButtonElement, folder: string, path: string)
       method: "POST", headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({ folder, path }), signal: controller.signal,
     });
-    if (active()) toast(t("已复制到工作空间"));
+    if (!controller.signal.aborted && active()) toast(t("已复制到工作空间"));
   } catch (error) {
     if (!controller.signal.aborted && active()) {
       const message = (error as Error).message;
@@ -303,6 +320,7 @@ scope.addEventListener("click", () => {
   if (!S.current || active()) return;
   owner = S.token;
   session = S.current.id;
+  tab.classList.remove("drag-over");
   tab.classList.add("show-local-files");
   scope.classList.add("active");
   $("scope-ws").classList.remove("active");
@@ -314,8 +332,8 @@ scope.addEventListener("click", () => {
   watcher.start(5000, refreshCatalog);
 });
 refresh.addEventListener("click", () => {
+  watcher.start(5000, refreshCatalog);
   if (selected) void loadDirectory();
-  else watcher.start(5000, refreshCatalog);
 });
 more.addEventListener("click", () => { if (next) void loadDirectory(next); });
 bus.addEventListener("signed-out", closeLocalFiles);

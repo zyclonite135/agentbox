@@ -54,7 +54,6 @@ interface State {
   saving: boolean;
   validateSeq: number;
   validateTimer?: ReturnType<typeof setTimeout>;
-  jsonTimer?: ReturnType<typeof setTimeout>;
   frame: number;
   baseCache: Map<string, Record<string, string>>;
 }
@@ -366,7 +365,6 @@ function finish(saved?: ThemeView) {
   const s = state;
   if (!s) return;
   clearTimeout(s.validateTimer);
-  clearTimeout(s.jsonTimer);
   if (s.frame) cancelAnimationFrame(s.frame);
   state = null;
   setThemePreview(null);
@@ -482,28 +480,28 @@ export function wireThemeEditor() {
   $<HTMLTextAreaElement>("te-json").addEventListener("input", e => {
     const s = state;
     if (!s) return;
-    clearTimeout(s.jsonTimer);
-    s.jsonTimer = setTimeout(() => {
-      if (state !== s) return;
-      const text = (e.target as HTMLTextAreaElement).value;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text);
-      } catch (err) {
-        s.jsonError = i18nText("JSON 格式有误：{p0}", { p0: (err as Error).message });
-        renderStatus();
-        return;
-      }
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        s.jsonError = i18nText("主题文件不是有效的 JSON 对象");
-        renderStatus();
-        return;
-      }
-      s.jsonError = "";
-      s.draft = parsed as ThemeManifest;
-      renderMeta();
-      changed("json");
+    // Apply edits before Save can read the draft. Only server validation is debounced.
+    clearTimeout(s.validateTimer);
+    s.validateSeq++;
+    s.dirty = true;
+    s.notice = s.serverError = s.issues = "";
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse((e.target as HTMLTextAreaElement).value);
+    } catch (err) {
+      s.jsonError = i18nText("JSON 格式有误：{p0}", { p0: (err as Error).message });
       renderStatus();
-    }, 250);
+      return;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      s.jsonError = i18nText("主题文件不是有效的 JSON 对象");
+      renderStatus();
+      return;
+    }
+    s.jsonError = "";
+    s.draft = parsed as ThemeManifest;
+    renderMeta();
+    changed("json");
+    renderStatus();
   });
 }

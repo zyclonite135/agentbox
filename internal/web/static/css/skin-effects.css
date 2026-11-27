@@ -50,6 +50,10 @@
     -webkit-backdrop-filter: blur(6px) saturate(140%);
     backdrop-filter: blur(6px) saturate(140%);
   }
+  :root[data-skin="glass"][data-theme-motion] body:has(:is(.scrim, .tp-scrim).show)::before,
+  :root[data-skin="glass"][data-theme-motion] body:has(:is(.scrim, .tp-scrim).show)::after {
+    animation-play-state: paused;
+  }
 }
 
 /* 玻璃块的「厚度」靠上缘那道内高光，比加大阴影管用：输入区、按钮、输入框各补一道 */

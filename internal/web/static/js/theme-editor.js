@@ -319,7 +319,6 @@ function finish(saved) {
     if (!s)
         return;
     clearTimeout(s.validateTimer);
-    clearTimeout(s.jsonTimer);
     if (s.frame)
         cancelAnimationFrame(s.frame);
     state = null;
@@ -459,30 +458,29 @@ export function wireThemeEditor() {
         const s = state;
         if (!s)
             return;
-        clearTimeout(s.jsonTimer);
-        s.jsonTimer = setTimeout(() => {
-            if (state !== s)
-                return;
-            const text = e.target.value;
-            let parsed;
-            try {
-                parsed = JSON.parse(text);
-            }
-            catch (err) {
-                s.jsonError = i18nText("JSON 格式有误：{p0}", { p0: err.message });
-                renderStatus();
-                return;
-            }
-            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-                s.jsonError = i18nText("主题文件不是有效的 JSON 对象");
-                renderStatus();
-                return;
-            }
-            s.jsonError = "";
-            s.draft = parsed;
-            renderMeta();
-            changed("json");
+        // Apply edits before Save can read the draft. Only server validation is debounced.
+        clearTimeout(s.validateTimer);
+        s.validateSeq++;
+        s.dirty = true;
+        s.notice = s.serverError = s.issues = "";
+        let parsed;
+        try {
+            parsed = JSON.parse(e.target.value);
+        }
+        catch (err) {
+            s.jsonError = i18nText("JSON 格式有误：{p0}", { p0: err.message });
             renderStatus();
-        }, 250);
+            return;
+        }
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            s.jsonError = i18nText("主题文件不是有效的 JSON 对象");
+            renderStatus();
+            return;
+        }
+        s.jsonError = "";
+        s.draft = parsed;
+        renderMeta();
+        changed("json");
+        renderStatus();
     });
 }

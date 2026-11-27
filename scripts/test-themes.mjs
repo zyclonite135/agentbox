@@ -390,11 +390,21 @@ export async function themesSmoke(page) {
     await page.locator('#te-name').fill('晨雾');
     await typeValue('--bg', '#e9eef5');
     await page.waitForFunction(() => !document.querySelector('#te-save').disabled);
-    await page.locator('#te-save').click();
+    await page.evaluate(() => {
+      document.querySelector('#te-tabs [data-tab="json"]').click();
+      const input = document.querySelector('#te-json');
+      const draft = JSON.parse(input.value);
+      draft.background_motion = { preset: 'glint', speed: 1, intensity: 2 };
+      input.value = JSON.stringify(draft);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      document.querySelector('#te-save').click();
+    });
     await editor.waitFor({ state: 'hidden' });
     await page.locator('#themes-user .themes-row[data-key="user:my-amber"].active').waitFor();
     assert.equal(state.puts, putsBeforeSave + 1);
-    assert.deepEqual(state.user.find(v => v.manifest.id === 'my-amber').manifest[previewMode], { '--bg': '#e9eef5' }, 'only changed tokens are saved');
+    const savedManifest = state.user.find(v => v.manifest.id === 'my-amber').manifest;
+    assert.deepEqual(savedManifest[previewMode], { '--bg': '#e9eef5' }, 'only changed tokens are saved');
+    assert.deepEqual(savedManifest.background_motion, { preset: 'glint', speed: 1, intensity: 2 }, 'immediate save includes the last JSON edit');
     assert.match(await statusText(), /已保存并启用「晨雾」/);
     assert.equal(await page.evaluate(() => localStorage.getItem('agentbox_skin')), 'user:my-amber');
     // Editing keeps the ID; an untouched editor closes on Escape without asking.

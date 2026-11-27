@@ -161,9 +161,6 @@ body {
 .connection-option + .connection-option { border-top: 1px solid var(--line-soft); }
 .connection-panel button { white-space: normal; }
 .connection-panel #local-folder-form { margin-bottom: 0; }
-.connection-log { margin-top: 10px; }
-.connection-log summary { cursor: pointer; color: var(--muted); padding: 5px 2px; width: fit-content; }
-.connection-log summary:hover { color: var(--text); }
 
 /* ---------- 状态灯（顶栏，JS 写 .dot + on/busy/bad） ---------- */
 
@@ -396,19 +393,6 @@ input[type=text]:focus, textarea:focus {
   line-height: 1; border-color: transparent;
 }
 .rule button:hover { color: var(--red); border-color: var(--red-line); }
-
-/* ---------- 日志 ---------- */
-
-.log {
-  font-family: var(--ui); font-size: 12px; line-height: 1.75;
-  font-variant-numeric: tabular-nums;
-  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
-  padding: 12px 13px;
-  height: 150px; overflow-y: auto;
-  white-space: pre-wrap; word-break: break-all;
-  overscroll-behavior: contain;
-}
-.log .t { color: var(--muted); margin-right: 10px; }
 
 /* ---------- 选项尾巴 ---------- */
 

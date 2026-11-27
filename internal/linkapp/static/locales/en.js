@@ -33,7 +33,6 @@ export default {
   "已连接 {duration}": "Connected for {duration}",
   "延迟 {latency}": "Latency {latency}",
   "。": ".",
-  "运行日志": "Activity log",
   "选项": "Options",
   "开机自启": "Launch at startup",
   "跳过 TLS 证书校验（服务器用自签名证书时才勾）": "Skip TLS certificate verification (only for a self-signed server certificate)",

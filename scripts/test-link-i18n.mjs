@@ -33,7 +33,6 @@ export async function linkI18nSmoke(page) {
     try {
       const req=route.request(), path=new URL(req.url()).pathname;
       assert.equal(req.headers()["x-abox-panel"],"1");
-      if(path==="/api/logs") return route.fulfill({json:{latest:0,lines:[]}});
       if (path === "/api/file-manager/pick-folder") return route.fulfill({status: 501, json: {error: "Folder picker unavailable"}});
       if (path === "/api/file-manager/workspaces") return route.fulfill({json:[{id:"workspace",name:"Отчёты"}]});
       if (path === "/api/file-manager/remote") return route.fulfill({json:[{name:"report.md",directory:false,size:12}]});

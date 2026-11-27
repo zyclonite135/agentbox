@@ -111,13 +111,11 @@ async function api(path, body) {
 }
 
 let state = null;   // 服务端权威状态
-let logSeq = 0;
 let foldersKey = "";
 let folderSaving = false;
 
 const connectionButton = $("connection-toggle");
 const connectionPanel = $("panel-body");
-const connectionLog = $("connection-log");
 const topBar = connectionPanel.closest(".top");
 
 function setConnectionMenu(open) {
@@ -147,10 +145,6 @@ document.addEventListener("focusin", dismissConnectionMenu);
 new ResizeObserver(() => {
   topBar.style.setProperty("--top-height", topBar.offsetHeight + "px");
 }).observe(topBar);
-connectionLog.addEventListener("toggle", () => {
-  const log = $("log");
-  if (connectionLog.open) log.scrollTop = log.scrollHeight;
-});
 
 /* ---- 渲染 ---- */
 
@@ -258,31 +252,6 @@ function renderOptions() {
   $("opt-boot").checked = !!boot.installed;
   $("opt-boot").disabled = !boot.supported;
   $("boot-detail").textContent = boot.detail || "";
-}
-
-/* ---- 日志 ---- */
-
-async function pollLogs() {
-  let data;
-  try {
-    data = await api("/logs?since=" + logSeq);
-  } catch (_) {
-    return;
-  }
-  if (!data.lines.length) return;
-  const box = $("log");
-  const stuck = box.scrollTop + box.clientHeight >= box.scrollHeight - 24;
-  for (const line of data.lines) {
-    const div = document.createElement("div");
-    const t = document.createElement("span");
-    t.className = "t";
-    t.textContent = new Date(line.time).toLocaleTimeString(i18n.locale, { hour12: false });
-    div.append(t, document.createTextNode(line.text));
-    box.appendChild(div);
-  }
-  while (box.childElementCount > 500) box.removeChild(box.firstChild);
-  if (stuck) box.scrollTop = box.scrollHeight;
-  logSeq = data.latest;
 }
 
 /* ---- 事件 ---- */
@@ -449,10 +418,6 @@ i18n.subscribe(renderLanguage);
 renderLanguage();
 
 /* 在线时刷得勤一点，让「连接中 → 在线」和运行时长跟得上 */
-setInterval(() => {
-  refresh();
-  pollLogs();
-}, 2000);
+setInterval(refresh, 2000);
 
 await refresh();
-await pollLogs();

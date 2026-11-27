@@ -6,6 +6,7 @@ export default {
     "AgentBox 服务端必须能访问 Git 服务，浏览器必须能打开授权页面。": "The AgentBox server must be able to reach Git, and your browser must be able to open the authorization page.",
     "撤权阻止后续请求，已经发到上游的操作可能继续完成。": "Revocation blocks subsequent requests. Operations already sent upstream may still finish.",
     "请在 abox-link 中添加本机文件夹并启动连接。": "Add a folder in abox-link and start the connection.",
+    "本机文件仅可读取。复制到工作空间或附加到对话时才会传输。": "Files stay on the computer running abox-link. They are transferred when you copy them to the workspace or attach them to a chat.",
     "只读访问": "Read-only access",
     "本机离线": "Computer is offline",
     "无法读取本机文件": "Could not read files from your computer",

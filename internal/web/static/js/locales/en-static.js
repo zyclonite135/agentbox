@@ -190,6 +190,7 @@ export default {
     "全屏查看远程浏览器": "View remote browser in fullscreen",
     "全部": "All",
     "共享目录": "Shared directory",
+    "文件来源说明": "About file sources",
     "共享目录说明": "About the shared directory",
     "关于与更新": "About and updates",
     "关闭": "Close",

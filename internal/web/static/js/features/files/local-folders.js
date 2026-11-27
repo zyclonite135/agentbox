@@ -1,6 +1,8 @@
 import { api } from "../../api.js";
-import { actionButton } from "../../icons.js";
-import { setText, t } from "../../i18n.js";
+import { actionButton, fileIconName, svgIcon } from "../../icons.js";
+import { setAttrRender, setText, t } from "../../i18n.js";
+import { moreButton } from "../../menu.js";
+import { setTip } from "../../tip.js";
 import { bus, emit, S } from "../../state.js";
 import { Poller } from "../../shared/poller.js";
 import { $, btnBusy, btnDone, fmtSize, toast } from "../../util.js";
@@ -9,7 +11,11 @@ const tab = $("tab-files");
 const scope = $("scope-local");
 const list = $("local-files-list");
 const status = $("local-files-status");
-const back = $("local-files-back");
+const toolbar = $("local-files-toolbar");
+const breadcrumb = $("local-files-path");
+const connection = $("local-files-connection");
+const head = $("local-files-head");
+const scroller = $("local-files-scroll");
 const more = $("local-files-more");
 const refresh = $("local-files-refresh");
 const headers = { "X-AgentBox-Local-Files": "1" };
@@ -22,6 +28,7 @@ let catalog;
 let selected;
 let directory = "";
 let next = 0;
+let catalogError = false;
 const active = () => tab.classList.contains("show-local-files") && owner === S.token && session === S.current?.id;
 export function closeLocalFiles() {
     if (!tab.classList.contains("show-local-files"))
@@ -33,67 +40,163 @@ export function closeLocalFiles() {
     selected = catalog = undefined;
     directory = owner = session = "";
     next = 0;
+    catalogError = false;
     tab.classList.remove("show-local-files");
     scope.classList.remove("active");
     $("scope-ws").classList.toggle("active", S.fileScope === "workspace");
     $("scope-shared").classList.toggle("active", S.fileScope === "shared");
-    panel.hidden = true;
+    panel.hidden = toolbar.hidden = connection.hidden = true;
     list.replaceChildren();
-    status.textContent = "";
-    $("local-files-path").textContent = "";
+    breadcrumb.replaceChildren();
 }
-function button(label, icon, click) {
-    const element = document.createElement("button");
-    element.type = "button";
-    element.className = "btn btn-sm";
-    actionButton(element, () => t(label), icon);
-    element.addEventListener("click", () => click(element));
-    return element;
+function showMessage(message = "") {
+    status.hidden = !message;
+    setText(status, message);
+}
+function renderConnection(online) {
+    const caption = document.createElement("span");
+    setText(caption, online ? "只读访问" : "本机离线");
+    connection.classList.toggle("offline", !online);
+    connection.replaceChildren(svgIcon(online ? "lock" : "desktop", 14), caption);
+    connection.hidden = false;
+}
+function renderPath() {
+    breadcrumb.replaceChildren();
+    breadcrumb.hidden = !selected;
+    if (!selected)
+        return;
+    const folder = selected;
+    const root = document.createElement("button");
+    root.type = "button";
+    root.className = "local-path-root";
+    root.append(svgIcon("desktop", 15));
+    setAttrRender(root, "aria-label", () => t("本机文件"));
+    setTip(root, () => t("本机文件"));
+    root.addEventListener("click", () => openDirectory(undefined, "", true));
+    breadcrumb.append(root);
+    const separator = () => {
+        const arrow = svgIcon("chevron-right", 12);
+        arrow.classList.add("local-path-separator");
+        return arrow;
+    };
+    const parts = directory.split("/").filter(Boolean);
+    const current = parts.pop() ?? folder.name;
+    const trail = document.createElement("span");
+    if (directory) {
+        parts.unshift(folder.name);
+        trail.className = "local-path-trail";
+        let path = "";
+        parts.forEach((name, index) => {
+            if (index)
+                path = path ? path + "/" + name : name;
+            const target = path;
+            const part = document.createElement("button");
+            part.type = "button";
+            part.textContent = name;
+            setTip(part, name);
+            part.addEventListener("click", () => openDirectory(folder, target, true));
+            trail.append(separator(), part);
+        });
+        breadcrumb.append(trail);
+    }
+    const last = document.createElement("span");
+    last.className = "local-path-current";
+    last.textContent = current;
+    last.setAttribute("aria-current", "page");
+    last.tabIndex = -1;
+    setTip(last, current);
+    breadcrumb.append(separator(), last);
+    trail.scrollLeft = trail.scrollWidth;
+}
+function openDirectory(folder, path = "", focusPath = false) {
+    selected = folder;
+    directory = path;
+    if (folder) {
+        panel.classList.remove("local-files-catalog");
+        renderPath();
+        void loadDirectory();
+        if (focusPath)
+            breadcrumb.querySelector('[aria-current="page"]')?.focus();
+    }
+    else {
+        browse?.abort();
+        renderCatalog();
+        if (focusPath)
+            scope.focus();
+    }
+}
+function rowName(name, icon, size = "") {
+    const cell = document.createElement("span");
+    cell.className = "fname";
+    const glyph = document.createElement("span");
+    glyph.className = "fglyph";
+    glyph.append(svgIcon(icon, 15));
+    const text = document.createElement("span");
+    text.className = "ftext";
+    const label = document.createElement("span");
+    label.className = "flabel";
+    label.textContent = name;
+    setTip(label, name);
+    text.append(label);
+    if (size) {
+        const sub = document.createElement("span");
+        sub.className = "fsub";
+        sub.textContent = size;
+        text.append(sub);
+    }
+    cell.append(glyph, text);
+    return cell;
+}
+function directoryRow(name, open, disabled = false) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "file-row dir local-file-directory";
+    row.disabled = disabled;
+    const contents = rowName(name, "file.folder");
+    const arrow = svgIcon("chevron-right", 14);
+    arrow.classList.add("local-folder-arrow");
+    contents.append(arrow);
+    row.append(contents);
+    row.addEventListener("click", event => open(event.detail === 0));
+    return row;
 }
 function renderCatalog() {
     list.replaceChildren();
-    more.hidden = back.hidden = true;
-    $("local-files-path").textContent = "";
-    if (!catalog?.folders.length) {
-        setText(status, "请在 abox-link 中添加本机文件夹并启动连接。");
-        return;
-    }
-    setText(status, catalog.online ? "只读访问" : "本机离线");
-    for (const folder of catalog.folders) {
-        const row = document.createElement("div");
-        row.className = "local-file-row";
-        const selection = document.createElement("button");
-        selection.type = "button";
-        selection.className = "btn btn-ghost local-file-name";
-        selection.textContent = folder.name;
-        selection.disabled = !catalog.online;
-        selection.addEventListener("click", () => {
-            selected = folder;
-            directory = "";
-            void loadDirectory();
-        });
-        row.append(selection);
-        list.append(row);
+    panel.classList.add("local-files-catalog");
+    next = 0;
+    more.hidden = true;
+    renderPath();
+    const folders = catalog?.folders ?? [];
+    head.hidden = !folders.length;
+    showMessage(folders.length ? "" : "请在 abox-link 中添加本机文件夹并启动连接。");
+    for (const folder of folders) {
+        list.append(directoryRow(folder.name, keyboard => openDirectory(folder, "", keyboard), !catalog?.online));
     }
 }
-async function refreshCatalog(signal, showError = false) {
+async function refreshCatalog(signal) {
     try {
         const current = await api("/local-folders", { headers, signal });
         if (signal.aborted || !active())
             return;
         const changed = JSON.stringify(current) !== JSON.stringify(catalog);
+        const recovered = catalogError;
         catalog = current;
+        catalogError = false;
+        if (changed || recovered)
+            renderConnection(current.online);
         if (!current.online || selected && !current.folders.some(folder => folder.id === selected?.id)) {
             browse?.abort();
             selected = undefined;
             directory = "";
         }
-        if (changed && !selected)
+        if ((changed || recovered) && !selected)
             renderCatalog();
     }
     catch {
-        if (showError && !signal.aborted && active())
-            setText(status, "无法读取本机文件");
+        if (!signal.aborted && active() && !selected) {
+            catalogError = true;
+            showMessage("无法读取本机文件");
+        }
     }
 }
 async function loadDirectory(offset = 0) {
@@ -104,45 +207,67 @@ async function loadDirectory(offset = 0) {
     const folder = selected;
     const here = directory;
     const params = new URLSearchParams({ path: here || ".", offset: String(offset) });
-    back.hidden = false;
-    $("local-files-path").textContent = [folder.name, here].filter(Boolean).join(" / ");
     more.hidden = true;
-    if (!offset)
+    if (!offset) {
+        next = 0;
+        head.hidden = true;
         list.replaceChildren();
-    setText(status, "正在加载…");
+        scroller.scrollTop = 0;
+    }
+    showMessage("正在加载…");
     try {
         const page = await api(`/local-folders/${folder.id}?${params}`, { headers, signal: controller.signal });
         if (controller.signal.aborted || !active())
             return;
         for (const entry of page.entries ?? [])
-            addEntry(folder.id, here, entry);
+            addEntry(folder, here, entry);
         next = page.next ?? 0;
         more.hidden = !next;
-        setText(status, list.childElementCount || next ? "只读访问" : "此文件夹为空");
+        head.hidden = !list.childElementCount;
+        showMessage(list.childElementCount || next ? "" : "此文件夹为空");
     }
     catch {
-        if (!controller.signal.aborted && active())
-            setText(status, "无法读取本机文件");
+        if (!controller.signal.aborted && active()) {
+            more.hidden = !next;
+            showMessage("无法读取本机文件");
+        }
     }
+}
+function fileButton(label, icon, run) {
+    const control = document.createElement("button");
+    control.type = "button";
+    control.className = "file-act desktop-only";
+    setAttrRender(control, "aria-label", () => t(label));
+    setTip(control, () => t(label));
+    control.append(svgIcon(icon, 16));
+    control.addEventListener("click", () => run(control));
+    return control;
 }
 function addEntry(folder, parent, entry) {
     const path = parent ? parent + "/" + entry.name : entry.name;
-    const row = document.createElement("div");
-    row.className = "local-file-row";
     if (entry.directory) {
-        const item = document.createElement("button");
-        item.type = "button";
-        item.className = "btn btn-ghost local-file-name";
-        item.textContent = entry.name + "/";
-        item.addEventListener("click", () => { directory = path; void loadDirectory(); });
-        row.append(item);
+        list.append(directoryRow(entry.name, keyboard => openDirectory(folder, path, keyboard)));
+        return;
     }
-    else {
-        const name = document.createElement("span");
-        name.className = "local-file-name";
-        name.textContent = entry.name + " · " + fmtSize(entry.size);
-        row.append(name, button("复制到工作空间", "copy", target => void copyFile(target, folder, path)), button("附加到对话", "composer.attach", () => emit("local-file-attach", { name: entry.name, folder, path })));
-    }
+    const row = document.createElement("div");
+    row.className = "file-row";
+    const size = fmtSize(entry.size);
+    const sizeCell = document.createElement("span");
+    sizeCell.className = "fsize";
+    sizeCell.textContent = size;
+    const actions = document.createElement("span");
+    actions.className = "factions local-file-actions";
+    const copyLabel = "复制到工作空间";
+    const attachLabel = "附加到对话";
+    const attach = () => emit("local-file-attach", { name: entry.name, folder: folder.id, path });
+    const copy = (target) => void copyFile(target, folder.id, path);
+    const menu = moreButton(() => [
+        { label: t(copyLabel), icon: "copy", run: () => copy(menu), disabled: !!transfer },
+        { label: t(attachLabel), icon: "composer.attach", run: attach },
+    ]);
+    menu.classList.add("local-file-more");
+    actions.append(fileButton(copyLabel, "copy", copy), fileButton(attachLabel, "composer.attach", attach), menu);
+    row.append(rowName(entry.name, fileIconName(entry.name), size), sizeCell, actions);
     list.append(row);
 }
 async function copyFile(target, folder, path) {
@@ -170,6 +295,7 @@ async function copyFile(target, folder, path) {
         btnDone(target);
     }
 }
+actionButton(refresh, "", "refresh", () => t("刷新"));
 scope.addEventListener("click", () => {
     if (!S.current || active())
         return;
@@ -179,26 +305,17 @@ scope.addEventListener("click", () => {
     scope.classList.add("active");
     $("scope-ws").classList.remove("active");
     $("scope-shared").classList.remove("active");
-    panel.hidden = false;
-    setText(status, "正在加载…");
-    watcher.start(5000, signal => refreshCatalog(signal, true));
+    head.hidden = more.hidden = true;
+    panel.hidden = toolbar.hidden = false;
+    renderPath();
+    showMessage("正在加载…");
+    watcher.start(5000, refreshCatalog);
 });
 refresh.addEventListener("click", () => {
     if (selected)
         void loadDirectory();
     else
-        watcher.start(5000, signal => refreshCatalog(signal, true));
-});
-back.addEventListener("click", () => {
-    if (directory) {
-        directory = directory.includes("/") ? directory.slice(0, directory.lastIndexOf("/")) : "";
-        void loadDirectory();
-    }
-    else {
-        browse?.abort();
-        selected = undefined;
-        renderCatalog();
-    }
+        watcher.start(5000, refreshCatalog);
 });
 more.addEventListener("click", () => { if (next)
     void loadDirectory(next); });

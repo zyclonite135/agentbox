@@ -718,12 +718,13 @@
                   <button id="scope-ws" class="scope-btn active" data-icon="folder" data-i18n-text="[&quot;空间文件&quot;]">空间文件</button>
                   <button id="scope-shared" class="scope-btn" data-icon="folder-shared" data-i18n-text="[&quot;共享目录&quot;]">共享目录</button>
                   <button id="scope-local" class="scope-btn" type="button" data-icon="folder" data-i18n="本机文件">本机文件</button>
-                  <span class="help" tabindex="0" aria-label="共享目录说明" data-i18n-attrs="{&quot;aria-label&quot;:&quot;共享目录说明&quot;}">?
+                  <span class="help" tabindex="0" aria-label="文件来源说明" data-i18n-attrs="{&quot;aria-label&quot;:&quot;文件来源说明&quot;}">?
                     <span class="help-tip" role="tooltip" data-i18n-text="[&quot;）仅属于当前工作空间。&quot;,&quot;）供你名下的所有工作空间读写，适合传递代码与构建产物。\n                      在对话或终端中，可让 Agent 直接访问这些路径。\n                    &quot;]">
                       <b data-i18n-text="[&quot;空间文件&quot;]">空间文件</b>（<code>/workspace</code>）仅属于当前工作空间。<br>
                       <b data-i18n-text="[&quot;共享目录&quot;]">共享目录</b>（<code>/shared</code>）供你名下的所有工作空间读写，适合传递代码与构建产物。
                       在对话或终端中，可让 Agent 直接访问这些路径。
                     </span>
+                    <span class="help-tip local-files-help" role="tooltip" data-i18n="本机文件仅可读取。复制到工作空间或附加到对话时才会传输。">本机文件仅可读取。复制到工作空间或附加到对话时才会传输。</span>
                   </span>
                 </div>
                 <div id="files-crumb" class="files-crumb mono"></div>
@@ -735,6 +736,11 @@
                 <button id="btn-download" class="btn btn-sm" data-icon="download" data-tip="下载全部空间文件（ZIP）" data-i18n-text="[&quot;下载&quot;]" data-i18n-attrs="{&quot;data-tip&quot;:&quot;下载全部空间文件（ZIP）&quot;}">下载</button>
                 <button id="btn-files-more" class="btn btn-sm" data-icon="more" aria-haspopup="menu" aria-expanded="false" data-tip="更多操作" data-i18n-attrs="{&quot;data-tip&quot;:&quot;更多操作&quot;}"></button>
               </div>
+              <div id="local-files-toolbar" class="local-files-toolbar" hidden>
+                <nav id="local-files-path" class="files-crumb mono" aria-label="本机文件" data-i18n-attrs="{&quot;aria-label&quot;:&quot;本机文件&quot;}" hidden></nav>
+                <span id="local-files-connection" class="local-files-connection" role="status" hidden></span>
+                <button id="local-files-refresh" class="btn btn-sm" type="button"></button>
+              </div>
             </div>
             <div id="upload-progress" class="upload-progress hidden">
               <div class="upload-progress-track"><span id="upload-progress-fill"></span></div>
@@ -745,14 +751,16 @@
             </div>
             <div id="files-list" class="files-list"></div>
             <section id="local-files" class="local-files" hidden>
-              <div class="local-files-toolbar">
-                <button id="local-files-back" class="btn btn-sm" type="button" data-icon="arrow-left" data-i18n="返回" hidden>返回</button>
-                <strong id="local-files-path"></strong>
-                <button id="local-files-refresh" class="btn btn-sm" type="button" data-icon="refresh" data-i18n="刷新">刷新</button>
+              <div id="local-files-head" class="files-head" hidden>
+                <span data-i18n="名称">名称</span>
+                <span class="num" data-i18n="大小">大小</span>
+                <span class="factions-head" data-i18n="操作">操作</span>
               </div>
-              <p id="local-files-status" class="note" role="status"></p>
-              <div id="local-files-list"></div>
-              <button id="local-files-more" class="btn btn-sm" type="button" data-i18n="加载更多" hidden>加载更多</button>
+              <div id="local-files-scroll" class="files-list">
+                <div id="local-files-list"></div>
+                <p id="local-files-status" class="files-empty" role="status" hidden></p>
+                <button id="local-files-more" class="btn btn-sm" type="button" data-i18n="加载更多" hidden>加载更多</button>
+              </div>
             </section>
           </section>
 

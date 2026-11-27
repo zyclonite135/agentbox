@@ -169,15 +169,17 @@ export async function linkI18nSmoke(page) {
     }
     const confirmUnshare = page.locator("#fm-dialog");
     await rootFolder.selectOption("folder-fixture-2");
-    await unshare.click();
+    await unshare.press("Enter");
     await confirmUnshare.getByText("Закрыть общий доступ к папке «Следующая папка»?").waitFor();
-    await confirmUnshare.getByRole("button", {name:"Отмена"}).click();
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.activeElement.id === "fm-local-unshare");
     assert.deepEqual(removed, []);
-    for (const id of ["folder-fixture-2", "folder-fixture-1"]) {
+    for (const [id, focusId] of [["folder-fixture-2", "fm-local-unshare"], ["folder-fixture-1", "fm-pick-folder"]]) {
       assert.equal(await rootFolder.inputValue(), id);
-      await unshare.click();
+      await page.keyboard.press("Enter");
       await confirmUnshare.getByRole("button", {name:"Убрать из общего доступа"}).click();
       await rootFolder.locator(`option[value="${id}"]`).waitFor({state:"detached"});
+      await page.waitForFunction(id => document.activeElement.id === id, focusId);
     }
     assert.deepEqual(removed, ["folder-fixture-2", "folder-fixture-1"]);
     assert.equal(await unshare.isDisabled(), true);

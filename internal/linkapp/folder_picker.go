@@ -8,8 +8,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
+
+	"agentbox/internal/devicelink"
 )
 
 func (p *Panel) managerPickFolder(w http.ResponseWriter, r *http.Request) {
@@ -51,7 +56,29 @@ func (p *Panel) managerPickFolder(w http.ResponseWriter, r *http.Request) {
 	if value != "" {
 		value = filepath.Clean(value)
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"path": value, "name": filepath.Base(value)})
+	writeJSON(w, http.StatusOK, map[string]string{"path": value, "name": pickedFolderName(value)})
+}
+
+func pickedFolderName(path string) string {
+	base := filepath.Base(path)
+	name := strings.TrimSpace(strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, base))
+	if name == "" {
+		name = strconv.Quote(base)
+	}
+	if len(name) > devicelink.MaxFolderNameBytes {
+		const ellipsis = "…"
+		end := devicelink.MaxFolderNameBytes - len(ellipsis)
+		for !utf8.RuneStart(name[end]) {
+			end--
+		}
+		name = strings.TrimSpace(name[:end]) + ellipsis
+	}
+	return name
 }
 
 func pickSystemFolder(ctx context.Context) (string, error) {

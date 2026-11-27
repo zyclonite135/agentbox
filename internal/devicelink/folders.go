@@ -13,11 +13,12 @@ import (
 )
 
 const (
-	StreamFolders    byte = 2
-	FoldersHeader         = "X-Abox-Shared-Folders"
-	MaxFolders            = 16
-	FolderPageSize        = 100
-	maxFolderMessage      = 128 << 10
+	StreamFolders      byte = 2
+	FoldersHeader           = "X-Abox-Shared-Folders"
+	MaxFolders              = 16
+	MaxFolderNameBytes      = 128
+	FolderPageSize          = 100
+	maxFolderMessage        = 128 << 10
 )
 
 type Folder struct {
@@ -51,7 +52,7 @@ var folderID = regexp.MustCompile(`^[A-Za-z0-9_-]{16,64}$`)
 func ValidFolderID(id string) bool { return folderID.MatchString(id) }
 
 func ValidFolderName(name string) bool {
-	return name != "" && len(name) <= 128 && utf8.ValidString(name) &&
+	return name != "" && len(name) <= MaxFolderNameBytes && utf8.ValidString(name) &&
 		strings.IndexFunc(name, unicode.IsControl) < 0
 }
 

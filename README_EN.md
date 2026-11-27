@@ -207,6 +207,8 @@ Chat and terminal share files, **not an automatic conversation context**. Each w
 | **abox-link** | Browse folders shared from your computer | Optional; local panel or headless command line on Windows, macOS, and Linux |
 | **HTTP / WebSocket API** | Script workspace operations and usage queries | [API reference](docs/api.md) |
 
+In the abox-link file manager, add shared folders through the system folder picker. Long folder names are shortened for display.
+
 The desktop app connects to your server; it does not replace or upgrade it. **Sync is disabled by default and requires an administrator to enable it.** Desktop 0.1.2 is a manual download (macOS not notarized, Windows unsigned, no automatic updates) and predates the multilingual UI that the desktop source now has. See the [desktop guide](desktop/README.md).
 
 Optional server features: a [remote browser image](docs/remote-browser.md) gives a workspace a full browser desktop with persistent website logins; [shared tools](docs/shared-tools.md) provide read-only Go SDKs and browsers with per-user caches; [local storage capacity management](docs/storage-capacity.md) adds per-user project quotas and cache cleanup. Agent image updates build from a fixed base and are validated before they switch ([image maintenance](docs/agent-image-validation.md)).

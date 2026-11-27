@@ -599,7 +599,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, updateFolde
     const result = await ask({ title: "新建文件夹", input: "", actions: [dismiss, save] });
     if (result.action) await modifyRemote("mkdir", { path, name: result.value }, workspace);
   });
-  async function changeLocalFolders(choose) {
+  async function changeLocalFolders(trigger, choose) {
     if (folderBusy || !ready) return;
     const currentAccount = accountKey;
     folderBusy = true;
@@ -612,16 +612,21 @@ export function createFileManager({ tr, locale, errorMessage, toast, updateFolde
     } finally {
       folderBusy = false;
       renderFolderButtons();
+      const focused = document.activeElement;
+      if (currentAccount === accountKey && !pickFolder.disabled && !dialog.open &&
+          (focused === document.body || dialog.contains(focused))) {
+        (trigger.disabled ? pickFolder : trigger).focus();
+      }
     }
   }
-  pickFolder.addEventListener("click", () => void changeLocalFolders(async () => {
+  pickFolder.addEventListener("click", () => void changeLocalFolders(pickFolder, async () => {
     const picked = await (await send("pick-folder", { body: {} })).json();
     if (picked.path) return { name: picked.name, path: picked.path };
   }));
   unshareFolder.addEventListener("click", () => {
     const folder = state.local.roots.find(entry => entry.id === state.local.root);
     if (!folder) return;
-    void changeLocalFolders(async () => {
+    void changeLocalFolders(unshareFolder, async () => {
       const result = await ask({
         title: "移除文件夹",
         text: tr("停止共享「{name}」？", { name: folder.name }),

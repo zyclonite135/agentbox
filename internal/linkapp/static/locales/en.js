@@ -68,6 +68,7 @@ export default {
   "清除已结束的传输": "Clear finished",
   "关闭": "Close",
   "连接设置": "Connection settings",
+  "连接参数": "Connection",
   "文件操作失败": "File operation failed",
   "目标已存在": "A file with this name already exists",
   "找不到文件或文件夹": "File or folder not found",

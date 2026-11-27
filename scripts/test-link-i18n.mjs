@@ -34,6 +34,7 @@ export async function linkI18nSmoke(page) {
       const req=route.request(), path=new URL(req.url()).pathname;
       assert.equal(req.headers()["x-abox-panel"],"1");
       if(path==="/api/logs") return route.fulfill({json:{latest:0,lines:[]}});
+      if (path === "/api/file-manager/pick-folder") return route.fulfill({status: 501, json: {error: "Folder picker unavailable"}});
       if (path === "/api/file-manager/workspaces") return route.fulfill({json:[{id:"workspace",name:"Отчёты"}]});
       if (path === "/api/file-manager/remote") return route.fulfill({json:[{name:"report.md",directory:false,size:12}]});
       if (path === "/api/file-manager/local") {
@@ -80,12 +81,22 @@ export async function linkI18nSmoke(page) {
     assert.equal(await page.locator("#pair-err").textContent(),"Сначала вставьте код сопряжения");
     await page.locator("#pair-code").fill("ABOX1-fixture");
     await page.locator("#btn-pair").click();
-    await page.locator("#panel-body > summary").click();
-    await page.locator("#panel-body").waitFor({state:"visible"});
     await page.locator("#btn-toggle").click();
     await page.locator("#st-title").filter({hasText:"Устройство подключено"}).waitFor();
+    const settings = page.locator("#panel-body");
+    const settingsButton = page.locator("#connection-toggle");
+    assert.equal(await settings.isHidden(), true);
+    await settingsButton.click();
+    await settings.waitFor({state:"visible"});
+    assert.equal(await settingsButton.getAttribute("aria-expanded"), "true");
     await page.locator("#opt-auto").check();
     await page.waitForFunction(()=>!document.querySelector("#opt-auto").disabled);
+    await page.keyboard.press("Escape");
+    assert.equal(await settings.isHidden(), true);
+    assert.equal(await settingsButton.evaluate(button => button === document.activeElement), true);
+    await page.locator("#fm-pick-folder").click();
+    await settings.waitFor({state:"visible"});
+    await page.waitForFunction(() => document.activeElement.id === "local-folder-path");
     const requested=new Promise(resolve=>{folderRequested=resolve;});
     const name=page.locator("#local-folder-name");
     await name.fill("Документы <script>");
@@ -97,7 +108,8 @@ export async function linkI18nSmoke(page) {
     await row.filter({hasText:"Документы <script>"}).waitFor();
     assert.equal(await name.inputValue(),"Следующая папка");
     assert.equal(await row.locator("script").count(),0);
-    await page.locator("#panel-body > summary").click();
+    await page.locator(".brand").click();
+    assert.equal(await settings.isHidden(), true);
     let releasePreview;
     previewResponse = new Promise(resolve => { releasePreview = resolve; });
     const previewURL = req => new URL(req.url()).searchParams.get("preview") === "1";
@@ -133,20 +145,33 @@ export async function linkI18nSmoke(page) {
     await page.locator(".fm-job-status[data-state=done]").waitFor();
     await page.waitForFunction(() => !document.querySelector("#fm-remote-copy").disabled);
     assert.equal(await reportChoice.isChecked(),true);
-    await page.locator("#panel-body > summary").click();
+    const geometry = () => page.evaluate(() => [".top", "main", ".fm-panes"].map(selector => {
+      const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
+      return [x, y, width, height];
+    }));
     for(const width of [320,390,1280]){
-      await page.setViewportSize({width,height:900});
+      await page.setViewportSize({width,height:560});
+      const before = await geometry();
+      await settingsButton.click();
+      await settings.waitFor({state:"visible"});
+      assert.deepEqual(await geometry(), before, "opening connection settings does not move the page");
+      const bounds = await settings.boundingBox();
+      assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width && bounds.y + bounds.height <= 560);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+      await page.locator("#connection-close").click();
     }
+    await settingsButton.click();
     await row.getByRole("button",{name:"Убрать папку"}).click();
     await row.waitFor({state:"detached"});
     page.once("dialog",dialog=>dialog.accept());
     await page.locator("#btn-unpair").click();
     await page.locator("#card-pair").waitFor({state:"visible"});
+    assert.equal(await settingsButton.isHidden(), true);
+    assert.equal(await settings.isHidden(), true);
     for(const t of [en,zhTW,ru]) assert.ok(t["文件共享"]);
     assert.deepEqual(failures,[]);
     assert.deepEqual(errors,[]);
-    console.log("abox-link: pairing, connection, shared folders, locale switching and narrow layout passed");
+    console.log("abox-link: pairing, connection menu, shared folders, locale switching and narrow layout passed");
   } finally {
     await page.unroute("**/api/**");
     server.closeAllConnections();

@@ -115,6 +115,43 @@ let logSeq = 0;
 let foldersKey = "";
 let folderSaving = false;
 
+const connectionButton = $("connection-toggle");
+const connectionPanel = $("panel-body");
+const connectionLog = $("connection-log");
+const topBar = connectionPanel.closest(".top");
+
+function setConnectionMenu(open) {
+  const visible = open && !!state?.paired;
+  connectionPanel.hidden = !visible;
+  connectionButton.setAttribute("aria-expanded", String(visible));
+}
+
+connectionButton.addEventListener("click", () => setConnectionMenu(connectionPanel.hidden));
+function closeConnectionMenu() {
+  setConnectionMenu(false);
+  connectionButton.focus({ preventScroll: true });
+}
+$("connection-close").addEventListener("click", closeConnectionMenu);
+document.addEventListener("keydown", event => {
+  if (event.key !== "Escape" || event.defaultPrevented || connectionPanel.hidden) return;
+  event.preventDefault();
+  closeConnectionMenu();
+});
+function dismissConnectionMenu(event) {
+  if (!connectionPanel.hidden && !connectionPanel.contains(event.target) && !connectionButton.contains(event.target)) {
+    setConnectionMenu(false);
+  }
+}
+document.addEventListener("click", dismissConnectionMenu);
+document.addEventListener("focusin", dismissConnectionMenu);
+new ResizeObserver(() => {
+  topBar.style.setProperty("--top-height", topBar.offsetHeight + "px");
+}).observe(topBar);
+connectionLog.addEventListener("toggle", () => {
+  const log = $("log");
+  if (connectionLog.open) log.scrollTop = log.scrollHeight;
+});
+
 /* ---- 渲染 ---- */
 
 const ST = {
@@ -130,8 +167,11 @@ function render() {
 
   $("card-pair").classList.toggle("hidden", paired);
   $("card-status").classList.toggle("hidden", !paired);
-  $("panel-body").classList.toggle("hidden", !paired);
-  $("hdr-acct").textContent = paired ? state.user + " @ " + hostOf(state.server) : "";
+  connectionButton.classList.toggle("hidden", !paired);
+  if (!paired) setConnectionMenu(false);
+  const account = paired ? state.user + " @ " + hostOf(state.server) : "";
+  $("hdr-acct").textContent = account;
+  $("connection-account").textContent = account;
   $("hdr-version").textContent = state.version || "";
 
   const st = state.status || { state: "stopped" };
@@ -377,7 +417,13 @@ async function refresh() {
   } catch (_) { /* 面板进程没了，下一轮再试 */ }
 }
 
-const manager = createFileManager({ tr, locale: () => i18n.locale, errorMessage: panelErrorMessage, toast, pickManualFolder: () => { $("panel-body").open = true; $("local-folder-path").focus(); } });
+const manager = createFileManager({
+  tr, locale: () => i18n.locale, errorMessage: panelErrorMessage, toast,
+  pickManualFolder: () => {
+    setConnectionMenu(true);
+    $("local-folder-path").focus();
+  },
+});
 
 const languageSelect = $("interface-language");
 for (const language of [{ value: "system", label: "跟随系统" }, ...languages.filter(language => language.value !== "system")]) {

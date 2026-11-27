@@ -21,11 +21,63 @@
       <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h12M10 3v2M7 5c0 5 3 8 7 10M13 5c0 5-3 8-7 10m8 6 4-10 4 10m-6-4h4"/></svg>
       <select id="interface-language" aria-label="界面语言" data-i18n-aria-label="界面语言"></select>
     </label>
-  <div class="acct">
-    <span class="acct-name" id="hdr-acct"></span>
-    <span class="dot" id="hdr-dot"></span>
+    <div class="acct">
+      <span class="acct-name" id="hdr-acct"></span>
+      <span class="dot" id="hdr-dot"></span>
+    </div>
+    <button id="connection-toggle" type="button" class="connection-toggle hidden"
+            aria-expanded="false" aria-controls="panel-body" aria-label="连接设置" data-i18n-aria-label="连接设置">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h4m4 0h8M8 3v6M4 12h10m4 0h2m-6-3v6M4 18h2m4 0h10M10 15v6"/></svg>
+      <span class="connection-toggle-label" data-i18n>连接参数</span>
+      <svg class="connection-chevron" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+    </button>
   </div>
-  </div>
+  <section id="panel-body" class="connection-panel" aria-labelledby="connection-title" hidden>
+    <div class="connection-heading">
+      <div>
+        <h2 id="connection-title" data-i18n>连接设置</h2>
+        <p id="connection-account" class="connection-account"></p>
+      </div>
+      <button type="button" class="fm-icon ghost" id="connection-close" data-fm-icon="close" aria-label="关闭" data-i18n-aria-label="关闭"></button>
+    </div>
+    <div class="connection-content">
+      <div class="connection-grid">
+        <section>
+          <h3 data-i18n>选项</h3>
+          <label class="check connection-option">
+            <input type="checkbox" id="opt-auto">
+            <span data-i18n>启动时自动连接 AgentBox</span>
+          </label>
+          <label class="check connection-option">
+            <input type="checkbox" id="opt-boot">
+            <span><span data-i18n>开机自启</span> <span class="hint" id="boot-detail"></span></span>
+          </label>
+          <label class="check connection-option">
+            <input type="checkbox" id="opt-insecure">
+            <span data-i18n>跳过 TLS 证书校验（服务器用自签名证书时才勾）</span>
+          </label>
+          <div class="unpair">
+            <button class="ghost danger" id="btn-unpair" type="button" data-icon="unlink" data-i18n>解除绑定</button>
+            <span class="hint" data-i18n>清除登录凭证与共享设置</span>
+          </div>
+        </section>
+        <section>
+          <h3 data-i18n>共享文件夹</h3>
+          <p class="connection-hint" data-i18n>连接后可在 AgentBox 的「文件 → 从我的电脑」中只读浏览这些文件夹。</p>
+          <div id="local-folder-list" class="rules"></div>
+          <form id="local-folder-form" class="rules">
+            <label><span data-i18n>显示名称</span><input type="text" id="local-folder-name" required maxlength="128"></label>
+            <label><span data-i18n>本机文件夹的绝对路径</span><input type="text" id="local-folder-path" required spellcheck="false" placeholder="C:\AgentBox\Exchange"></label>
+            <div><button id="local-folder-add" class="ghost" type="submit" data-icon="plus" data-i18n>添加文件夹</button></div>
+          </form>
+        </section>
+      </div>
+      <details class="connection-log" id="connection-log">
+        <summary data-i18n>运行日志</summary>
+        <div class="log" id="log"></div>
+      </details>
+    </div>
+  </section>
 </header>
 
 <main>
@@ -162,64 +214,6 @@
     <img id="fm-preview-image" alt="">
   </dialog>
 
-  <details id="panel-body" class="fm-settings hidden">
-    <summary data-i18n>连接设置</summary>
-    <div class="desk">
-
-    <div class="col col-main">
-
-      <section class="card">
-        <div class="head">
-          <h2 data-i18n>共享文件夹</h2>
-          <span class="head-line"></span>
-        </div>
-        <p data-i18n>连接后可在 AgentBox 的「文件 → 从我的电脑」中只读浏览这些文件夹。</p>
-        <div id="local-folder-list" class="rules"></div>
-        <form id="local-folder-form" class="rules">
-          <label><span data-i18n>显示名称</span><input type="text" id="local-folder-name" required maxlength="128"></label>
-          <label><span data-i18n>本机文件夹的绝对路径</span><input type="text" id="local-folder-path" required spellcheck="false" placeholder="C:\AgentBox\Exchange"></label>
-          <div><button id="local-folder-add" class="ghost" type="submit" data-icon="plus" data-i18n>添加文件夹</button></div>
-        </form>
-      </section>
-
-    </div>
-
-    <div class="col col-side">
-
-      <section class="card card-log">
-        <div class="head">
-          <h2 data-i18n>运行日志</h2>
-          <span class="head-line"></span>
-        </div>
-        <div class="log" id="log"></div>
-      </section>
-
-      <section class="card">
-        <div class="head">
-          <h2 data-i18n>选项</h2>
-          <span class="head-line"></span>
-        </div>
-        <label class="check">
-          <input type="checkbox" id="opt-auto">
-          <span data-i18n>启动时自动连接 AgentBox</span>
-        </label>
-        <label class="check">
-          <input type="checkbox" id="opt-boot">
-          <span><span data-i18n>开机自启</span> <span class="hint" id="boot-detail"></span></span>
-        </label>
-        <label class="check">
-          <input type="checkbox" id="opt-insecure">
-          <span data-i18n>跳过 TLS 证书校验（服务器用自签名证书时才勾）</span>
-        </label>
-        <div class="unpair">
-          <button class="ghost danger" id="btn-unpair" data-icon="unlink" data-i18n>解除绑定</button>
-          <span class="hint" data-i18n>清除登录凭证与共享设置</span>
-        </div>
-      </section>
-
-    </div>
-    </div>
-  </details>
 </main>
 
 <div class="toast hidden" id="toast"></div>

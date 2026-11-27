@@ -82,9 +82,10 @@ body {
 /* ---------- 顶栏 ---------- */
 
 .top {
+  --top-gutter: 22px;
   position: sticky; top: 0; z-index: 5;
   display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
-  padding: 13px 22px;
+  padding: 13px var(--top-gutter);
   background: var(--panel);
   border-bottom: 1px solid var(--line);
 }
@@ -110,6 +111,60 @@ body {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px;
 }
 
+.top .connection-toggle { min-height: 34px; padding: 5px 10px; color: var(--muted); }
+.top .connection-toggle[aria-expanded="true"] {
+  color: var(--amber);
+  border-color: var(--amber-dim);
+  background: var(--ring);
+}
+.connection-chevron { transition: transform .18s ease; }
+.connection-toggle[aria-expanded="true"] .connection-chevron { transform: rotate(180deg); }
+
+/* The overlay is anchored to the header and takes no space in the page flow. */
+.connection-panel {
+  position: absolute; inset-block-start: calc(100% + 8px); inset-inline-end: var(--top-gutter);
+  width: min(700px, calc(100% - 2 * var(--top-gutter)));
+  max-height: calc(100dvh - var(--top-height, 96px) - 20px);
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 16px;
+  background: var(--panel); box-shadow: var(--shadow);
+  animation: connection-enter .18s ease-out both;
+}
+.connection-panel[hidden] { display: none; }
+@keyframes connection-enter {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.connection-heading {
+  display: flex; flex: none; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 16px; border-bottom: 1px solid var(--line);
+  background: linear-gradient(115deg, var(--ring), transparent 75%);
+}
+.connection-heading > div { min-width: 0; }
+.connection-heading h2 { margin: 0; font-size: 16px; font-weight: 650; line-height: 1.3; }
+.connection-account {
+  margin: 3px 0 0; color: var(--muted); font-size: 12px; font-family: var(--ui);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.connection-content {
+  min-height: 0; overflow: auto; overscroll-behavior: contain;
+  scrollbar-gutter: stable; padding: 14px 16px 16px;
+}
+.connection-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr); gap: 12px; }
+.connection-grid > section {
+  min-width: 0; padding: 12px 13px; border-radius: 11px; border: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--panel) 60%, var(--bg));
+}
+.connection-grid h3 { margin: 0 0 7px; font-size: 13px; font-weight: 650; }
+.connection-hint { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
+.connection-option { overflow-wrap: anywhere; }
+.connection-option + .connection-option { border-top: 1px solid var(--line-soft); }
+.connection-panel button { white-space: normal; }
+.connection-panel #local-folder-form { margin-bottom: 0; }
+.connection-log { margin-top: 10px; }
+.connection-log summary { cursor: pointer; color: var(--muted); padding: 5px 2px; width: fit-content; }
+.connection-log summary:hover { color: var(--text); }
+
 /* ---------- 状态灯（顶栏，JS 写 .dot + on/busy/bad） ---------- */
 
 .dot {
@@ -125,8 +180,6 @@ body {
 
 main { max-width: 1060px; margin: 0 auto; padding: 22px; }
 
-.desk { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; align-items: start; }
-.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 
 /* ---------- 电路：这一页的状态就是这条线 ---------- */
 
@@ -262,14 +315,6 @@ main { max-width: 1060px; margin: 0 auto; padding: 22px; }
   padding: 18px 20px 20px;
 }
 
-/* 区块头：标题 + 一条走到边的细线，呼应上面的电路 */
-.head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.head h2 {
-  margin: 0; flex: none;
-  font-family: var(--ui);
-  font-size: 13px; font-weight: 600; letter-spacing: .08em;
-}
-.head-line { flex: 1; height: 1px; background: var(--line); }
 .card p {
   margin: 0 0 14px;
   color: var(--muted); font-size: 12.5px;
@@ -354,13 +399,12 @@ input[type=text]:focus, textarea:focus {
 
 /* ---------- 日志 ---------- */
 
-.card-log { display: flex; flex-direction: column; }
 .log {
   font-family: var(--ui); font-size: 12px; line-height: 1.75;
   font-variant-numeric: tabular-nums;
   background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
   padding: 12px 13px;
-  height: 268px; overflow-y: auto;
+  height: 150px; overflow-y: auto;
   white-space: pre-wrap; word-break: break-all;
   overscroll-behavior: contain;
 }
@@ -406,16 +450,16 @@ input[type=text]:focus, textarea:focus {
   .brand-ver { display: none; }
 }
 
-@media (max-width: 900px) {
-  .desk { grid-template-columns: 1fr; }
-  .log { height: 200px; }
-}
-
 @media (max-width: 560px) {
   main { padding: 16px; }
-  .top { padding: 12px 16px; }
-  .top-tools { gap: 10px; margin-left: auto; }
-  .acct-name { max-width: 140px; }
+  .top { --top-gutter: 14px; padding-block: 12px; gap: 8px; flex-wrap: nowrap; }
+  .top-tools { gap: 8px; min-width: 0; flex-wrap: nowrap; margin-left: auto; }
+  .language-picker { gap: 0; min-width: 0; }
+  .language-picker svg, .acct-name, .connection-toggle-label, .connection-chevron { display: none; }
+  .language-picker select { min-width: 0; max-width: 120px; }
+  .top .connection-toggle { width: 36px; flex: none; padding: 0; }
+  .connection-grid { grid-template-columns: minmax(0, 1fr); }
+  .connection-content { padding: 10px 12px 12px; }
 
   .wire { padding: 24px 12px 18px; }
   .term, .node { width: 66px; }
@@ -426,12 +470,11 @@ input[type=text]:focus, textarea:focus {
 
   .card-pair { flex-direction: column; gap: 14px; }
   .pair-mascot { align-self: center; }
-  .head { flex-wrap: wrap; }
-  .head h2 { min-width: 0; max-width: 100%; }
 
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .connection-panel { animation: none; }
   button.loading::before { animation: none; }
   button:active:not(:disabled) { transform: none; }
   .wire.busy .leg-a .glint { animation: none; left: calc(50% - 23px); }
@@ -440,5 +483,6 @@ input[type=text]:focus, textarea:focus {
 
 @media (pointer: coarse) {
   button, .language-picker select { min-height: 44px; }
+  .top .connection-toggle { min-height: 44px; min-width: 44px; }
   .rule button { min-width: 44px; }
 }

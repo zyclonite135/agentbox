@@ -92,6 +92,14 @@ async function fetchDir(rel: string) {
   return api<FileEntry[]>(`/sessions/${S.current!.id}/files?path=${encodeURIComponent(full)}${scopeQS()}`);
 }
 
+async function loadTreeChildren(rel: string, gen: number) {
+  let entries: FileEntry[];
+  try { entries = await fetchDir(rel); } catch (_) { entries = []; }
+  if (gen !== tree.gen) return;
+  tree.cache.set(rel, entries);
+  return entries;
+}
+
 export async function loadFiles() {
   const sess = S.current; if (!sess) return;
   clearFileDrag();
@@ -119,23 +127,21 @@ export async function loadFiles() {
   if (!entries.length && !S.filePath) {
     frag.appendChild(filesEmptyRow());
   }
-  await buildRows(frag, entries, "", 0);
+  await buildRows(frag, entries, "", 0, gen);
   if (gen !== tree.gen) return;
   $("files-head").classList.toggle("hidden", !entries.length && !S.filePath);
   $("files-list").replaceChildren(frag);
 }
 
 /* 递归拼装树：展开的目录懒加载子项后缩进列出 */
-async function buildRows(frag: DocumentFragment, entries: FileEntry[], base: string, depth: number) {
+async function buildRows(frag: DocumentFragment, entries: FileEntry[], base: string, depth: number, gen: number) {
   for (const ent of entries) {
+    if (gen !== tree.gen) return;
     const rel = joinRel(base, ent.name);
     frag.appendChild(fileRow(ent, rel, depth));
     if (ent.is_dir && tree.expanded.has(rel)) {
-      let kids = tree.cache.get(rel);
-      if (!kids) {
-        try { kids = await fetchDir(rel); } catch (_) { kids = []; }
-        tree.cache.set(rel, kids);
-      }
+      const kids = tree.cache.get(rel) ?? await loadTreeChildren(rel, gen);
+      if (!kids || gen !== tree.gen) return;
       if (!kids.length) {
         const p = document.createElement("div");
         p.className = "file-row empty-dir";
@@ -143,7 +149,7 @@ async function buildRows(frag: DocumentFragment, entries: FileEntry[], base: str
         p.innerHTML = `<span class="fname muted"><span data-i18n="（空目录）">${trHTML("（空目录）")}</span></span>`;
         frag.appendChild(p);
       } else {
-        await buildRows(frag, kids, rel, depth + 1);
+        await buildRows(frag, kids, rel, depth + 1, gen);
       }
     }
   }
@@ -208,8 +214,8 @@ function fileRow(ent: FileEntry, rel: string, depth: number) {
       if (!tree.cache.has(rel)) {
         arrow.classList.add("busy"); // 箭头原地转圈，等子目录列表返回
         arrow.replaceChildren(spinEl());
-        try { tree.cache.set(rel, await fetchDir(rel)); }
-        catch (_) { tree.cache.set(rel, []); }
+        const gen = tree.gen;
+        if (!await loadTreeChildren(rel, gen) || gen !== tree.gen) return;
       }
       rerenderTree();
     };
@@ -792,7 +798,7 @@ async function rerenderTree() {
   const frag = document.createDocumentFragment();
   if (S.filePath) frag.appendChild(upRow());
   if (!entries.length && !S.filePath) frag.appendChild(filesEmptyRow());
-  await buildRows(frag, entries, "", 0);
+  await buildRows(frag, entries, "", 0, gen);
   if (gen !== tree.gen) return;
   $("files-head").classList.toggle("hidden", !entries.length && !S.filePath);
   $("files-list").replaceChildren(frag);

@@ -171,12 +171,12 @@ func managerSession(id string) string {
 	return "/api/sessions/" + id
 }
 
-func managerRemoteJSON(r *http.Request, cfg Config, method, endpoint string, query url.Values, body []byte, out any) error {
+func managerRemoteJSON(ctx context.Context, cfg Config, method, endpoint string, query url.Values, body []byte, out any) error {
 	var reader io.Reader
 	if body != nil {
 		reader = bytes.NewReader(body)
 	}
-	resp, err := managerFetch(r.Context(), cfg, method, endpoint, query, reader, int64(len(body)), 20*time.Second)
+	resp, err := managerFetch(ctx, cfg, method, endpoint, query, reader, int64(len(body)), 20*time.Second)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (p *Panel) managerRemote(w http.ResponseWriter, r *http.Request) {
 			ID   string `json:"id"`
 			Name string `json:"name"`
 		}{}
-		if err := managerRemoteJSON(r, cfg, http.MethodGet, "/api/sessions", nil, nil, &out); err != nil {
+		if err := managerRemoteJSON(r.Context(), cfg, http.MethodGet, "/api/sessions", nil, nil, &out); err != nil {
 			writeManagerError(w, err)
 			return
 		}
@@ -224,7 +224,7 @@ func (p *Panel) managerRemote(w http.ResponseWriter, r *http.Request) {
 		Modified time.Time `json:"mtime"`
 		Mode     string    `json:"mode"`
 	}
-	if err := managerRemoteJSON(r, cfg, http.MethodGet, endpoint+"/files", url.Values{"path": {name}}, nil, &entries); err != nil {
+	if err := managerRemoteJSON(r.Context(), cfg, http.MethodGet, endpoint+"/files", url.Values{"path": {name}}, nil, &entries); err != nil {
 		writeManagerError(w, err)
 		return
 	}
@@ -298,7 +298,7 @@ func (p *Panel) managerRemoteAction(w http.ResponseWriter, r *http.Request) {
 		encoded, _ = json.Marshal(input)
 	}
 	var out map[string]any
-	if err := managerRemoteJSON(r, p.Config(), method, endpoint, query, encoded, &out); err != nil {
+	if err := managerRemoteJSON(r.Context(), p.Config(), method, endpoint, query, encoded, &out); err != nil {
 		writeManagerError(w, err)
 		return
 	}
@@ -312,6 +312,7 @@ type managerCopy struct {
 	Source      string
 	Destination string
 	Replace     bool
+	Directory   bool
 }
 
 type managerCopyEvent struct {
@@ -354,7 +355,7 @@ func (p *Panel) managerTransfer(w http.ResponseWriter, r *http.Request) {
 	cfg := p.Config()
 	endpoint := managerSession(req.Workspace)
 	if endpoint == "" || !managerPath(req.Source) || !managerPath(req.Destination) || req.Source == "." || req.Destination == "." ||
-		(req.Direction != "upload" && req.Direction != "download") {
+		(req.Direction != "upload" && req.Direction != "download") || req.Directory && (req.Direction != "upload" || req.Replace) {
 		writeErr(w, http.StatusBadRequest, "无效的文件路径")
 		return
 	}
@@ -386,10 +387,12 @@ func (p *Panel) managerTransfer(w http.ResponseWriter, r *http.Request) {
 			_ = controller.Flush()
 		}
 	}
-	switch req.Direction {
-	case "upload":
-		err = sendManagerFile(r.Context(), cfg, root, req, endpoint, report)
-	case "download":
+	switch {
+	case req.Directory:
+		err = p.sendManagerDirectory(r.Context(), cfg, root, req, endpoint, report)
+	case req.Direction == "upload":
+		_, err = sendManagerFile(r.Context(), cfg, root, req, endpoint, report)
+	default:
 		err = p.receiveManagerFile(r.Context(), cfg, root, req, endpoint, report)
 	}
 	if err == nil {
@@ -410,15 +413,15 @@ func (p *Panel) managerTransfer(w http.ResponseWriter, r *http.Request) {
 	report(managerCopyEvent{Error: msg, Conflict: conflict})
 }
 
-func sendManagerFile(ctx context.Context, cfg Config, root *os.Root, req managerCopy, endpoint string, report func(managerCopyEvent)) error {
+func sendManagerFile(ctx context.Context, cfg Config, root *os.Root, req managerCopy, endpoint string, report func(managerCopyEvent)) (int64, error) {
 	f, err := openFolderEntry(root, req.Source, false)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer f.Close()
 	info, err := f.Stat()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	query := url.Values{"path": {req.Destination}}
 	if req.Replace {
@@ -427,10 +430,10 @@ func sendManagerFile(ctx context.Context, cfg Config, root *os.Root, req manager
 	progress := &copyProgress{source: io.LimitReader(f, info.Size()), total: info.Size(), report: report}
 	resp, err := managerFetch(ctx, cfg, http.MethodPut, endpoint+"/files/copy", query, progress, info.Size(), 45*time.Minute)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer resp.Body.Close()
-	return nil
+	return info.Size(), nil
 }
 
 func (p *Panel) receiveManagerFile(ctx context.Context, cfg Config, root *os.Root, req managerCopy, endpoint string, report func(managerCopyEvent)) error {

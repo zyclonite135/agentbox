@@ -39,7 +39,7 @@ export async function linkI18nSmoke(page) {
         return route.fulfill({ json: pickerResult });
       }
       if (path === "/api/file-manager/workspaces") return route.fulfill({json:[{id:"workspace",name:"Отчёты"}]});
-      if (path === "/api/file-manager/remote") return route.fulfill({json:[{name:"report.md",directory:false,size:12}]});
+      if (path === "/api/file-manager/remote") return route.fulfill({json:[{name:"report.md",directory:false,size:12},{name:"Архив",directory:true}]});
       if (path === "/api/file-manager/local") {
         const query = new URL(req.url()).searchParams;
         if (query.get("preview") === "1") {
@@ -47,7 +47,7 @@ export async function linkI18nSmoke(page) {
           await route.fulfill({contentType:"image/png",body:Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRhoAAAAASUVORK5CYII=","base64")}).catch(() => {});
           return;
         }
-        return route.fulfill({json:query.get("path")==="." ? [{name:"Входящие",directory:true},{name:"sample.png",directory:false,size:68}] : []});
+        return route.fulfill({json:query.get("path")==="." ? [{name:"Входящие",directory:true},{name:"Проект.v1",directory:true},{name:"sample.png",directory:false,size:68}] : []});
       }
       if (path === "/api/file-manager/transfer") {
         const result = await transferResponse;
@@ -152,6 +152,31 @@ export async function linkI18nSmoke(page) {
     await page.locator(".fm-job-status[data-state=done]").waitFor();
     await page.waitForFunction(() => !document.querySelector("#fm-remote-copy").disabled);
     assert.equal(await reportChoice.isChecked(),true);
+    assert.equal(await page.getByRole("checkbox", {name:"Выбрать Архив", exact:true}).count(), 0);
+    await page.getByRole("checkbox", {name:"Выбрать sample.png", exact:true}).uncheck();
+    await page.getByRole("checkbox", {name:"Выбрать Проект.v1", exact:true}).check();
+    transferResponse = {error:"目标已存在", conflict:true};
+    const directoryTransfer = page.waitForRequest("**/api/file-manager/transfer");
+    await page.locator("#fm-local-copy").click();
+    const directoryRequest = (await directoryTransfer).postDataJSON();
+    assert.deepEqual(directoryRequest, {workspace:"workspace", folder:"folder-fixture-1", direction:"upload", source:"Проект.v1", destination:"Проект.v1", directory:true});
+    const conflictDialog = page.locator("#fm-dialog");
+    await conflictDialog.getByRole("heading", {name:"Это имя уже занято"}).waitFor();
+    assert.equal(await conflictDialog.getByRole("button", {name:"Заменить", exact:true}).count(), 0);
+    transferResponse = {done:true};
+    const secondCopy = page.waitForRequest("**/api/file-manager/transfer");
+    await conflictDialog.getByRole("button", {name:"Сохранить оба", exact:true}).click();
+    assert.deepEqual((await secondCopy).postDataJSON(), {...directoryRequest, destination:"Проект.v1 (2)"});
+    await page.locator(".fm-job").filter({hasText:"Проект.v1"}).locator(".fm-job-status[data-state=done]").waitFor();
+    await page.waitForFunction(() => !document.querySelector("#fm-remote-copy").disabled);
+    const draggedDirectory = page.locator("#fm-local-list .fm-row").filter({hasText:"Входящие"});
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+    const draggedCopy = page.waitForRequest("**/api/file-manager/transfer");
+    await draggedDirectory.dispatchEvent("dragstart", {dataTransfer});
+    await page.locator("#fm-remote").dispatchEvent("drop", {dataTransfer});
+    assert.deepEqual((await draggedCopy).postDataJSON(), {...directoryRequest, source:"Входящие", destination:"Входящие"});
+    await dataTransfer.dispose();
+    await page.locator(".fm-job").filter({hasText:"Входящие"}).locator(".fm-job-status[data-state=done]").waitFor();
     const geometry = () => page.evaluate(() => [".top", "main", ".fm-panes"].map(selector => {
       const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
       return [x, y, width, height];

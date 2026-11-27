@@ -209,6 +209,8 @@ Chat and terminal share files, **not an automatic conversation context**. Each w
 
 In the abox-link file manager, add shared folders through the system folder picker. Long folder names are shortened for display.
 
+Select files and folders on your computer and click **To server** to copy them into the open workspace directory. Folder copies include nested and empty folders.
+
 On Windows, abox-link opens in a compact window for pairing and expands to fit the file manager within the monitor’s work area. It remembers manual sizes for each view during the current session.
 
 The desktop app connects to your server; it does not replace or upgrade it. **Sync is disabled by default and requires an administrator to enable it.** Desktop 0.1.2 is a manual download (macOS not notarized, Windows unsigned, no automatic updates) and predates the multilingual UI that the desktop source now has. See the [desktop guide](desktop/README.md).

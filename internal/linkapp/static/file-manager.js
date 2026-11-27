@@ -41,9 +41,10 @@ const pathOf = parts => parts.length ? parts.join("/") : ".";
 const fileAt = (parts, name) => [...parts, name].join("/");
 const otherSide = side => side === "local" ? "remote" : "local";
 const imageFile = name => /\.(png|jpe?g|gif|webp|bmp)$/i.test(name);
+const canCopy = (side, entry) => side === "local" || !entry.directory;
 
-function availableCopyName(name, number) {
-  const i = name.lastIndexOf(".");
+function availableCopyName(name, number, directory) {
+  const i = directory ? -1 : name.lastIndexOf(".");
   return i > 0 ? name.slice(0, i) + " (" + number + ")" + name.slice(i) : name + " (" + number + ")";
 }
 
@@ -158,8 +159,8 @@ export function createFileManager({ tr, locale, errorMessage, toast, updateFolde
       const result = await (await send(side, { query: entryQuery(side, pathOf(parts)), signal: controller.signal })).json();
       if (!controller.signal.aborted) {
         pane.entries = result;
-        const files = new Set(result.filter(entry => !entry.directory).map(entry => entry.name));
-        for (const name of pane.selected) if (!files.has(name)) pane.selected.delete(name);
+        const names = new Set(result.filter(entry => canCopy(side, entry)).map(entry => entry.name));
+        for (const name of pane.selected) if (!names.has(name)) pane.selected.delete(name);
       }
     } catch (error) {
       if (!controller.signal.aborted) pane.error = error.message;
@@ -226,13 +227,13 @@ export function createFileManager({ tr, locale, errorMessage, toast, updateFolde
   function renderSelection(side, rows = visibleEntries(side)) {
     const pane = state[side];
     const all = at(side, "all");
-    const files = rows.filter(row => !row.directory);
-    const selectedHere = files.filter(row => pane.selected.has(row.name)).length;
-    all.checked = files.length > 0 && selectedHere === files.length;
-    all.indeterminate = selectedHere > 0 && selectedHere < files.length;
-    all.disabled = files.length === 0;
+    const selectable = rows.filter(row => canCopy(side, row));
+    const selectedHere = selectable.filter(row => pane.selected.has(row.name)).length;
+    all.checked = selectable.length > 0 && selectedHere === selectable.length;
+    all.indeterminate = selectedHere > 0 && selectedHere < selectable.length;
+    all.disabled = selectable.length === 0;
     at(side, "count").textContent = pane.selected.size ?
-      tr("已选择 {count} 个文件", { count: pane.selected.size }) :
+      tr(side === "local" ? "已选择 {count} 个项目" : "已选择 {count} 个文件", { count: pane.selected.size }) :
       tr("{count} 个项目", { count: rows.length });
     const other = state[otherSide(side)];
     at(side, "copy").disabled = !pane.selected.size || !other.root || other.loading || other.loadingRoots || !!other.error || pane.loading || pane.loadingRoots || !!pane.error;
@@ -242,8 +243,9 @@ export function createFileManager({ tr, locale, errorMessage, toast, updateFolde
     const pane = state[side];
     const li = create("li", "fm-row");
     li.classList.toggle("is-selected", pane.selected.has(entry.name));
-    const choose = entry.directory ? create("span") : create("input");
-    if (!entry.directory) {
+    const selectable = canCopy(side, entry);
+    const choose = create(selectable ? "input" : "span");
+    if (selectable) {
       choose.type = "checkbox";
       choose.checked = pane.selected.has(entry.name);
       choose.setAttribute("aria-label", tr("选择 {name}", { name: entry.name }));
@@ -397,19 +399,22 @@ export function createFileManager({ tr, locale, errorMessage, toast, updateFolde
     const { local, remote } = state;
     if (!local.root || !remote.root || local.loading || remote.loading || remote.loadingRoots || local.error || remote.error) return;
     const direction = side === "local" ? "upload" : "download";
-    for (let i = 0; jobs.length + names.length > 400 && i < jobs.length;) {
+    const entries = new Map(state[side].entries.filter(entry => canCopy(side, entry)).map(entry => [entry.name, entry]));
+    const selection = names.map(name => entries.get(name)).filter(Boolean);
+    for (let i = 0; jobs.length + selection.length > 400 && i < jobs.length;) {
       if (["running", "waiting"].includes(jobs[i].status)) i++;
       else jobs.splice(i, 1);
     }
     const waiting = jobs.filter(job => job.status === "waiting" || job.status === "running").length;
-    if (names.length + waiting > 200) { toast(tr("一次最多传输 200 个文件"), true); return; }
-    for (const name of names) {
+    if (selection.length + waiting > 200) { toast(tr("一次最多传输 200 个项目"), true); return; }
+    for (const { name, directory } of selection) {
       jobs.push({
         name, status: "waiting", bytes: 0, total: 0,
         req: {
           workspace: remote.root, folder: local.root, direction,
           source: fileAt(state[side].parts, name),
           destination: fileAt(state[otherSide(side)].parts, name),
+          ...(directory && { directory: true }),
         },
       });
     }
@@ -512,10 +517,11 @@ export function createFileManager({ tr, locale, errorMessage, toast, updateFolde
             // Let the current file action finish before asking about this transfer.
             await waitForDialog(controller.signal);
             if (controller.signal.aborted) { job.status = "cancelled"; continue; }
-            const { action } = await ask({ title: "目标已存在", text: job.name, actions: [
+            const directory = job.req.directory;
+            const { action } = await ask({ title: directory ? "此名称已被占用" : "目标已存在", text: job.name, actions: [
               { label: "跳过", value: "", cancel: true },
-              { label: "保留两个文件", value: "keep" },
-              { label: "替换", value: "replace", className: "danger" },
+              { label: "保留两项", value: "keep" },
+              ...(!directory ? [{ label: "替换", value: "replace", className: "danger" }] : []),
             ] });
             if (controller.signal.aborted) { job.status = "cancelled"; continue; }
             if (!action) { job.status = "skipped"; continue; }
@@ -524,7 +530,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, updateFolde
               const slash = job.req.destination.lastIndexOf("/");
               const dir = job.req.destination.slice(0, slash + 1);
               for (let n = 2; n <= 100 && completion.conflict; n++) {
-                completion = await transfer(job, { ...job.req, destination: dir + availableCopyName(job.name, n) }, controller.signal);
+                completion = await transfer(job, { ...job.req, destination: dir + availableCopyName(job.name, n, directory) }, controller.signal);
               }
             }
           }
@@ -550,7 +556,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, updateFolde
     const pane = state[side];
     const enabled = at(side, "all").checked;
     for (const entry of visibleEntries(side)) {
-      if (entry.directory) continue;
+      if (!canCopy(side, entry)) continue;
       if (enabled) pane.selected.add(entry.name);
       else pane.selected.delete(entry.name);
     }

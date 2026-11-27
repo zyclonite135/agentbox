@@ -94,6 +94,153 @@ func TestFileManagerCopiesBothDirections(t *testing.T) {
 	}
 }
 
+func TestFileManagerUploadsDirectory(t *testing.T) {
+	local, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := t.TempDir()
+	const source = "project.v1"
+	if err := os.MkdirAll(filepath.Join(local, source, "nested", "empty"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(local, source, "nested", "report.txt")
+	if err := os.WriteFile(file, []byte("report"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(file, filepath.Join(local, source, "link.txt")); err != nil {
+		t.Logf("symbolic link fixture unavailable: %v", err)
+	}
+	if err := os.Mkdir(filepath.Join(remote, "uploads"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const endpoint = "/api/sessions/workspace/files"
+		if r.Header.Get("Authorization") != "Bearer fixture-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		name := r.URL.Query().Get("path")
+		var err error
+		switch r.Method + " " + r.URL.Path {
+		case "GET " + endpoint:
+			entries, readErr := os.ReadDir(filepath.Join(remote, name))
+			if readErr != nil {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			items := []map[string]string{}
+			for _, entry := range entries {
+				items = append(items, map[string]string{"name": entry.Name()})
+			}
+			writeJSON(w, http.StatusOK, items)
+			return
+		case "POST " + endpoint + "/mkdir", "POST " + endpoint + "/rename":
+			var req struct{ Scope, Dir, Path, Name string }
+			if json.NewDecoder(r.Body).Decode(&req) != nil || req.Scope != "workspace" || req.Name == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if strings.HasSuffix(r.URL.Path, "/mkdir") {
+				err = os.Mkdir(filepath.Join(remote, req.Dir, req.Name), 0o700)
+			} else {
+				dest := filepath.Join(remote, filepath.Dir(req.Path), req.Name)
+				if req.Name == "race" {
+					if err := os.Mkdir(dest, 0o700); err != nil {
+						t.Errorf("concurrent mkdir: %v", err)
+					}
+					w.WriteHeader(http.StatusConflict)
+					return
+				}
+				err = os.Rename(filepath.Join(remote, req.Path), dest)
+			}
+		case "PUT " + endpoint + "/copy":
+			if strings.Contains(name, "rejected.txt") {
+				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				return
+			}
+			if !strings.HasPrefix(name, "uploads/.abox-link-upload-") {
+				t.Errorf("file sent outside staging directory: %q", name)
+			}
+			var body []byte
+			body, err = io.ReadAll(r.Body)
+			if err == nil {
+				err = os.WriteFile(filepath.Join(remote, name), body, 0o600)
+			}
+		case "DELETE " + endpoint:
+			if !strings.HasPrefix(name, "uploads/.abox-link-upload-") {
+				t.Errorf("cleanup attempted to delete %q", name)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			err = os.RemoveAll(filepath.Join(remote, name))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			t.Errorf("upstream %s %s: %v", r.Method, r.URL.Path, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{})
+	}))
+	defer upstream.Close()
+	folder := localFolder{Folder: devicelink.Folder{ID: "fixture-folder-1234", Name: "Files"}, Path: local}
+	p := NewPanel(Config{Server: upstream.URL, User: "user", Token: "fixture-token", Folders: []localFolder{folder}}, NewSupervisor())
+	upload := func(name string) managerCopyEvent {
+		t.Helper()
+		body, _ := json.Marshal(managerCopy{Workspace: "workspace", Folder: folder.ID, Direction: "upload", Source: source, Destination: "uploads/" + name, Directory: true})
+		r := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/file-manager/transfer", strings.NewReader(string(body)))
+		r.Header.Set("X-Abox-Panel", "1")
+		w := httptest.NewRecorder()
+		p.Handler().ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("upload %q: %d %s", name, w.Code, w.Body)
+		}
+		var event managerCopyEvent
+		dec := json.NewDecoder(w.Body)
+		for dec.More() {
+			if err := dec.Decode(&event); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return event
+	}
+	if result := upload(source); !result.Done {
+		t.Fatalf("directory upload failed: %+v", result)
+	}
+	dest := filepath.Join(remote, "uploads", source)
+	if content, err := os.ReadFile(filepath.Join(dest, "nested", "report.txt")); err != nil || string(content) != "report" {
+		t.Fatalf("nested file: %q, %v", content, err)
+	}
+	if empty, err := os.ReadDir(filepath.Join(dest, "nested", "empty")); err != nil || len(empty) != 0 {
+		t.Fatalf("empty directory: %v, %v", empty, err)
+	}
+	if _, err := os.Lstat(filepath.Join(dest, "link.txt")); !os.IsNotExist(err) {
+		t.Fatalf("symbolic link was transferred: %v", err)
+	}
+	if result := upload(source); !result.Conflict || result.Done {
+		t.Fatalf("existing directory was not reported as a conflict: %+v", result)
+	}
+	if result := upload("race"); !result.Conflict || result.Done {
+		t.Fatalf("directory created during upload was not reported as a conflict: %+v", result)
+	}
+	if err := os.WriteFile(filepath.Join(local, source, "rejected.txt"), []byte("too large"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if result := upload("failed"); result.Done || result.Error != "文件超过上传限制" {
+		t.Fatalf("server rejection did not stop the directory upload: %+v", result)
+	}
+	entries, err := os.ReadDir(filepath.Join(remote, "uploads"))
+	if err != nil || len(entries) != 2 || entries[0].Name() != source || entries[1].Name() != "race" {
+		t.Fatalf("staging left files after failure: %v, %v", entries, err)
+	}
+	if entries, err := os.ReadDir(filepath.Join(remote, "uploads", "race")); err != nil || len(entries) != 0 {
+		t.Fatalf("conflicting directory was changed: %v, %v", entries, err)
+	}
+}
+
 func TestFileManagerUnfinishedDownloadsAreNeverShared(t *testing.T) {
 	for _, outcome := range []string{"cancel", "unshare"} {
 		t.Run(outcome, func(t *testing.T) {

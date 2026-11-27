@@ -6,11 +6,42 @@ import os
 from pathlib import Path
 import platform
 import sqlite3
+from struct import unpack_from
 import subprocess
 import sys
 import tarfile
 import tempfile
 import zipfile
+
+
+def verify_windows_client(executable):
+    data = executable.read_bytes()
+    pe_offset = unpack_from('<I', data, 0x3c)[0]
+    coff = pe_offset + 4
+    optional = coff + 20
+    if (data[:2] != b'MZ' or data[pe_offset:coff] != b'PE\0\0' or
+            unpack_from('<H', data, optional)[0] != 0x20b or
+            unpack_from('<H', data, optional + 68)[0] != 2):
+        raise SystemExit('Packaged Windows abox-link must use the 64-bit GUI subsystem')
+
+    resource_rva, resource_size = unpack_from('<II', data, optional + 128)
+    section_count = unpack_from('<H', data, coff + 2)[0]
+    section_table = optional + unpack_from('<H', data, coff + 16)[0]
+    for index in range(section_count):
+        section = section_table + index * 40
+        virtual_address, raw_size, raw_offset = unpack_from('<III', data, section + 12)
+        offset = resource_rva - virtual_address
+        if resource_size < 16 or not 0 <= offset <= raw_size - 16:
+            continue
+        root = raw_offset + offset
+        named_count, id_count = unpack_from('<HH', data, root + 12)
+        first_id = root + 16 + named_count * 8
+        types = {unpack_from('<I', data, first_id + index * 8)[0] for index in range(id_count)}
+        if {3, 14} <= types:  # RT_ICON and RT_GROUP_ICON
+            return
+        break
+    raise SystemExit('Packaged Windows abox-link is missing its executable icon')
+
 
 out = Path(sys.argv[1]).resolve()
 records = json.loads((out / 'release.json').read_text())
@@ -63,12 +94,7 @@ with tempfile.TemporaryDirectory(prefix='agentbox-release-test-') as tmp:
         if any(path.suffix in ('.go', '.ts') or path.name in ('AGENTS.md', '.git') for path in folder.rglob('*')):
             raise SystemExit('Unexpected project sources in binary package')
         if r['program'] == 'abox-link' and r['os'] == 'windows':
-            with (folder / 'abox-link.exe').open('rb') as executable:
-                dos = executable.read(64)
-                executable.seek(int.from_bytes(dos[60:64], 'little'))
-                pe = executable.read(94)
-            if dos[:2] != b'MZ' or pe[:4] != b'PE\x00\x00' or pe[92:94] != b'\x02\x00':
-                raise SystemExit('Packaged Windows abox-link must use the GUI subsystem')
+            verify_windows_client(folder / 'abox-link.exe')
         meta=json.loads((folder/'build.json').read_text())
         for key in ['version','revision','os','arch']:
             if meta[key]!=r[key]:raise SystemExit('Metadata mismatch')

@@ -82,7 +82,7 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 		}
 	}
 	var fitted bool
-	var fittedSize application.Size
+	fittedSize := size
 	fitWindow := func() {
 		nextPaired := panel.Config().Paired()
 		if quitting.Load() || (fitted && nextPaired == paired) || window.IsMinimised() || window.IsMaximised() || window.IsFullscreen() {
@@ -93,13 +93,16 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 			return
 		}
 		bounds := window.Bounds()
+		if bounds.IsEmpty() {
+			return
+		}
+		workArea := screen.WorkArea
 		currentSize := bounds.Size()
 		// Keep a size chosen by the user for this view. A fit to a small
 		// monitor leaves the preferred size available on larger monitors.
-		if fitted && currentSize != fittedSize {
+		if currentSize != fittedSize && (fitted || currentSize != fitPanelWindow(bounds, workArea, fittedSize).Size()) {
 			sizes[paired] = currentSize
 		}
-		workArea := screen.WorkArea
 		target := fitPanelWindow(bounds, workArea, sizes[nextPaired])
 		paired, fitted = nextPaired, true
 		window.SetMinSize(min(panelMinWidth, workArea.Width), min(panelMinHeight, workArea.Height))

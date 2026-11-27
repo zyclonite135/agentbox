@@ -1,6 +1,8 @@
 // abox-link pairs with AgentBox and shares selected folders over a read-only connection.
 package main
 
+//go:generate go run github.com/tc-hib/go-winres@v0.3.3 simply --arch amd64 --manifest none --icon ../../desktop/src-tauri/icons/icon.ico --out icon
+
 import (
 	"flag"
 	"fmt"

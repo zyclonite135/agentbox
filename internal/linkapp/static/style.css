@@ -123,7 +123,7 @@ body {
 /* The overlay is anchored to the header and takes no space in the page flow. */
 .connection-panel {
   position: absolute; inset-block-start: calc(100% + 8px); inset-inline-end: var(--top-gutter);
-  width: min(700px, calc(100% - 2 * var(--top-gutter)));
+  width: min(400px, calc(100% - 2 * var(--top-gutter)));
   max-height: calc(100dvh - var(--top-height, 96px) - 20px);
   display: flex; flex-direction: column; overflow: hidden;
   border: 1px solid var(--line); border-radius: 16px;
@@ -150,17 +150,9 @@ body {
   min-height: 0; overflow: auto; overscroll-behavior: contain;
   scrollbar-gutter: stable; padding: 14px 16px 16px;
 }
-.connection-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr); gap: 12px; }
-.connection-grid > section {
-  min-width: 0; padding: 12px 13px; border-radius: 11px; border: 1px solid var(--line-soft);
-  background: color-mix(in srgb, var(--panel) 60%, var(--bg));
-}
-.connection-grid h3 { margin: 0 0 7px; font-size: 13px; font-weight: 650; }
-.connection-hint { margin: 0 0 10px; color: var(--muted); font-size: 12px; }
 .connection-option { overflow-wrap: anywhere; }
 .connection-option + .connection-option { border-top: 1px solid var(--line-soft); }
 .connection-panel button { white-space: normal; }
-.connection-panel #local-folder-form { margin-bottom: 0; }
 
 /* ---------- 状态灯（顶栏，JS 写 .dot + on/busy/bad） ---------- */
 
@@ -372,28 +364,6 @@ input[type=text]:focus, textarea:focus {
 .check input { margin-top: 3px; accent-color: var(--accent); flex: none; }
 .check:hover { color: var(--text); }
 
-/* ---------- 规则行 ---------- */
-
-.rules { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-#local-folder-list:empty { display: none; }
-#local-folder-form label { display: grid; gap: 4px; min-width: 0; }
-#local-folder-form input { width: 100%; min-width: 0; }
-.local-folder-row span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-
-/* 左边一道竖条：正在编辑的那行会点亮，和电路同一套语言 */
-.rule {
-  display: flex; gap: 8px; align-items: center;
-  padding-left: 11px;
-  border-left: 2px solid var(--line);
-  transition: border-color .15s;
-}
-.rule:focus-within { border-left-color: var(--amber); }
-.rule button {
-  flex: none; padding: 7px 10px; color: var(--muted);
-  line-height: 1; border-color: transparent;
-}
-.rule button:hover { color: var(--red); border-color: var(--red-line); }
-
 /* ---------- 选项尾巴 ---------- */
 
 .unpair {
@@ -442,7 +412,6 @@ input[type=text]:focus, textarea:focus {
   .language-picker svg, .acct-name, .connection-toggle-label, .connection-chevron { display: none; }
   .language-picker select { min-width: 0; max-width: 120px; }
   .top .connection-toggle { width: 36px; flex: none; padding: 0; }
-  .connection-grid { grid-template-columns: minmax(0, 1fr); }
   .connection-content { padding: 10px 12px 12px; }
 
   .wire { padding: 24px 12px 18px; }
@@ -468,5 +437,4 @@ input[type=text]:focus, textarea:focus {
 @media (pointer: coarse) {
   button, .language-picker select { min-height: 44px; }
   .top .connection-toggle { min-height: 44px; min-width: 44px; }
-  .rule button { min-width: 44px; }
 }

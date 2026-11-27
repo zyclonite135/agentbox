@@ -45,7 +45,7 @@ func (p *Panel) managerPickFolder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil || value != "" && !filepath.IsAbs(value) {
-		writeErr(w, http.StatusServiceUnavailable, "无法打开系统文件夹选择器，请输入路径")
+		writeErr(w, http.StatusServiceUnavailable, "无法打开系统文件夹选择器")
 		return
 	}
 	if value != "" {

@@ -7,6 +7,7 @@ const icons = {
   chevron: "m6 9 6 6 6-6",
   close: "m6 6 12 12M18 6 6 18",
   folder: "M3 7v12h18V7H11L9 4H3z",
+  folderRemove: "M3 7v12h18V7H11L9 4H3v3m6 3h6",
   file: "M5 3h9l5 5v13H5zM14 3v6h5M8 13h8m-8 4h8",
   image: "M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 5M15 8h.01",
   sheet: "M5 3h10l4 4v14H5zM8 11h8m-8 4h8m-4-4v8M15 3v5h4",
@@ -46,16 +47,18 @@ function availableCopyName(name, number) {
   return i > 0 ? name.slice(0, i) + " (" + number + ")" + name.slice(i) : name + " (" + number + ")";
 }
 
-export function createFileManager({ tr, locale, errorMessage, toast, pickManualFolder }) {
+export function createFileManager({ tr, locale, errorMessage, toast, updateFolders }) {
   const state = {
     local: { roots: [], root: "", parts: [], entries: [], selected: new Set(), descending: false },
     remote: { roots: [], root: "", parts: [], entries: [], selected: new Set(), descending: false },
   };
-  let accountKey = "", folderKey = "", ready = false, processing = false, dragged = null, pickerBusy = false;
+  let accountKey = "", folderKey = "", ready = false, processing = false, dragged = null, folderBusy = false;
   let previewURL, previewRequest, activeDialog;
   const jobs = [];
   const sides = ["local", "remote"];
   const dialog = $("fm-dialog");
+  const pickFolder = $("fm-pick-folder");
+  const unshareFolder = $("fm-local-unshare");
 
   for (const el of document.querySelectorAll("[data-fm-icon]")) el.append(icon(el.dataset.fmIcon));
 
@@ -91,6 +94,12 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
     select.replaceChildren(...(options.length ? options : [new Option(tr(hint), "")]));
     select.value = pane.root;
     select.disabled = options.length === 0;
+    if (side === "local") renderFolderButtons();
+  }
+
+  function renderFolderButtons() {
+    pickFolder.disabled = !ready || folderBusy;
+    unshareFolder.disabled = !ready || folderBusy || !state.local.root;
   }
 
   async function readRoots() {
@@ -590,26 +599,36 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
     const result = await ask({ title: "新建文件夹", input: "", actions: [dismiss, save] });
     if (result.action) await modifyRemote("mkdir", { path, name: result.value }, workspace);
   });
-  $("fm-pick-folder").addEventListener("click", async () => {
-    if (pickerBusy) return;
-    pickerBusy = true;
-    $("fm-pick-folder").disabled = true;
+  async function changeLocalFolders(choose) {
+    if (folderBusy || !ready) return;
     const currentAccount = accountKey;
+    folderBusy = true;
+    renderFolderButtons();
     try {
-      const picked = await (await send("pick-folder", { body: {} })).json();
-      if (!picked.path || currentAccount !== accountKey) return;
-      $("local-folder-name").value = picked.name;
-      $("local-folder-path").value = picked.path;
-      $("local-folder-form").requestSubmit();
+      const change = await choose();
+      if (change && currentAccount === accountKey) await updateFolders(change);
     } catch (error) {
-      if (currentAccount === accountKey) {
-        pickManualFolder();
-        toast(errorMessage(error.message), true);
-      }
+      if (currentAccount === accountKey) toast(errorMessage(error.source ?? error.message), true);
     } finally {
-      pickerBusy = false;
-      $("fm-pick-folder").disabled = false;
+      folderBusy = false;
+      renderFolderButtons();
     }
+  }
+  pickFolder.addEventListener("click", () => void changeLocalFolders(async () => {
+    const picked = await (await send("pick-folder", { body: {} })).json();
+    if (picked.path) return { name: picked.name, path: picked.path };
+  }));
+  unshareFolder.addEventListener("click", () => {
+    const folder = state.local.roots.find(entry => entry.id === state.local.root);
+    if (!folder) return;
+    void changeLocalFolders(async () => {
+      const result = await ask({
+        title: "移除文件夹",
+        text: tr("停止共享「{name}」？", { name: folder.name }),
+        actions: [dismiss, { label: "移除文件夹", value: "remove", className: "danger" }],
+      });
+      if (result.action === "remove") return { id: folder.id };
+    });
   });
 
   function reset() {
@@ -646,6 +665,7 @@ export function createFileManager({ tr, locale, errorMessage, toast, pickManualF
         accountKey = identity;
         folderKey = "";
       }
+      renderFolderButtons();
       if (!ready) return;
       const folders = next.folders || [];
       const key = JSON.stringify(folders);

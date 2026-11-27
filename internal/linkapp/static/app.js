@@ -26,12 +26,6 @@ function translateMarkers(root = document) {
     }
   }
 }
-function localizedAttribute(el, attr, source) {
-  el.setAttribute(`data-i18n-${attr}`, source);
-  el.setAttribute(attr, tr(source));
-}
-
-
 const $ = (id) => document.getElementById(id);
 
 // Prevent a file dropped from Explorer from replacing the desktop panel.
@@ -50,7 +44,6 @@ const actionIcons = {
   "plus": "M12 5v14M5 12h14",
   "play": "M6.5 3.5 20 12 6.5 20.5Z",
   "stop": "M7 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z",
-  "trash": "M3 6h18M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6M5.5 6l1 14.5h11L18.5 6",
   "unlink": "m9 15-2 2a3.5 3.5 0 0 1-5-5l2-2m11-1 2-2a3.5 3.5 0 0 1 5 5l-2 2M3 3l18 18M9 3v3M3 9h3m12 0h3m-12 9v3",
 };
 function actionLabel(button, label, icon) {
@@ -111,8 +104,6 @@ async function api(path, body) {
 }
 
 let state = null;   // 服务端权威状态
-let foldersKey = "";
-let folderSaving = false;
 
 const connectionButton = $("connection-toggle");
 const connectionPanel = $("panel-body");
@@ -176,7 +167,6 @@ function render() {
   $("st-sub").textContent = subtitle(st);
   actionLabel($("btn-toggle"), tr(look.btn), look.btn === "断开" ? "stop" : "play");
 
-  renderFolders();
   renderOptions();
   manager.update(state);
 
@@ -193,57 +183,6 @@ function subtitle(st) {
   if (st.detail) return st.detail;
   return state.server ? hostOf(state.server) : "";
 }
-
-function removeBtn(onClick) {
-  const b = document.createElement("button");
-  b.type = "button";
-  actionLabel(b, "", "trash");
-  localizedAttribute(b, "title", "删除");
-  b.addEventListener("click", onClick);
-  return b;
-}
-
-function renderFolders() {
-  const folders = state.folders || [];
-  const key = JSON.stringify(folders);
-  if (key === foldersKey) return;
-  foldersKey = key;
-  const list = $("local-folder-list");
-  list.replaceChildren();
-  for (const folder of folders) {
-    const row = document.createElement("div");
-    row.className = "rule local-folder-row";
-    const text = document.createElement("span");
-    text.textContent = folder.name + " · " + folder.path;
-    const remove = removeBtn(() => void saveFolder(remove, { id: folder.id }));
-    localizedAttribute(remove, "aria-label", "移除文件夹");
-    row.append(text, remove);
-    list.append(row);
-  }
-}
-
-async function saveFolder(button, body) {
-  if (folderSaving) return;
-  await withBusy(button, async () => {
-    folderSaving = true;
-    try {
-      state = await api("/folders", body);
-      if (!body.id && $("local-folder-name").value === body.name && $("local-folder-path").value === body.path) {
-        $("local-folder-form").reset();
-      }
-      render();
-    } catch (error) {
-      toast(error.message, true);
-    } finally {
-      folderSaving = false;
-    }
-  });
-}
-
-$("local-folder-form").addEventListener("submit", event => {
-  event.preventDefault();
-  void saveFolder($("local-folder-add"), { name: $("local-folder-name").value, path: $("local-folder-path").value });
-});
 
 function renderOptions() {
   $("opt-auto").checked = state.auto_connect;
@@ -319,7 +258,6 @@ $("btn-unpair").addEventListener("click", async () => {
   try {
     state = await api("/unpair", {});
 
-    $("local-folder-form").reset();
     render();
   } catch (e) {
     toast(e.message, true);
@@ -388,9 +326,13 @@ async function refresh() {
 
 const manager = createFileManager({
   tr, locale: () => i18n.locale, errorMessage: panelErrorMessage, toast,
-  pickManualFolder: () => {
-    setConnectionMenu(true);
-    $("local-folder-path").focus();
+  async updateFolders(body) {
+    const request = api("/folders", body);
+    const revision = stateRevision;
+    const snapshot = await request;
+    if (revision !== stateRevision) return;
+    state = snapshot;
+    render();
   },
 });
 
@@ -407,8 +349,6 @@ function renderLanguage() {
   languageSelect.value = i18n.preference;
   translateMarkers();
   manager.translate();
-  // renderRules keeps its existing DOM when rule values have not changed.
-  // Switching language must never discard an unsaved folder or cursor.
   render();
   if (pairErrorSource) $("pair-err").textContent = panelErrorMessage(pairErrorSource);
   if (toastSource) $("toast").textContent = tr(toastSource);

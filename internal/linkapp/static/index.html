@@ -41,36 +41,21 @@
       <button type="button" class="fm-icon ghost" id="connection-close" data-fm-icon="close" aria-label="关闭" data-i18n-aria-label="关闭"></button>
     </div>
     <div class="connection-content">
-      <div class="connection-grid">
-        <section>
-          <h3 data-i18n>选项</h3>
-          <label class="check connection-option">
-            <input type="checkbox" id="opt-auto">
-            <span data-i18n>启动时自动连接 AgentBox</span>
-          </label>
-          <label class="check connection-option">
-            <input type="checkbox" id="opt-boot">
-            <span><span data-i18n>开机自启</span> <span class="hint" id="boot-detail"></span></span>
-          </label>
-          <label class="check connection-option">
-            <input type="checkbox" id="opt-insecure">
-            <span data-i18n>跳过 TLS 证书校验（服务器用自签名证书时才勾）</span>
-          </label>
-          <div class="unpair">
-            <button class="ghost danger" id="btn-unpair" type="button" data-icon="unlink" data-i18n>解除绑定</button>
-            <span class="hint" data-i18n>清除登录凭证与共享设置</span>
-          </div>
-        </section>
-        <section>
-          <h3 data-i18n>共享文件夹</h3>
-          <p class="connection-hint" data-i18n>连接后可在 AgentBox 的「文件 → 从我的电脑」中只读浏览这些文件夹。</p>
-          <div id="local-folder-list" class="rules"></div>
-          <form id="local-folder-form" class="rules">
-            <label><span data-i18n>显示名称</span><input type="text" id="local-folder-name" required maxlength="128"></label>
-            <label><span data-i18n>本机文件夹的绝对路径</span><input type="text" id="local-folder-path" required spellcheck="false" placeholder="C:\AgentBox\Exchange"></label>
-            <div><button id="local-folder-add" class="ghost" type="submit" data-icon="plus" data-i18n>添加文件夹</button></div>
-          </form>
-        </section>
+      <label class="check connection-option">
+        <input type="checkbox" id="opt-auto">
+        <span data-i18n>启动时自动连接 AgentBox</span>
+      </label>
+      <label class="check connection-option">
+        <input type="checkbox" id="opt-boot">
+        <span><span data-i18n>开机自启</span> <span class="hint" id="boot-detail"></span></span>
+      </label>
+      <label class="check connection-option">
+        <input type="checkbox" id="opt-insecure">
+        <span data-i18n>跳过 TLS 证书校验（服务器用自签名证书时才勾）</span>
+      </label>
+      <div class="unpair">
+        <button class="ghost danger" id="btn-unpair" type="button" data-icon="unlink" data-i18n>解除绑定</button>
+        <span class="hint" data-i18n>清除登录凭证与共享设置</span>
       </div>
     </div>
   </section>
@@ -140,6 +125,7 @@
       </header>
       <div class="fm-pane-tools">
         <select id="fm-local-root" aria-label="本机文件夹" data-i18n-aria-label="本机文件夹"></select>
+        <button type="button" class="fm-icon fm-unshare" id="fm-local-unshare" data-fm-icon="folderRemove" title="移除文件夹" data-i18n-title="移除文件夹" aria-label="移除文件夹" data-i18n-aria-label="移除文件夹" disabled></button>
         <button type="button" class="fm-icon" id="fm-local-refresh" data-fm-icon="refresh" title="刷新" data-i18n-title="刷新" aria-label="刷新" data-i18n-aria-label="刷新"></button>
       </div>
       <div class="fm-path">

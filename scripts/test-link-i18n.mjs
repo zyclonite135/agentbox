@@ -28,12 +28,16 @@ export async function linkI18nSmoke(page) {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   let state = { version:"fixture", paired:false, running:false, user:"", server:"", auto_connect:false, insecure:false, folders:[], status:{state:"stopped"}, autostart:{supported:true,installed:false} };
-  let holdFolder, folderRequested, previewResponse, transferResponse;
+  let pickerResult, previewResponse, transferResponse;
+  const removed = [];
   await page.route("**/api/**", async route => {
     try {
       const req=route.request(), path=new URL(req.url()).pathname;
       assert.equal(req.headers()["x-abox-panel"],"1");
-      if (path === "/api/file-manager/pick-folder") return route.fulfill({status: 501, json: {error: "Folder picker unavailable"}});
+      if (path === "/api/file-manager/pick-folder") {
+        if (!pickerResult) return route.fulfill({ status: 503, json: { error: "无法打开系统文件夹选择器" } });
+        return route.fulfill({ json: pickerResult });
+      }
       if (path === "/api/file-manager/workspaces") return route.fulfill({json:[{id:"workspace",name:"Отчёты"}]});
       if (path === "/api/file-manager/remote") return route.fulfill({json:[{name:"report.md",directory:false,size:12}]});
       if (path === "/api/file-manager/local") {
@@ -59,8 +63,13 @@ export async function linkI18nSmoke(page) {
         state={...state,auto_connect:true};
       } else if(path==="/api/folders"){
         const folder=req.postDataJSON();
-        if(!folder.id) await new Promise(resolve=>{holdFolder=resolve;folderRequested();});
-        state={...state,folders:folder.id?[]:[{id:"folder-fixture-01",...folder}]};
+        if (folder.id) {
+          removed.push(folder.id);
+          state = {...state, folders: state.folders.filter(item => item.id !== folder.id)};
+        } else {
+          assert.deepEqual(folder, pickerResult);
+          state = {...state, folders: state.folders.concat({id: "folder-fixture-" + (state.folders.length + 1), ...folder})};
+        }
       } else if(path==="/api/unpair"){
         state={...state,paired:false,running:false,folders:[],status:{state:"stopped"}};
       } else assert.equal(path,"/api/state");
@@ -88,27 +97,26 @@ export async function linkI18nSmoke(page) {
     await settingsButton.click();
     await settings.waitFor({state:"visible"});
     assert.equal(await settingsButton.getAttribute("aria-expanded"), "true");
+    assert.equal(await settings.locator("input[type=text], form").count(), 0);
     await page.locator("#opt-auto").check();
     await page.waitForFunction(()=>!document.querySelector("#opt-auto").disabled);
     await page.keyboard.press("Escape");
     assert.equal(await settings.isHidden(), true);
     assert.equal(await settingsButton.evaluate(button => button === document.activeElement), true);
+    const rootFolder = page.locator("#fm-local-root");
+    const unshare = page.locator("#fm-local-unshare");
+    assert.equal(await unshare.isDisabled(), true);
     await page.locator("#fm-pick-folder").click();
-    await settings.waitFor({state:"visible"});
-    await page.waitForFunction(() => document.activeElement.id === "local-folder-path");
-    const requested=new Promise(resolve=>{folderRequested=resolve;});
-    const name=page.locator("#local-folder-name");
-    await name.fill("Документы <script>");
-    await page.locator("#local-folder-path").fill("C:\\Документы\\Обмен");
-    await page.locator("#local-folder-add").click();
-    await requested;
-    try { await name.fill("Следующая папка"); } finally { holdFolder(); }
-    const row=page.locator(".local-folder-row");
-    await row.filter({hasText:"Документы <script>"}).waitFor();
-    assert.equal(await name.inputValue(),"Следующая папка");
-    assert.equal(await row.locator("script").count(),0);
-    await page.locator(".brand").click();
+    await page.locator("#toast").filter({hasText: "Системное окно выбора папки недоступно."}).waitFor();
     assert.equal(await settings.isHidden(), true);
+    for (const [index, name] of ["Документы <script>", "Следующая папка"].entries()) {
+      pickerResult = { name, path: "C:\\Обмен\\" + (index + 1) };
+      await page.locator("#fm-pick-folder").click();
+      await page.waitForFunction(id => !!document.querySelector('#fm-local-root option[value="' + id + '"]'), "folder-fixture-" + (index + 1));
+    }
+    assert.equal(await rootFolder.locator("option").first().textContent(), "Документы <script>");
+    assert.equal(await rootFolder.locator("script").count(), 0);
+    assert.equal(await unshare.isDisabled(), false);
     let releasePreview;
     previewResponse = new Promise(resolve => { releasePreview = resolve; });
     const previewURL = req => new URL(req.url()).searchParams.get("preview") === "1";
@@ -159,9 +167,21 @@ export async function linkI18nSmoke(page) {
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
       await page.locator("#connection-close").click();
     }
+    const confirmUnshare = page.locator("#fm-dialog");
+    await rootFolder.selectOption("folder-fixture-2");
+    await unshare.click();
+    await confirmUnshare.getByText("Закрыть общий доступ к папке «Следующая папка»?").waitFor();
+    await confirmUnshare.getByRole("button", {name:"Отмена"}).click();
+    assert.deepEqual(removed, []);
+    for (const id of ["folder-fixture-2", "folder-fixture-1"]) {
+      assert.equal(await rootFolder.inputValue(), id);
+      await unshare.click();
+      await confirmUnshare.getByRole("button", {name:"Убрать из общего доступа"}).click();
+      await rootFolder.locator(`option[value="${id}"]`).waitFor({state:"detached"});
+    }
+    assert.deepEqual(removed, ["folder-fixture-2", "folder-fixture-1"]);
+    assert.equal(await unshare.isDisabled(), true);
     await settingsButton.click();
-    await row.getByRole("button",{name:"Убрать папку"}).click();
-    await row.waitFor({state:"detached"});
     page.once("dialog",dialog=>dialog.accept());
     await page.locator("#btn-unpair").click();
     await page.locator("#card-pair").waitFor({state:"visible"});

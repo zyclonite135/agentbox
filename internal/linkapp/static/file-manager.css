@@ -31,6 +31,7 @@ body { min-height: 100vh; }
 .fm-pane-tools select, .fm-search, .fm-dialog input { min-width: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
 .fm-pane-tools select { flex: 1; width: 100%; min-height: 39px; padding: 5px 10px; text-overflow: ellipsis; }
 .fm-icon { flex: none; width: 37px; min-height: 37px; padding: 0; color: var(--muted); }
+.fm-unshare:hover:not(:disabled) { color: var(--red); border-color: var(--red-line); }
 .fm-icon svg, .fm-search svg, .fm-sort svg { width: 16px; height: 16px; }
 .fm-path { min-height: 44px; }
 .fm-path .fm-icon { min-height: 30px; width: 30px; border-color: transparent; }
@@ -101,6 +102,7 @@ body { min-height: 100vh; }
   .fm-pane-head > button { max-width: 48%; padding-inline: 8px; }
   .fm-pane-head button, .fm-pane-foot button { white-space: normal; min-height: 44px; }
   .fm-pane-tools, .fm-path, .fm-search { margin-inline: 11px; }
+  .fm-unshare { min-width: 44px; min-height: 44px; }
   .fm-list-head, .fm-row { padding-inline: 11px; gap: 5px; grid-template-columns: 23px minmax(0, 1fr) 49px 36px; }
   .fm-row input, .fm-list-head input { width: 18px; height: 18px; }
   .fm-row .fm-icon, .fm-search, .fm-pane-tools select, .fm-path button { min-height: 44px; }

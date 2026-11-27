@@ -248,8 +248,8 @@ dialog label.check input { margin: 0; flex: none; }
 }
 .model-guide-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-inline: 4px; }
 .dlg-model-guide .dlg-title-row .ui-icon { flex: none; color: var(--accent); }
-.model-guide-context { display: flex; align-items: center; gap: 12px; padding-inline: 4px; }
-.model-guide-context:has(#model-guide-agent:not([hidden])) {
+.model-guide-context { position: relative; display: flex; align-items: center; gap: 12px; padding-inline: 4px; }
+.model-guide-context:has(#model-guide-agent:not([hidden]), #model-guide-workspace:not([hidden])) {
   padding: 10px 12px; min-height: 48px; border: 1px solid var(--session-active-line);
   border-radius: calc(10px * var(--radius-scale)); background: var(--session-active-bg);
 }
@@ -263,6 +263,19 @@ dialog label.check input { margin: 0; flex: none; }
 .model-guide-state { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .model-guide-state.run { background: var(--green); }
 .model-guide-state.idle { background: var(--warn); }
+.model-guide-context:has(#model-guide-workspace:not([hidden])) { padding-inline-end: 38px; }
+#model-guide-workspace {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end;
+  padding: 0 11px; border: 0; border-radius: inherit; background: transparent; color: var(--muted); cursor: pointer;
+}
+#model-guide-workspace[hidden], #model-guide-retry[hidden] { display: none; }
+#model-guide-workspace:hover, #model-guide-workspace[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--text-hi);
+}
+#model-guide-workspace:focus-visible { outline-offset: -3px; }
+#model-guide-workspace[aria-expanded="true"] svg { transform: rotate(180deg); }
+.dlg-model-guide > .menu-pop { width: min(360px, calc(100vw - 32px)); max-height: min(45dvh, 360px); }
+#model-guide-message p { margin: 0 0 8px; }
 .dlg-model-guide > .dlg-body { scrollbar-width: none; }
 .dlg-model-guide > .dlg-body::-webkit-scrollbar { display: none; }
 .dlg-model-guide > .dlg-body:focus-visible { outline-offset: -3px; }

@@ -2,7 +2,9 @@ import { setAttrRender, setText, setTextRender, t } from "../../i18n.js";
 import { svgIcon } from "../../icons.js";
 import { agentIcon } from "../../brand.js";
 import { sessionState } from "../../session-state.js";
-import { bus } from "../../state.js";
+import { api } from "../../api.js";
+import { closeMenu, openMenu } from "../../menu.js";
+import { bus, S } from "../../state.js";
 import { $, keepScroll } from "../../util.js";
 // Use explicit model IDs. A proxy alias may point to a different model.
 // References: OpenAI's model-selection guide and Anthropic's model announcements.
@@ -28,28 +30,34 @@ const guidance = new Map([
 ]);
 const dialog = () => $("dlg-model-guide");
 let activeTrigger;
+let refreshSidebar;
+export function refreshModelGuide() { refreshSidebar?.(); }
 export function closeModelGuide(trigger) {
     const modal = dialog();
     if (modal.open && (!trigger || activeTrigger === trigger)) {
+        if ($("model-guide-workspace").getAttribute("aria-expanded") === "true")
+            closeMenu();
         activeTrigger = undefined;
         modal.close();
     }
 }
-export function openModelGuide(trigger, context) {
+export function openModelGuide(trigger, context, afterSelect = closeModelGuide, switchable = false) {
     const modal = dialog();
     if (modal.open)
         return;
     activeTrigger = trigger;
-    renderModelGuide(context);
+    renderModelGuide(context, afterSelect, switchable);
     trigger.focus({ preventScroll: true });
     modal.showModal();
     modal.querySelector(".dlg-body")?.scrollTo(0, 0);
 }
-export function updateModelGuide(trigger, context) {
-    if (dialog().open && activeTrigger === trigger)
-        renderModelGuide(context);
-}
-function renderGuideHeading({ caption, workspace, agent = workspace?.agent }) {
+function renderGuideHeading({ caption, workspace, agent = workspace?.agent }, switchable) {
+    const switcher = $("model-guide-workspace");
+    switcher.hidden = !switchable;
+    if (switchable) {
+        setAttrRender(switcher, "aria-label", () => t("选择工作空间"));
+        setAttrRender(switcher, "title", caption);
+    }
     const name = $("model-guide-space");
     setTextRender(name, caption);
     setAttrRender(name, "title", () => agent ? caption() : "");
@@ -64,8 +72,8 @@ function renderGuideHeading({ caption, workspace, agent = workspace?.agent }) {
         setAttrRender(dot, "title", () => sessionState(workspace).label);
     }
 }
-function renderModelGuide(context) {
-    renderGuideHeading(context);
+function renderModelGuide(context, afterSelect = closeModelGuide, switchable = false) {
+    renderGuideHeading(context, switchable);
     const { models, current, select } = context;
     const focusedModel = document.activeElement?.dataset.guideModel;
     const rows = models.map(({ id, label }) => {
@@ -92,7 +100,7 @@ function renderModelGuide(context) {
             setText(button, "选用模型");
             setAttrRender(button, "aria-label", () => t("选用模型 {model}", { model: label || id }));
             button.addEventListener("click", () => { if (select(id))
-                closeModelGuide(); });
+                afterSelect(); });
             header.append(button);
         }
         const description = document.createElement("p");
@@ -102,23 +110,111 @@ function renderModelGuide(context) {
     });
     const list = $("model-guide-list");
     keepScroll(list, () => list.replaceChildren(...rows));
-    $("model-guide-empty").hidden = rows.length > 0;
+    $("model-guide-message").hidden = rows.length > 0;
+    setText($("model-guide-empty"), context.message || "没有可显示的模型。");
+    $("model-guide-retry").hidden = !context.retry;
     if (focusedModel) {
         const button = [...list.querySelectorAll("button")].find(el => el.dataset.guideModel === focusedModel);
-        (button || $("btn-model-guide-close")).focus({ preventScroll: true });
+        (button || $(switchable ? "model-guide-workspace" : "btn-model-guide-close")).focus({ preventScroll: true });
     }
 }
 let introduced = false;
 export function initModelGuide(read, signal) {
     const trigger = $("btn-model-guide");
     const modal = dialog();
-    bus.addEventListener("data-updated", () => {
-        if (!modal.open || activeTrigger !== trigger)
+    const switcher = $("model-guide-workspace");
+    let selectedID;
+    let request;
+    let capabilities;
+    let requestKey = "";
+    let failed = false;
+    const opened = () => modal.open && activeTrigger === trigger;
+    const selected = () => S.sessions.find(workspace => workspace.id === selectedID);
+    const currentID = () => S.sessions.find(workspace => workspace.id === S.current?.id)?.id;
+    const modelKey = (workspace) => JSON.stringify([workspace.id, workspace.account_id, workspace.agent, workspace.default_model]);
+    const context = () => {
+        const workspace = selected();
+        if (!workspace || workspace.id === S.current?.id || capabilities)
+            return read(workspace ?? null, capabilities);
+        return {
+            caption: () => workspace.name, workspace, models: [],
+            message: failed ? "无法读取此工作空间的模型。" : "正在加载…", retry: failed,
+        };
+    };
+    const paint = () => {
+        if (!opened())
             return;
-        const context = read();
-        if (context)
-            renderGuideHeading(context);
+        const value = context();
+        if (value)
+            renderModelGuide(value, paint, S.sessions.length > 0);
+    };
+    refreshSidebar = paint;
+    const resetRequest = () => {
+        request?.abort();
+        request = capabilities = undefined;
+        requestKey = "";
+        failed = false;
+    };
+    const switchWorkspace = async (id) => {
+        resetRequest();
+        selectedID = id;
+        const workspace = selected();
+        paint();
+        modal.querySelector(".dlg-body")?.scrollTo(0, 0);
+        if (!workspace || workspace.id === S.current?.id)
+            return;
+        const controller = request = new AbortController();
+        requestKey = modelKey(workspace);
+        try {
+            const result = await api("/sessions/" + workspace.id + "/models", { signal: controller.signal });
+            if (controller.signal.aborted || !opened())
+                return;
+            if (!Array.isArray(result.models))
+                throw new Error("Invalid model list");
+            capabilities = result;
+        }
+        catch {
+            if (controller.signal.aborted || !opened())
+                return;
+            failed = true;
+        }
+        paint();
+    };
+    switcher.addEventListener("click", event => {
+        if (!opened() || !S.sessions.length)
+            return;
+        event.stopPropagation();
+        openMenu(switcher, S.sessions.map(workspace => ({
+            label: workspace.name, icon: "file.folder", tip: sessionState(workspace).label, checked: workspace.id === selectedID,
+            run: () => {
+                switcher.focus({ preventScroll: true });
+                if (!S.sessions.some(item => item.id === workspace.id))
+                    return;
+                if (workspace.id !== selectedID || failed)
+                    void switchWorkspace(workspace.id);
+            },
+        })));
     }, { signal });
+    $("model-guide-retry").addEventListener("click", () => {
+        if (opened() && failed) {
+            switcher.focus({ preventScroll: true });
+            void switchWorkspace(selectedID);
+        }
+    }, { signal });
+    bus.addEventListener("data-updated", () => {
+        if (!opened())
+            return;
+        const workspace = selected();
+        if ((selectedID && !workspace) || (workspace && requestKey && modelKey(workspace) !== requestKey)) {
+            void switchWorkspace(workspace?.id ?? currentID());
+            return;
+        }
+        const value = context();
+        if (value)
+            renderGuideHeading(value, S.sessions.length > 0);
+    }, { signal });
+    signal.addEventListener("abort", () => { resetRequest(); if (refreshSidebar === paint)
+        refreshSidebar = undefined; }, { once: true });
     matchMedia("(max-width: 760px)").addEventListener("change", event => {
         if (event.matches)
             closeModelGuide(trigger);
@@ -145,13 +241,23 @@ export function initModelGuide(read, signal) {
     trigger.addEventListener("animationend", clearIntro, { signal });
     trigger.addEventListener("animationcancel", clearIntro, { signal });
     trigger.addEventListener("click", () => {
-        const context = read();
-        if (context)
-            openModelGuide(trigger, context);
+        if (modal.open)
+            return;
+        resetRequest();
+        selectedID = currentID();
+        const value = context();
+        if (value)
+            openModelGuide(trigger, value, paint, S.sessions.length > 0);
     }, { signal });
     $("btn-model-guide-close").addEventListener("click", () => closeModelGuide(), { signal });
-    modal.addEventListener("close", () => { if (!modal.open)
-        activeTrigger = undefined; }, { signal });
+    modal.addEventListener("close", () => {
+        if (modal.open)
+            return;
+        if (switcher.getAttribute("aria-expanded") === "true")
+            closeMenu();
+        activeTrigger = undefined;
+        resetRequest();
+    }, { signal });
     const isBackdrop = (event) => {
         if (event.target !== modal)
             return false;

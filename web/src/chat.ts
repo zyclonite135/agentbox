@@ -8,7 +8,7 @@ import { actionButton, buttonLabel } from "./icons.js";
 import { S, bus, emit } from "./state.js";
 import type { Pick } from "./state.js";
 import type {
-  APIProblem, ChatMessage, ChatTasksView, FileMentionsView, History, ModelOption, QuestionView, QuotaPause, ReasoningCapability, SessionModels, SlashCommandsView, SteerView, ThreadOutline, UploadResult,
+  APIProblem, ChatMessage, ChatTasksView, FileMentionsView, History, ModelOption, QuestionView, QuotaPause, ReasoningCapability, Session, SessionModels, SlashCommandsView, SteerView, ThreadOutline, UploadResult,
 } from "./types.js";
 import { $, fmtClock, fmtElapsed, spinEl, insertAtCursor, openLightbox, isMobile, onMobileChange, askPrompt, toast, isImeEnter, enterInsertsNewline } from "./util.js";
 import { api, wsURL, imgURLFromPath, uploadAttachment } from "./api.js";
@@ -45,7 +45,7 @@ import { createTaskPanel, taskToolsEnabled, setTaskToolsEnabled } from "./featur
 import { createCommandMenu } from "./features/chat/commands.js";
 import { createMentionMenu } from "./features/chat/mentions.js";
 import { createInputMarks } from "./features/chat/input-marks.js";
-import { closeModelGuide, initModelGuide, updateModelGuide } from "./features/chat/model-guide.js";
+import { closeModelGuide, initModelGuide, refreshModelGuide } from "./features/chat/model-guide.js";
 import { syntaxMarks } from "./features/chat/syntax.js";
 import { ChatConnection } from "./features/chat/connection.js";
 import {initDelegationComposer} from "./features/delegation/composer.js";
@@ -813,19 +813,27 @@ async function refreshModelCapabilities() {
 /* 尾部 [1m] 是 Claude Code 的 1M 上下文后缀（opus[1m] 等），与后端 modelRe 保持一致 */
 export const MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(\[1m\])?$/;
 
-function modelOpts(): ModelOption[] {
+function modelOpts(workspace = S.current, capabilities = sessionModels, current = S.pick.model): ModelOption[] {
   // 隐藏的模型不进下拉；当前正在用的那个照常列出，免得选中项凭空消失。
-  if (sessionModels?.restricted) return sessionModels.models.filter(m => !m.hidden || m.id === S.pick.model);
-  const agent = (S.current && S.current.agent) as string;
-  const fromSrv = sessionModels?.models || (S.models && S.models[agent]);
+  if (capabilities?.restricted) return capabilities.models.filter(m => !m.hidden || m.id === current);
+  const agent = workspace?.agent ?? "claude";
+  const fromSrv = capabilities?.models || S.models?.[agent];
   const opts = [...(fromSrv?.length ? fromSrv : FALLBACK_MODELS[agent] || FALLBACK_MODELS.claude)];
-  const initial = S.current?.default_model;
+  const initial = workspace?.default_model;
   if (initial && !opts.some((o) => o.id === initial)) {
     opts.unshift({ id: initial, label: initial });
   }
   return opts;
 }
-function pickKey() { return "agentbox_pick_" + (S.current ? S.current.id : ""); }
+type StoredPick = Partial<Pick> & { version?: number; control?: string };
+function pickKey(id = S.current?.id ?? "") { return "agentbox_pick_" + id; }
+function readStoredPick(id?: string): StoredPick {
+  try { return JSON.parse(localStorage.getItem(pickKey(id)) ?? "null") ?? {}; }
+  catch (_) { return {}; }
+}
+function writeStoredPick(id: string | undefined, pick: Pick, control?: string) {
+  localStorage.setItem(pickKey(id), JSON.stringify({ ...pick, version: 2, control }));
+}
 function modelLabel(v: string) {
   if (!v) v = workspaceModel();
   const hit = modelOpts().find((o) => o.id === v);
@@ -837,14 +845,13 @@ function effortLabel(v: string) {
   return (opts.find(o => o.v === e) || opts[0])?.l || "";
 }
 
-function workspaceModel() {
-  return sessionModels?.default_model || S.current?.default_model || (S.current?.agent === "codex" ? "gpt-5.5" : "claude-opus-5");
+function workspaceModel(workspace = S.current, capabilities = sessionModels) {
+  return capabilities?.default_model || workspace?.default_model || (workspace?.agent === "codex" ? "gpt-5.5" : "claude-opus-5");
 }
 
 export function loadPick() {
   sessionModels = null;
-  let p: Partial<Pick> & { version?: number; control?: string } = {};
-  try { p = JSON.parse(localStorage.getItem(pickKey())!) || {}; } catch (_) {}
+  const p = readStoredPick();
   S.pick = { model: typeof p.model === "string" && MODEL_ID_RE.test(p.model) ? p.model : workspaceModel(), effort: "" };
   const r = currentReasoning();
   pendingPick = p.version === 2 && p.effort ? { effort: p.effort, control: p.control } : null;
@@ -855,7 +862,7 @@ export function loadPick() {
   void refreshModelCapabilities();
 }
 
-function savePick() { localStorage.setItem(pickKey(), JSON.stringify({ ...S.pick, version: 2, control: currentReasoning().control })); }
+function savePick() { writeStoredPick(S.current?.id, S.pick, currentReasoning().control); }
 function closePickMenu() { $("pick-menu").classList.add("hidden"); hideFly(); }
 /* /model、/effort：打开同一个选择面板并展开对应的一栏。等这次点击冒泡完再开，
  * 否则 document 上「点到面板外就收起」会把它立刻关掉 */
@@ -881,30 +888,48 @@ function renderPickPill() {
     textContent: effortHidden() ? modelLabel(S.pick.model) : `${modelLabel(S.pick.model)} · ${effortLabel(S.pick.effort)}`,
   }));
   btn.appendChild(svgIcon("chevron", 12)); // 独立元素：既能垂直居中，也不被文字省略号裁掉
-  if ($<HTMLDialogElement>("dlg-model-guide").open) {
-    const context = modelGuideContext();
-    if (context) updateModelGuide($("btn-model-guide"), context);
-  }
+  refreshModelGuide();
 }
 
-function modelGuideContext() {
+function modelGuideContext(workspace: Session | null, loaded?: SessionModels) {
   if (S.view !== "work" || isMobile()) return;
-  if (!S.current) {
+  if (!workspace) {
     const catalog = [...(S.models?.codex || FALLBACK_MODELS.codex), ...(S.models?.claude || FALLBACK_MODELS.claude)];
     return {
       caption: () => i18nText("可用模型取决于工作空间使用的账号。"),
       models: [...new Map(catalog.filter(model => !model.hidden).map(model => [model.id, model])).values()],
     };
   }
-  const workspace = S.current;
-  const custom = customModel();
-  const models = modelOpts();
-  if (custom) models.push({ id: custom, label: custom });
+  const active = workspace.id === S.current?.id;
+  const capabilities = active ? sessionModels : loaded ?? null;
+  const fallback = workspaceModel(workspace, capabilities);
+  const saved = active ? undefined : readStoredPick(workspace.id);
+  let current = active ? S.pick.model || fallback
+    : typeof saved?.model === "string" && MODEL_ID_RE.test(saved.model) ? saved.model : fallback;
+  if (capabilities?.restricted && !capabilities.models.some(model => model.id === current)) {
+    current = capabilities.default_model || capabilities.models[0]?.id || fallback;
+  }
+  const models = modelOpts(workspace, capabilities, current);
+  if (!capabilities?.restricted && current && !models.some(model => model.id === current)) {
+    models.push({ id: current, label: current });
+  }
   return {
-    caption: () => workspace.name, workspace, models, current: S.pick.model || workspaceModel(),
-    select: sessionModels ? (id: string) => {
-      if (S.current?.id !== workspace.id || !modelOpts().some(model => model.id === id)) return false;
-      choose("model", id);
+    caption: () => workspace.name, workspace, models, current,
+    select: capabilities ? (id: string) => {
+      if (!models.some(model => model.id === id) || !S.sessions.some(item => item.id === workspace.id)) return false;
+      if (workspace.id === S.current?.id) {
+        if (!sessionModels || !modelOpts().some(model => model.id === id)) return false;
+        choose("model", id);
+      } else {
+        const previous = readStoredPick(workspace.id);
+        const before = { ...defaultReasoning(workspace.agent),
+          ...(models.find(model => model.id === current)?.reasoning || capabilities.default_reasoning) };
+        const after = { ...defaultReasoning(workspace.agent),
+          ...(models.find(model => model.id === id)?.reasoning || capabilities.default_reasoning) };
+        const effort = previous.version === 2 && previous.control === before.control && previous.effort
+          && canKeepEffort(before, after, previous.effort) ? previous.effort : "";
+        writeStoredPick(workspace.id, { model: id, effort }, after.control);
+      }
       return true;
     } : undefined,
   };

@@ -565,6 +565,8 @@ export default {
     "沿用模型和客户端的默认设置，不等于关闭推理": "Use the model and client defaults; this does not turn reasoning off",
     "预算上限 {p0} tokens": "Budget limit: {p0} tokens",
     "模型能力响应无效": "Model capability response is invalid",
+    "选择工作空间": "Choose a workspace",
+    "无法读取此工作空间的模型。": "Could not load the workspace models.",
     "模型能力已变化，已恢复为默认强度": "Model capabilities changed. Reasoning effort reset to default.",
     "读取模型能力失败：": "Failed to read model capability:",
     "思考预算": "Thinking budget",

@@ -2742,11 +2742,17 @@
       <span id="model-guide-agent" aria-hidden="true" hidden></span>
       <p id="model-guide-space" class="model-guide-caption"></p>
       <span id="model-guide-state" class="model-guide-state" role="img" hidden></span>
+      <button id="model-guide-workspace" type="button" aria-haspopup="menu" aria-expanded="false" hidden>
+        <svg width="16" height="16" data-icon="chevron" aria-hidden="true"></svg>
+      </button>
     </div>
   </div>
   <div class="dlg-body" tabindex="0" role="region" aria-labelledby="model-guide-title">
     <ul id="model-guide-list" class="model-guide-list" role="list"></ul>
-    <p id="model-guide-empty" class="muted" hidden data-i18n="没有可显示的模型。">没有可显示的模型。</p>
+    <div id="model-guide-message" hidden>
+      <p id="model-guide-empty" class="muted" role="status"></p>
+      <button id="model-guide-retry" class="btn btn-sm" type="button" data-i18n="重试" hidden>重试</button>
+    </div>
   </div>
 </dialog>
 

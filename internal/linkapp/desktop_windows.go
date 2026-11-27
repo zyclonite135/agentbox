@@ -13,7 +13,19 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const desktopName = "abox-link"
+const (
+	desktopName    = "abox-link"
+	panelMinWidth  = 380
+	panelMinHeight = 460
+)
+
+func fitPanelWindow(bounds, workArea application.Rect, size application.Size) application.Rect {
+	bounds.Width = min(size.Width, workArea.Width)
+	bounds.Height = min(size.Height, workArea.Height)
+	bounds.X = max(workArea.X, min(bounds.X, workArea.X+workArea.Width-bounds.Width))
+	bounds.Y = max(workArea.Y, min(bounds.Y, workArea.Y+workArea.Height-bounds.Height))
+	return bounds
+}
 
 func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, panel *Panel) error {
 	icon, err := staticFS.ReadFile("static/img/tray.png")
@@ -33,13 +45,19 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 			WebviewUserDataPath:           profile,
 		},
 	})
+	paired := panel.Config().Paired()
+	sizes := map[bool]application.Size{
+		false: {Width: 650, Height: 460},  // Pairing form.
+		true:  {Width: 1180, Height: 780}, // Two file panes.
+	}
+	size := sizes[paired]
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:                       "panel",
 		Title:                      desktopName,
-		Width:                      1280,
-		Height:                     850,
-		MinWidth:                   380,
-		MinHeight:                  460,
+		Width:                      size.Width,
+		Height:                     size.Height,
+		MinWidth:                   panelMinWidth,
+		MinHeight:                  panelMinHeight,
 		Hidden:                     startHidden,
 		URL:                        panelURL,
 		DefaultContextMenuDisabled: true,
@@ -63,6 +81,33 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 			app.Quit()
 		}
 	}
+	var fitted bool
+	var fittedSize application.Size
+	fitWindow := func() {
+		nextPaired := panel.Config().Paired()
+		if quitting.Load() || (fitted && nextPaired == paired) || window.IsMinimised() || window.IsMaximised() || window.IsFullscreen() {
+			return
+		}
+		screen, err := window.GetScreen()
+		if err != nil || screen == nil || screen.WorkArea.Width <= 0 || screen.WorkArea.Height <= 0 {
+			return
+		}
+		bounds := window.Bounds()
+		currentSize := bounds.Size()
+		// Keep a size chosen by the user for this view. A fit to a small
+		// monitor leaves the preferred size available on larger monitors.
+		if fitted && currentSize != fittedSize {
+			sizes[paired] = currentSize
+		}
+		workArea := screen.WorkArea
+		target := fitPanelWindow(bounds, workArea, sizes[nextPaired])
+		paired, fitted = nextPaired, true
+		window.SetMinSize(min(panelMinWidth, workArea.Width), min(panelMinHeight, workArea.Height))
+		if target != bounds {
+			window.SetBounds(target)
+		}
+		fittedSize.Width, fittedSize.Height = window.Size()
+	}
 	showWindow := func() {
 		if quitting.Load() {
 			return
@@ -75,6 +120,7 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 		if window.IsMinimised() {
 			window.UnMinimise()
 		}
+		fitWindow()
 		window.Focus()
 	}
 	show := func() { application.InvokeSync(showWindow) }
@@ -84,6 +130,7 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 	showOnLoad := !startHidden
 	window.OnWindowEvent(events.Windows.WebViewNavigationCompleted, func(*application.WindowEvent) {
 		application.InvokeSync(func() {
+			fitWindow()
 			if showOnLoad {
 				showOnLoad = false
 				if !window.IsVisible() {
@@ -91,6 +138,12 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 				}
 			}
 		})
+	})
+	window.OnWindowEvent(events.Windows.WindowRestore, func(*application.WindowEvent) {
+		application.InvokeSync(fitWindow)
+	})
+	window.OnWindowEvent(events.Windows.WindowUnFullscreen, func(*application.WindowEvent) {
+		application.InvokeSync(fitWindow)
 	})
 	window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
 		if !quitting.Load() {
@@ -134,6 +187,8 @@ func runDesktopPanel(ctx context.Context, panelURL string, startHidden bool, pan
 					if !quitting.Load() {
 						show()
 					}
+				case <-panel.pairingChanged:
+					application.InvokeSync(fitWindow)
 				}
 			}
 		}()

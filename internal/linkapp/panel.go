@@ -17,8 +17,9 @@ import (
 // interface that lets the user pair, choose folders, and manage the connection
 // without touching a terminal.
 type Panel struct {
-	sup      *Supervisor
-	activate chan struct{}
+	sup            *Supervisor
+	activate       chan struct{}
+	pairingChanged chan struct{}
 
 	mu         sync.Mutex // guards cfg, which the handlers read-modify-write
 	actions    sync.Mutex // serializes configuration changes with connection restarts
@@ -38,6 +39,13 @@ func (p *Panel) Config() Config {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.cfg
+}
+
+func (p *Panel) notifyPairingChanged() {
+	select {
+	case p.pairingChanged <- struct{}{}:
+	default:
+	}
 }
 
 // Handler builds the panel's routes.
@@ -190,6 +198,7 @@ func (p *Panel) handlePair(w http.ResponseWriter, r *http.Request) {
 	p.mu.Lock()
 	p.cfg = cfg
 	p.mu.Unlock()
+	p.notifyPairingChanged()
 
 	p.sup.Logf("已接入 %s，账号 %s", cfg.Server, cfg.User)
 	writeJSON(w, http.StatusOK, p.state())
@@ -223,6 +232,7 @@ func (p *Panel) handleUnpair(w http.ResponseWriter, r *http.Request) {
 	}
 	p.cfg = cfg
 	p.mu.Unlock()
+	p.notifyPairingChanged()
 
 	p.sup.Logf("已解除设备配对")
 	writeJSON(w, http.StatusOK, p.state())

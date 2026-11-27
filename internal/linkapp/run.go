@@ -84,6 +84,7 @@ func RunPanel(opts RunOptions) error {
 	panel := NewPanel(cfg, sup)
 	if runtime.GOOS == "windows" && !opts.Browser {
 		panel.activate = make(chan struct{}, 1)
+		panel.pairingChanged = make(chan struct{}, 1)
 	}
 
 	panelContext, cancelPanel := context.WithCancel(context.Background())

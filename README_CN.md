@@ -201,6 +201,8 @@ sudo ./agentbox -config config.json
 
 在 abox-link 文件管理器中，通过系统文件夹选择器添加共享文件夹。过长的文件夹名称会缩短显示。
 
+在 Windows 上，abox-link 使用紧凑窗口进行配对，进入文件管理器时会在屏幕工作区内扩大窗口。手动调整的尺寸会在本次运行期间按界面记住。
+
 桌面应用连接已有服务端，不替代或升级服务端。**同步默认关闭，需管理员显式启用。** 桌面 0.1.2 需手动下载安装（macOS 未公证、Windows 未签名、没有自动更新），早于桌面源码现已接入的多语言界面。见[桌面指南](desktop/README.md)。
 
 可选的服务端功能：[远程浏览器镜像](docs/remote-browser.md)为空间提供保留网站登录的完整浏览器桌面；[共享工具库](docs/shared-tools.md)提供只读的 Go SDK 与浏览器，并按用户隔离缓存；[本地存储容量管理](docs/storage-capacity.md)提供用户项目配额与缓存回收。Agent 镜像更新基于固定底座，验证通过后才切换（见[镜像维护](docs/agent-image-validation.md)）。

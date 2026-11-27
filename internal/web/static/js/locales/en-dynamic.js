@@ -1,5 +1,7 @@
 // App-authored interface messages. Keys and interpolation placeholders remain stable.
 export default {
+    "背景动效设置无效": "Invalid background motion settings",
+    "背景动效可选 background_motion：preset 为 none、waves、drift 或 glint，speed 与 intensity 为 1 到 3（默认 2）。": "Optional background_motion: preset is none, waves, drift, or glint, and speed and intensity are integers from 1 to 3 (default 2).",
     "HTTPS Token": "HTTPS token",
     "Personal Access Token": "Personal access token",
     "保存后信任信息固定，修改时需新建连接。": "Trust settings are fixed after saving. Create a new connection to change them.",

@@ -807,6 +807,7 @@ dialog label.am-default { justify-self: center; gap: 6px; font-size: 12px; white
 .te-spec-term .cursor { display: inline-block; width: .6em; height: 1.15em; margin-left: 3px; vertical-align: text-bottom; background: var(--term-cursor); }
 
 .te-fields { display: flex; flex: none; flex-direction: column; gap: 10px; }
+#te-motion-options[hidden] { display: none; }
 .te-switches { display: flex; flex: none; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
 .te-panel { display: flex; flex: none; flex-direction: column; }
 .te-panel[hidden] { display: none; }

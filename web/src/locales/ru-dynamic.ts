@@ -1,5 +1,7 @@
 // App-authored interface messages. Keys and interpolation placeholders remain stable.
 export default {
+  "背景动效设置无效": "Недопустимые настройки анимации фона",
+  "背景动效可选 background_motion：preset 为 none、waves、drift 或 glint，speed 与 intensity 为 1 到 3（默认 2）。": "Необязательное поле background_motion. В preset укажите none, waves, drift или glint. Значения speed и intensity — целые числа от 1 до 3, по умолчанию 2.",
   "保存后信任信息固定，修改时需新建连接。": "Чтобы сменить доверенный сертификат, создайте новое подключение.",
   "AgentBox 服务端必须能访问 Git 服务，浏览器必须能打开授权页面。": "Git-сервис должен быть доступен серверу AgentBox, а страница авторизации — вашему браузеру.",
   "撤权阻止后续请求，已经发到上游的操作可能继续完成。": "После отзыва доступа новые запросы блокируются. Уже начатые операции могут завершиться.",

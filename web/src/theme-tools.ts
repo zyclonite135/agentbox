@@ -151,6 +151,7 @@ export function problemText(err: unknown, limitBytes = 64 << 10): string {
     case "base": return i18nText("base 必须是内置风格之一：{p0}", { p0: SKINS.join(" / ") });
     case "author": return i18nText("作者最多 60 个字符");
     case "description": return i18nText("说明最多 200 个字符");
+    case "background_motion": return i18nText("背景动效设置无效");
     case "unknown_token": return i18nText("{p0}里的 {p1} 不是可改写的主题令牌", { p0: section, p1: token });
     case "bad_value": return i18nText("{p0}里 {p1} 的取值无效", { p0: section, p1: token });
     case "limit": return i18nText("主题数量已达上限");

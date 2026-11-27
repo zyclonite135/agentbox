@@ -41,7 +41,8 @@ const keyOf = (view: ThemeView) => `${view.scope}:${view.manifest.id}`;
 function toCustom(view: ThemeView): CustomTheme | undefined {
   const m = view.manifest;
   if (!isSkin(m.base)) return undefined;
-  return { key: keyOf(view), name: m.name, base: m.base, common: m.common, dark: m.dark, light: m.light };
+  return { key: keyOf(view), name: m.name, base: m.base, background_motion: m.background_motion,
+    common: m.common, dark: m.dark, light: m.light };
 }
 
 function publish(authoritative: boolean) {

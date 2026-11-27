@@ -110,6 +110,16 @@ type Manifest struct {
 	Common      map[string]string `json:"common,omitempty"`
 	Dark        map[string]string `json:"dark,omitempty"`
 	Light       map[string]string `json:"light,omitempty"`
+
+	BackgroundMotion *BackgroundMotion `json:"background_motion,omitempty"`
+}
+
+// BackgroundMotion selects a built-in animation. Zero speed/intensity uses
+// the standard setting (2), and a missing configuration leaves the canvas still.
+type BackgroundMotion struct {
+	Preset    string `json:"preset"`
+	Speed     int    `json:"speed,omitempty"`
+	Intensity int    `json:"intensity,omitempty"`
 }
 
 // ValidationError 带一个稳定的 Code，前端按它翻译；Token/Section 只在相关时填写。
@@ -185,6 +195,18 @@ func (m *Manifest) Normalize() error {
 	m.Description = strings.TrimSpace(m.Description)
 	if !plainText(m.Description, maxDesc) {
 		return invalid("description", fmt.Sprintf("说明最多 %d 个字符，且不能含控制字符", maxDesc))
+	}
+	if motion := m.BackgroundMotion; motion != nil {
+		if motion.Speed < 0 || motion.Speed > 3 || motion.Intensity < 0 || motion.Intensity > 3 {
+			return invalid("background_motion", "背景动效的速度和强度必须在 1 到 3 之间，或省略")
+		}
+		switch motion.Preset {
+		case "none":
+			m.BackgroundMotion = nil
+		case "waves", "drift", "glint":
+		default:
+			return invalid("background_motion", "背景动效只能是 none、waves、drift 或 glint")
+		}
 	}
 	for _, section := range []struct {
 		name string

@@ -42,6 +42,31 @@ func TestParseNormalizesValidManifest(t *testing.T) {
 	}
 }
 
+func TestParseBackgroundMotion(t *testing.T) {
+	const start = `{"agentbox_theme":1,"id":"x","name":"X","base":"glass"`
+	for _, preset := range []string{"waves", "drift", "glint"} {
+		m, err := Parse([]byte(start + `,"background_motion":{"preset":"` + preset + `","speed":1,"intensity":3}}`))
+		want := BackgroundMotion{Preset: preset, Speed: 1, Intensity: 3}
+		if err != nil || m.BackgroundMotion == nil || *m.BackgroundMotion != want {
+			t.Fatalf("%s: got %+v, error %v", preset, m.BackgroundMotion, err)
+		}
+	}
+	for _, suffix := range []string{`}`, `,"background_motion":{"preset":"none"}}`} {
+		m, err := Parse([]byte(start + suffix))
+		if err != nil || m.BackgroundMotion != nil {
+			t.Fatalf("static theme: got %+v, error %v", m.BackgroundMotion, err)
+		}
+	}
+	for _, bad := range []string{
+		`{"preset":"custom"}`,
+		`{"preset":"waves","speed":4}`,
+		`{"preset":"drift","intensity":-1}`,
+		`{"preset":"glint","css":"none"}`,
+	} {
+		parseErr(t, start+`,"background_motion":`+bad+`}`)
+	}
+}
+
 func TestParseRejectsUnsafeValues(t *testing.T) {
 	head := `{"agentbox_theme":1,"id":"x","name":"X","base":"amber","dark":{"--bg":`
 	for _, value := range []string{

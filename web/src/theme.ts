@@ -13,6 +13,7 @@ import { setAttrRender, t as i18nText } from "./i18n.js";
 "use strict";
 
 import { setTip } from "./tip.js";
+import type { ThemeBackgroundMotion } from "./types.js";
 
 /* 改这三个键名或下面的取值时记得同步 index.html 头部那段内联脚本 */
 const THEME_KEY = "agentbox_theme";
@@ -32,6 +33,7 @@ export interface CustomTheme {
   key: string;
   name: string;
   base: Skin;
+  background_motion?: ThemeBackgroundMotion;
   common?: Record<string, string>;
   dark?: Record<string, string>;
   light?: Record<string, string>;
@@ -94,6 +96,15 @@ const tokenMap = (value: unknown): Record<string, string> | undefined => {
   for (const [name, v] of Object.entries(value)) if (TOKEN_RE.test(name) && safeValue(v)) out[name] = v;
   return out;
 };
+
+export function themeBackgroundMotion(value: unknown): Required<ThemeBackgroundMotion> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const { preset, speed, intensity } = value as Partial<Record<keyof ThemeBackgroundMotion, unknown>>;
+  if (preset !== "waves" && preset !== "drift" && preset !== "glint") return undefined;
+  const level = (n: unknown) => n === 1 || n === 3 ? n : 2;
+  return { preset, speed: level(speed), intensity: level(intensity) };
+}
+
 /** 缓存里的自定义主题；只认 key 对得上的那份 */
 function cachedCustom(key: string): CustomTheme | undefined {
   try {
@@ -101,7 +112,8 @@ function cachedCustom(key: string): CustomTheme | undefined {
     if (!raw || typeof raw !== "object") return undefined;
     const c = raw as Record<string, unknown>;
     if (c.key !== key || !isSkin(c.base) || typeof c.name !== "string") return undefined;
-    return { key, name: c.name, base: c.base, common: tokenMap(c.common), dark: tokenMap(c.dark), light: tokenMap(c.light) };
+    return { key, name: c.name, base: c.base, background_motion: themeBackgroundMotion(c.background_motion),
+      common: tokenMap(c.common), dark: tokenMap(c.dark), light: tokenMap(c.light) };
   } catch {
     return undefined;
   }
@@ -174,7 +186,17 @@ function apply(mode: ThemeMode, choice: string, persist = true) {
   root.dataset.themeMode = mode;
   root.dataset.theme = theme;
   root.dataset.skin = skin;
-  const signature = [theme, skin, custom?.key ?? "", writeTokens(custom, theme)].join("|");
+  const motion = themeBackgroundMotion(custom?.background_motion);
+  if (motion) {
+    root.dataset.themeMotion = motion.preset;
+    root.dataset.themeMotionSpeed = String(motion.speed);
+    root.dataset.themeMotionIntensity = String(motion.intensity);
+  } else {
+    delete root.dataset.themeMotion;
+    delete root.dataset.themeMotionSpeed;
+    delete root.dataset.themeMotionIntensity;
+  }
+  const signature = [theme, skin, custom?.key ?? "", writeTokens(custom, theme), JSON.stringify(motion)].join("|");
   // 模块加载时那一次只是接过首屏脚本铺好的状态，不算变化
   const changed = appliedSignature !== "" && signature !== appliedSignature;
   appliedSignature = signature;

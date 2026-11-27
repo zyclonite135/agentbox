@@ -1742,6 +1742,12 @@ export interface WorkspaceCreationIndex {version:1;actor_key:string;creations:Wo
 /* ---------------- 界面主题（server/themes.go、internal/theme） ---------------- */
 
 /** theme.Manifest：导入 / 导出文件的形状，也是服务端保存的清单。 */
+export interface ThemeBackgroundMotion {
+  preset: "none" | "waves" | "drift" | "glint";
+  speed?: number;
+  intensity?: number;
+}
+
 export interface ThemeManifest {
   agentbox_theme: number;
   id: string;
@@ -1750,6 +1756,7 @@ export interface ThemeManifest {
   base: string;
   author?: string;
   description?: string;
+  background_motion?: ThemeBackgroundMotion;
   /** 两种明暗都生效的令牌；dark / light 里的同名令牌覆盖它 */
   common?: Record<string, string>;
   dark?: Record<string, string>;

@@ -1,5 +1,7 @@
 // App-authored interface messages. Keys and interpolation placeholders remain stable.
 export default {
+  "背景动效设置无效": "背景動效設定無效",
+  "背景动效可选 background_motion：preset 为 none、waves、drift 或 glint，speed 与 intensity 为 1 到 3（默认 2）。": "背景動效可選 background_motion：preset 為 none、waves、drift 或 glint，speed 與 intensity 為 1 到 3（預設 2）。",
   "HTTPS Token": "HTTPS 權杖",
   "Personal Access Token": "個人存取權杖",
   "保存后信任信息固定，修改时需新建连接。": "儲存後信任設定會鎖定，修改時請建立新連線。",

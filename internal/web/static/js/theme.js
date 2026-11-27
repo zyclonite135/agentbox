@@ -78,6 +78,15 @@ const tokenMap = (value) => {
             out[name] = v;
     return out;
 };
+export function themeBackgroundMotion(value) {
+    if (!value || typeof value !== "object")
+        return undefined;
+    const { preset, speed, intensity } = value;
+    if (preset !== "waves" && preset !== "drift" && preset !== "glint")
+        return undefined;
+    const level = (n) => n === 1 || n === 3 ? n : 2;
+    return { preset, speed: level(speed), intensity: level(intensity) };
+}
 /** 缓存里的自定义主题；只认 key 对得上的那份 */
 function cachedCustom(key) {
     try {
@@ -87,7 +96,8 @@ function cachedCustom(key) {
         const c = raw;
         if (c.key !== key || !isSkin(c.base) || typeof c.name !== "string")
             return undefined;
-        return { key, name: c.name, base: c.base, common: tokenMap(c.common), dark: tokenMap(c.dark), light: tokenMap(c.light) };
+        return { key, name: c.name, base: c.base, background_motion: themeBackgroundMotion(c.background_motion),
+            common: tokenMap(c.common), dark: tokenMap(c.dark), light: tokenMap(c.light) };
     }
     catch {
         return undefined;
@@ -160,7 +170,18 @@ function apply(mode, choice, persist = true) {
     root.dataset.themeMode = mode;
     root.dataset.theme = theme;
     root.dataset.skin = skin;
-    const signature = [theme, skin, custom?.key ?? "", writeTokens(custom, theme)].join("|");
+    const motion = themeBackgroundMotion(custom?.background_motion);
+    if (motion) {
+        root.dataset.themeMotion = motion.preset;
+        root.dataset.themeMotionSpeed = String(motion.speed);
+        root.dataset.themeMotionIntensity = String(motion.intensity);
+    }
+    else {
+        delete root.dataset.themeMotion;
+        delete root.dataset.themeMotionSpeed;
+        delete root.dataset.themeMotionIntensity;
+    }
+    const signature = [theme, skin, custom?.key ?? "", writeTokens(custom, theme), JSON.stringify(motion)].join("|");
     // 模块加载时那一次只是接过首屏脚本铺好的状态，不算变化
     const changed = appliedSignature !== "" && signature !== appliedSignature;
     appliedSignature = signature;

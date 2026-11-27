@@ -2543,6 +2543,24 @@
             <option value="user" data-i18n-text="[&quot;我的主题&quot;]">我的主题</option>
             <option value="site" data-i18n-text="[&quot;全站主题&quot;]">全站主题</option>
           </select></label>
+      <label><span data-i18n="背景动效">背景动效</span><select id="te-motion">
+        <option value="none" data-i18n="静态背景">静态背景</option>
+        <option value="waves" data-i18n="轻柔波浪">轻柔波浪</option>
+        <option value="drift" data-i18n="渐变漂移">渐变漂移</option>
+        <option value="glint" data-i18n="柔和高光">柔和高光</option>
+      </select></label>
+      <div class="dlg-row" id="te-motion-options" hidden>
+        <label><span data-i18n="动效速度">动效速度</span><select id="te-motion-speed">
+          <option value="1" data-i18n="慢速">慢速</option>
+          <option value="2" data-i18n="中速">中速</option>
+          <option value="3" data-i18n="快速">快速</option>
+        </select></label>
+        <label><span data-i18n="动效强度">动效强度</span><select id="te-motion-intensity">
+          <option value="1" data-i18n="轻微">轻微</option>
+          <option value="2" data-i18n="适中">适中</option>
+          <option value="3" data-i18n="明显">明显</option>
+        </select></label>
+      </div>
     </div>
     <div class="te-switches">
       <div id="te-mode" class="scope-switch" role="tablist" aria-label="编辑哪套配色" data-i18n-attrs="{&quot;aria-label&quot;:&quot;编辑哪套配色&quot;}">

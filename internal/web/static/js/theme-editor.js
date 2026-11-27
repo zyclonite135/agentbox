@@ -13,7 +13,7 @@ import { setAttrRender, setTextRender, t as i18nText } from "./i18n.js";
 import { api } from "./api.js";
 import { $, askConfirm } from "./util.js";
 import { setSelectValue } from "./select.js";
-import { SKINS, SKIN_LABEL, effectiveTheme, setThemePreview } from "./theme.js";
+import { SKINS, SKIN_LABEL, effectiveTheme, setThemePreview, themeBackgroundMotion } from "./theme.js";
 import { COMMON_KINDS, builtinTokens, contrastIssues, isSkin, modeLabel, problemText, themeButton, toRGBA } from "./theme-tools.js";
 import { CORE_TOKENS, TOKEN_GROUPS, tokenLabel } from "./theme-tokens.js";
 let state = null;
@@ -48,7 +48,8 @@ function resolveColor(name) {
 const hex = ([r, g, b]) => "#" + [r, g, b].map(v => v.toString(16).padStart(2, "0")).join("");
 function draftTheme() {
     const d = state.draft;
-    return { key: "preview:" + (d.id || "draft"), name: d.name, base: baseSkin(), common: d.common, dark: d.dark, light: d.light };
+    return { key: "preview:" + (d.id || "draft"), name: d.name, base: baseSkin(),
+        background_motion: d.background_motion, common: d.common, dark: d.dark, light: d.light };
 }
 /* ---- 草稿变动：预览、JSON、校验 ---- */
 function changed(source) {
@@ -261,6 +262,11 @@ function renderMeta() {
     setSelectValue($("te-base"), baseSkin());
     $("te-scope-field").classList.toggle("hidden", !s.opts.canChooseScope);
     setSelectValue($("te-scope"), s.scope);
+    const motion = themeBackgroundMotion(d.background_motion);
+    setSelectValue($("te-motion"), motion?.preset ?? "none");
+    setSelectValue($("te-motion-speed"), String(motion?.speed ?? 2));
+    setSelectValue($("te-motion-intensity"), String(motion?.intensity ?? 2));
+    $("te-motion-options").hidden = !motion;
     setTextRender($("te-title"), () => s.opts.isNew ? i18nText("新建主题") : i18nText("编辑主题"));
 }
 /* ---- 给 AI 的说明 ---- */
@@ -276,6 +282,7 @@ export function aiPrompt(draft, tokens) {
         i18nText("4. 颜色用 #十六进制、rgb()、rgba()、hsl()、oklch()、color-mix()，或 var(--另一个令牌)；投影写长度加颜色；--app-canvas 可以用 linear-gradient() 和 radial-gradient()；--radius-scale 是 0 到 3 的数字；含空格的字体名加双引号。"),
         i18nText("5. 不能使用 url()、分号、花括号、注释、反斜杠和 !important，也不能出现下面列表以外的令牌或字段。"),
         i18nText("6. --panel-solid 必须不透明；正文 --text 与背景 --bg 的对比度至少 4.5:1，主按钮文字 --on-accent 与 --accent 至少 3:1。"),
+        i18nText("背景动效可选 background_motion：preset 为 none、waves、drift 或 glint，speed 与 intensity 为 1 到 3（默认 2）。"),
         "",
         i18nText("可用令牌："),
         ...tokens.map(t => `- ${t.name}：${tokenLabel(t.name)}`),
@@ -418,6 +425,21 @@ export function wireThemeEditor() {
         state.scope = e.target.value === "site" ? "site" : "user";
         renderStatus();
     });
+    const preset = $("te-motion");
+    const speed = $("te-motion-speed");
+    const intensity = $("te-motion-intensity");
+    for (const select of [preset, speed, intensity])
+        select.addEventListener("change", () => {
+            if (!state)
+                return;
+            const motion = themeBackgroundMotion({ preset: preset.value, speed: Number(speed.value), intensity: Number(intensity.value) });
+            if (motion)
+                state.draft.background_motion = motion;
+            else
+                delete state.draft.background_motion;
+            $("te-motion-options").hidden = !motion;
+            changed("meta");
+        });
     for (const b of document.querySelectorAll("#te-mode .scope-btn"))
         b.addEventListener("click", () => {
             if (!state || state.mode === b.dataset.mode)

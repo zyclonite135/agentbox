@@ -200,6 +200,60 @@ body::before {
   background: var(--app-canvas);
   pointer-events: none;
 }
+
+/* Theme presets move only canvas layers, never the interface above them. */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme-motion] {
+    --theme-motion-time: 35s;
+    --theme-motion-shift: 2%;
+    --theme-motion-glint: .14;
+  }
+  :root[data-theme-motion-speed="1"] { --theme-motion-time: 55s; }
+  :root[data-theme-motion-speed="3"] { --theme-motion-time: 22s; }
+  :root[data-theme-motion-intensity="1"] { --theme-motion-shift: 1%; --theme-motion-glint: .08; }
+  :root[data-theme-motion-intensity="3"] { --theme-motion-shift: 3%; --theme-motion-glint: .20; }
+
+  :root:is([data-theme-motion="waves"], [data-theme-motion="drift"]) body::before {
+    inset: -5%;
+    animation: var(--theme-motion-time) ease-in-out infinite alternate;
+  }
+  :root[data-theme-motion="waves"] body::before {
+    background: radial-gradient(ellipse 110% 70% at 10% -20%, transparent 42%,
+      color-mix(in srgb, var(--accent) 14%, transparent) 60%, transparent 85%), var(--app-canvas);
+    animation-name: theme-wave;
+  }
+  :root[data-theme-motion="drift"] body::before {
+    background: radial-gradient(ellipse 74% 76% at 78% 28%,
+      color-mix(in srgb, var(--accent) 14%, transparent), transparent 90%), var(--app-canvas);
+    animation-name: theme-drift;
+  }
+  :root[data-theme-motion="glint"] body::after {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(115deg, transparent 32%, var(--accent) 50%, transparent 68%);
+    opacity: 0;
+    animation: theme-glint var(--theme-motion-time) ease-in-out infinite;
+    animation-delay: calc(-.62 * var(--theme-motion-time));
+  }
+
+  /* The theme editor has a transparent backdrop for the live preview. */
+  :root[data-theme-motion] body:has(dialog[open]:not(.dlg-theme-editor))::before,
+  :root[data-theme-motion] body:has(dialog[open]:not(.dlg-theme-editor))::after {
+    animation-play-state: paused;
+  }
+}
+@keyframes theme-wave {
+  from { transform: translate(calc(-1 * var(--theme-motion-shift)), var(--theme-motion-shift)) scaleY(.98); }
+  to { transform: translate(var(--theme-motion-shift), calc(-1 * var(--theme-motion-shift))) scaleY(1.02); }
+}
+@keyframes theme-drift {
+  from { transform: translate(calc(-1 * var(--theme-motion-shift)), calc(-1 * var(--theme-motion-shift))); }
+  to { transform: translate(var(--theme-motion-shift), var(--theme-motion-shift)); }
+}
+@keyframes theme-glint {
+  0%, 58% { opacity: 0; transform: translateX(-70%); }
+  76% { opacity: var(--theme-motion-glint); transform: translateX(0); }
+  95%, 100% { opacity: 0; transform: translateX(70%); }
+}
 .hidden { display: none !important; }
 .mono { font-family: var(--mono); }
 

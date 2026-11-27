@@ -1,5 +1,18 @@
 // Authored interface text only; never translate user content.
 export default {
+    "背景动效": "Background motion",
+    "静态背景": "Static background",
+    "轻柔波浪": "Gentle waves",
+    "渐变漂移": "Gradient drift",
+    "柔和高光": "Soft glint",
+    "动效速度": "Animation speed",
+    "慢速": "Slow",
+    "中速": "Medium",
+    "快速": "Fast",
+    "动效强度": "Animation intensity",
+    "轻微": "Subtle",
+    "适中": "Balanced",
+    "明显": "Strong",
     "连接设备": "Connect a device",
     "连接设备：": "Connect a device: ",
     "设备连接": "Device connections",
